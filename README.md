@@ -6,7 +6,7 @@ Dynamic Data Analysis And Visualization - Play with your DATA!
  A GUI for interactive plotting and analysis of multivariate data.
  
  Including: 
- GUI using RGtk2 toolkit implemented with gWidgests
+ GUI using RGtk2 toolkit implemented with gWidgests \n
  Dynamic plotting - base and ggplot2 
  Linked brushing of multiple plots -  iplots
  Network construction - RCytoscape
