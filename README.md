@@ -1,7 +1,7 @@
 DEVIUM
 ======
 
-Dynamic Data Analysis And Visualization - Play with your DATA!
+<b>D<b/>ynamic multivariat<b>E<b/> data analysis And <b>VI<b/>s<b>U<b/>alization Platfor<b>M<b/>
 
  A GUI for interactive plotting and analysis of multivariate data.
  
