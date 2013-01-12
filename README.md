@@ -21,4 +21,4 @@ A GUI for interactive plotting and analysis of multivariate data.
   
   - Data import and linking with MS Excel and Google Spreadsheets
   
-  - Successor to imDEV, including improved interface and capabilities
+  - Successor to <a href="https://sourceforge.net/projects/imdev/">imDEV</a>, including improved interface and capabilities
