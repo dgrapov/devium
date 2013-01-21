@@ -1,122 +1,33 @@
-#looks useful # https://subversion.assembla.com/svn/gWidgets-df/trunk/Filter.R
-#book on gwidgets: http://eom.pp.ua/books/%D0%9A%D0%BE%D0%BF%D1%8C%D1%8E%D1%82%D0%B5%D1%80%D1%8B%D0%98%D1%81%D0%B5%D1%82%D0%B8/%D0%9F%D0%BE%D0%BF%D1%83%D0%BB%D1%8F%D1%80%D0%BD%D1%8B%D0%B5%20%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/S-PLUS%20R/Programming%20Graphical%20User%20Interfaces%20in%20R.pdf
 
-#common accesory functions based from package = pmg
-#----------------------------------------------------
-Paste<-function (..., sep = "", collapse = "") 
-	{
-		x = unlist(list(...))
-		x = x[!is.na(x)]
-		x = x[x != "NA"]
-		paste(x, sep = sep, collapse = collapse)
-	}
-
-is.gWindow<-function (obj) 
-	{
-		is(obj, "gWindowRGtk")
-	}
-
-rpel<-function (string, envir = .GlobalEnv) 
-	{
-		eval(parse(text = string), envir = envir)
-	}
-#-----------------------------------------------------
-
-#Accesory functions and GUIs
+#message box
 done.info.GUI<-function(message)
-		{
+{
 			done<-gwindow("Information",width = 200, height= 100)
 			g<-glayout(cont = done)
 			g[2,1]<-glabel(message,container = g)
 			g[3,3]<-gbutton("ok",container = done, handler = function(h,...){dispose(done)})
 		}	
 
-#check object value or set default on condition
-if.or<-function(object,if.value=NULL,default,environment=devium)
+#ask question do OK fxn		
+ask.gui<-function(message, OK=function(h,...){print("OK!")})
 	{
-		obj<-tryCatch(svalue(get(object,envir=environment)),error=function(e){NA})
-		if(!any(obj%in%c(if.value,NA))){return(obj)}else{return(default)}
+		done<-gwindow("Question",width = 200, height= 100)
+		g<-glayout(cont = done)
+		g[2,1]<-glabel(message,container = g)
+		g[3,3]<-gbutton("cancel",container = done, handler = function(h,...){dispose(done)})
+		g[3,4]<-gbutton("ok",container = done, 
+			handler = function(h,...)
+				{
+					tryCatch(OK(h,...),
+					error=function(e){print("couldn't proceed")});dispose(done)
+				})
 	}
-
 	
-#get unassigned variables from within data frame
-gget<-function(obj)
-{
-	#break obj on $ 
-	# [1] = data frame
-	# [2] = variable name
-	# return object
-	tmp<-unlist(strsplit(obj,"\\$"))
-	if(!length(tmp)==0) get(tmp[1])[,tmp[2]] else NULL
-}
-		
-#function to connect to google docs
-GetGoogleDoc<-function(account,password,connection="new")
-	{
-		#returns list 
-		# [1] = connection name
-		# [2] = names of documents
-		#  connection = as.character connection name if already made using this function 
-		# and stored in the envir= googDocs
-		
-		#install RGoogleDocs if not available
-		if(require("RGoogleDocs")==FALSE)
-			{
-				install.packages("RGoogleDocs", repos = "http://www.omegahat.org/R", type="source")
-				library("RGoogleDocs")
-			}
-			
-		if(connection == "new")
-			{
-					#make time stampped name for connection
-					con.name<-con.name.txt<-paste('connection',format(Sys.time(), "%Y.%m.%d_%I_%M_%p"), sep = ".")
 				
-					#set options to avoid ssl error 
-					options(RCurlOptions = list(capath = system.file("CurlSSL", "cacert.pem", package = "RCurl"), ssl.verifypeer = FALSE))
-					
-					#assign to new envir
-					assign("googDocs",new.env(),envir=.GlobalEnv)
-					assign(con.name,getGoogleDocsConnection(getGoogleAuth(account, password, service ="wise")), envir = googDocs )	
-			} else {
-					con.name<-con.name.txt<-connection
-					}		
-					
-		docs<-getDocs(tryCatch(get(con.name,envir=googDocs),error=function(e){stop(paste(connection, " does not exist","\n"))}))
-		dnames<-names(docs)
-		return(list(connection = con.name.txt , names = dnames))
-	}
-	
-viewExcelObject<-function(obj.path)
-	{
-		#connect to file and view: 
-		#worksheet names
-		#named ranges
-	
-		if(require("XLConnect")==FALSE)
-			{
-				install.packages("XLConnect")
-				library("XLConnect")
-			}
-		
-		#load workbook
-		old.dir<-getwd()
-		wd<-dirname(obj.path)
-		workbook<-basename(obj.path)
-		setwd(wd)
-		wb = loadWorkbook(workbook, create = FALSE)
-		
-		#get sheet names
-		all.worksheets<-getSheets(wb)
-		
-		#get all valid named ranges
-		all.named.ranges<-getDefinedNames(wb, validOnly=TRUE)
-		setwd(old.dir)
-		return(list(worksheets=all.worksheets,named.ranges=all.named.ranges))
-	}
-
 #2D scatter plot for 2 vectors or basic pairs plot for a data.frame 
 devium.scatter.plot<- function(container=NULL) 
  {
+	#access plot settings using: get("devium.scatter.plot.pars",envir=devium)	
 	#container= gwindow("test")
 	
 	#making the GUI------------------------
@@ -175,19 +86,11 @@ devium.scatter.plot<- function(container=NULL)
 	
 	#options for points
 	#-------------------------------------------
-	plot.opts<-c("Xaxis","Yaxis","  color","  size","  shape","  border","  width") # form refrence
-	plot.defaults<-c(x=NA,y=NA,bg="gray",cex=1,pch=21,col="black",lwd=1)	#fxn defaults
+	plot.opts<-c("Xaxis","Yaxis","color","size","shape","border","width") # form refrence
+	plot.opts.labs<-c("  Xaxis","  Yaxis","  color","  size","  shape","  border","  width") # labels
+	plot.defaults<-c(x=NA,y=NA,bg=alpha.col("gray",if.or("color.alpha",default=.75)),cex=1,pch=21,col=alpha.col("black",if.or("color.alpha",default=.75)),lwd=1)	#fxn defaults
 	plot.names<-c("x","y","bg","cex","pch","col","lwd") # fxn input possibilities
 	
-	# to left align (has to be an easier way!)
-	#check length and add white space to make all the same length
-	ln<-sapply(strsplit(plot.opts,""),length)
-	aligned.plot.opts<-sapply(1:length(plot.opts),function(i)
-		{
-			spaces<-(max(ln)-ln[i])
-			#convert underscore to spaces
-			paste(gsub("_"," ",plot.opts[i]),paste(rep(" ",spaces),collapse=""),sep="")
-		})
 	
 	# point properties
 	point.var<-glayout(container=.notebook,label="Points")
@@ -195,16 +98,24 @@ devium.scatter.plot<- function(container=NULL)
 	i<-1
 	for(i in 1:length(plot.opts))
 		{	
-			point.var[(i+1),2]<-assign(plot.opts[i],gedit("", container=point.var)) #,envir=devium
-			point.var[(i+1),1]<-glabel(plot.opts[i],width=5)
+			point.var[(i+1),2]<-assign(plot.opts[i],gedit("", container=point.var, width=15)) #,envir=devium
+			point.var[(i+1),1]<-glabel(plot.opts.labs[i],width=5)
 		}
 	
 	#add color alpha
-	point.var[9,2]<-assign("color.alpha",gslider(from = 0.1, to = 1,by=0.01,value=.75),envir=devium)
-	point.var[9,1]<-glabel("transparency")
+	point.var[9,2]<-assign("color.alpha",gslider(from = 0.1, to = 1,by=0.01,value=.75,
+		handler=function(h,...)
+			{
+				 tmp<-get("devium.scatter.plot.pars",envir=devium)
+				 tmp$bg<-alpha.col(tmp$bg,if.or("color.alpha",default=.75))
+				 tmp$col<-alpha.col(tmp$col,if.or("color.alpha",default=.75)) 
+				 assign("devium.scatter.plot.pars",tmp,envir=devium)
+				refresh.plot()
+			}),envir=devium)
+	point.var[9,1]<-glabel("  transparency")
 	
 	#for mapping point plotting properties (names up top)
-	point.var[1,3]<- glabel("  n  |  levels    options/offset")
+	point.var[1,3]<- glabel("  n  |  levels    options")
 
 
 	
@@ -212,26 +123,31 @@ devium.scatter.plot<- function(container=NULL)
 	#bg color
 	point.var[4,3]<-tmp<-ggroup(horizontal=TRUE)
 	assign("color.levels.bg.n",gcheckbox("n",container=tmp),envir=devium)
-	assign("color.levels.bg",gspinbutton(from=1, to=100, selected = 1, editable = FALSE,container=tmp),envir=devium)
+	assign("color.levels.bg",gspinbutton(from=1, to=100, selected = 1, editable = FALSE,container=tmp,handler=function(h,...){refresh.plot()}),envir=devium)
 	#pallet
-	point.var[4,4]<- assign("color.pallet.bg",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE,container=tmp),envir=devium)
+	point.var[4,4]<- assign("color.pallet.bg",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE,container=tmp,handler=function(h,...){refresh.plot()}),envir=devium)
 	
 	#bordercolor
 	point.var[7,3]<-tmp<-ggroup(horizontal=TRUE)
 	assign("color.levels.col.n",gcheckbox("n",container=tmp),envir=devium)
 	assign("color.levels.col",gspinbutton(from=1, to=100, selected = 1, editable = FALSE,container=tmp),envir=devium)
-	point.var[7,4]<- assign("color.pallet.col",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE,container=tmp),envir=devium)
+	point.var[7,4]<- assign("color.pallet.col",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE,container=tmp,handler=function(h,...){refresh.plot()}),envir=devium)
 	
 	i<-5
-	for(i in 5:8)
+	for(i in 5:(length(plot.opts)+1))
 		{
 			point.var[i,3]<-tmp<-ggroup(horizontal=TRUE)
-			assign(paste(plot.opts[i],"levels.n",sep="."),gcheckbox("n",container=tmp))
-			assign(paste(plot.opts[i],"levels",sep="."),gspinbutton(from=0, to = 20, selected = 1, editable = FALSE,container=tmp))
-			if(!i%in%c(7))
+			assign(paste(plot.opts[(i-1)],"levels.n",sep="."),gcheckbox("n",container=tmp))
+			assign(paste(plot.opts[(i-1)],"levels",sep="."),gspinbutton(from=0, to = 20, selected = 1, editable = FALSE,container=tmp))
+			if(!any(i%in%c(6,7)))
 				{
-					assign(paste(plot.opts[i],"decrease",sep="."),gbutton("-",container=tmp))
-					assign(paste(plot.opts[i],"increase",sep="."),gbutton("+",container=tmp))
+					glabel("min",container=tmp)
+					assign(paste(plot.opts[(i-1)],"min",sep="."),gspinbutton(from=.1, to=10, by = .2, selected = .1, editable = FALSE,value = 1, container=tmp,
+						handler=function(h,...){refresh.plot()}),envir=devium)
+					glabel("max",container=tmp)
+					assign(paste(plot.opts[(i-1)],"max",sep="."),gspinbutton(from=.1, to=10,by = .2, selected = .1, editable = FALSE,value=5,container=tmp,
+						handler=function(h,...)
+							{refresh.plot()}),envir=devium)
 				}
 		}
 		
@@ -242,30 +158,42 @@ devium.scatter.plot<- function(container=NULL)
 	group<-glayout(container = .notebook,label="Groups")
 	group[1,1]<-glabel("  variable")
 	group[1,2]<-assign("group.type.var",gedit("",container=group),envir=devium)# choosing type of visualization
+		#name = form obj name
+	adddroptarget(get("group.type.var",envir=devium),handler = function(h,...) 
+	{
+			svalue(h$obj)<-id(h$dropdata)
+			refresh.plot()
+	})
+		
 	group[1,3]<-glabel("visualization")
-	group[1,4]<-assign("group.type",gcombobox(c("none","ellipse","polygon","cluster","ellipse.cluster"), selected = 1, editable = FALSE,container=group),envir=devium)
+	group[2,3]<-assign("group.type",gcombobox(c("none","ellipse","polygon","cluster","ellipse.cluster"), selected = 1, editable = FALSE,container=group, handler=function(h,...){refresh.plot()} ),envir=devium)
 	
 	#setting color and grouping options
 	group[2,2]<-tmp<-ggroup(horizontal=TRUE)
 	group[2,1]<-glabel("  color pallet")
-	group[2,2]<-assign("color.pallet.group",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE),envir=devium)
+	group[2,2]<-assign("color.pallet.group",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE,handler=function(h,...){refresh.plot()}),envir=devium)
 	group[3,1]<-glabel("  levels")
 	group[3,2]<-tmp<-ggroup(horizontal=TRUE)
 	assign("color.levels.group.n",gcheckbox("n",container=tmp),envir=devium)
 	assign("color.levels.group",gspinbutton(from=1, to=100, selected = 1, editable = FALSE,container=tmp),envir=devium)
 	
-	# visual options
+	# transparency
 	group[4,1]<-glabel("  transparency")
-	group[4,2]<-assign("group.transparency",gslider(from = 0, to = 1, by = .05,value=0.5),envir=devium)
-	group[4,3]<-tmp<-ggroup(horizontal=TRUE)
+	group[4,2]<-assign("group.transparency",gslider(from = 0, to = 1, by = .05,value=0.5,handler=function(h,...){refresh.plot()}),envir=devium)
+	
+	#line width and type
+	group[4,3]<-tmp<-ggroup(horizontal=FALSE)
 	glabel("line width",container=tmp)
-	assign("group.width",gspinbutton(from = 0, to = 10, by = 1,value=1,container=tmp),envir=devium)
-	group[4,4]<-tmp<-ggroup(horizontal=TRUE)
-	glabel("line type",container=tmp)
-	assign("group.line.type",gspinbutton(from = 0, to = 6, by = 1,value=1,container=tmp),envir=devium)
+	assign("group.width",gspinbutton(from = 0, to = 10, by = 1,value=1,container=tmp,handler=function(h,...){refresh.plot()}),envir=devium)
+	
 	# C.I. for ellipse
     group[5,1]<-glabel("  ellipse level")
-	group[5,2]<-assign("ellipse.level",gslider(from = 0, to = 1, by = .01,value=0.95),envir=devium)
+	group[5,2]<-assign("ellipse.level",gslider(from = 0, to = .99, by = .01,value=0.95,handler=function(h,...){refresh.plot()}),envir=devium)
+	#line type
+	group[5,3]<-tmp<-ggroup(horizontal=FALSE)
+	glabel("line type",container=tmp)
+	assign("group.line.type",gspinbutton(from = 0, to = 6, by = 1,value=1,container=tmp,handler=function(h,...){refresh.plot()}),envir=devium)
+	
 	
 	#global plotting options
 	global<-ggroup(container = .notebook,label="Global")
@@ -410,14 +338,38 @@ devium.scatter.plot<- function(container=NULL)
 			#convert to size
 			convert.to.size<-function(object,from=c(1:100),legend="cex")
 					{
+						
 						fct<-as.factor(unlist(object))
+						if(nlevels(fct)==0)
+							{
+								olen<-1 
+							} else {
+								olen<-nlevels(fct)
+							}
+						
+						if(legend=="cex")
+							{
+								from=seq(if.or("size.min",default=1),if.or("size.max",default=5),length.out=olen)
+							} else {
+								from=seq(if.or("width.min",default=1),if.or("width.max",default=5),length.out=olen)
+							}
+							
+					
 						out<-as.numeric(from[1:nlevels(fct)][fct])
+						
 						
 						#bind with factor for legend
 						obj<-list(data.frame(factor = fct,pch=out))
 						names(obj)<-legend
 						#save to legend 
 						set.plot.legend(obj,name="scatter.plot.legend",env=devium)	
+						
+						#hack to change size with out a mapping obj
+						if(olen==1)
+							{ 
+								out<-from 
+							}
+							
 						return(out)
 					}
 			
@@ -443,7 +395,7 @@ devium.scatter.plot<- function(container=NULL)
 					unlist(out)
 				})	
 				names(obj)<-id
-				return(obj)		
+				return(obj)
 		}
 	
 	#generate fxn input from form output
@@ -460,8 +412,16 @@ devium.scatter.plot<- function(container=NULL)
 	#fxn to make plot 
 	new.plot<-function(fxn,tmp,layer=if.or("group.type",default="none"))
 		{
-		#need to add or new plot control 
-		if(names(dev.cur())=="null device"){x11()} #dev.new("X11")
+		
+		#if(names(dev.cur())=="null device")
+			#{
+				opar<-par()
+				layout(matrix(c(1,1,1,1,1,1,2,2),nrow=2,ncol=4))
+				par(mar=c(4, 4, 1,.5))
+				#plot.new()
+				#x11()
+			#}
+		
 		
 		switch(fxn,
 			plot = 	.plot<-function(fxn) 
@@ -483,26 +443,36 @@ devium.scatter.plot<- function(container=NULL)
 					layer.par$lwd<-if.or("group.width",default=1)
 					layer.par$lty<-if.or("group.line.type",default=1)
 					layer.par$color<-if.or("group.color",default=tmp$bg)
+					layer.par$color.pallet<-if.or("color.pallet.group",default="rainbow")
 					layer.par$ellipse.level<-if.or("ellipse.level",default=.95)
 					layer.par$transparency<-if.or("group.transparency",default=.5)
+					layer.par$object<-if.or("group.type.var",default=1)
 					
+					#map layer object to color
+					if(layer.par$object==1|layer.par$object=="")
+						{
+							grp.color<-rep(alpha.col("gray",layer.par$transparency),length(tmp$x))
+						} else {
+							grp.color<-convert.to.color(object=gget(layer.par$object),
+								pallet=layer.par$color.pallet,alpha=layer.par$transparency,legend="group")	
+						}
 					
 					switch(layer,
 						none 			= .layer<-function(){return()},
-						cluster 		= .layer<-function(){edge.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty)},
-						ellipse 		= .layer<-function(){ellipse.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty,
+						cluster 		= .layer<-function(){edge.group(obj=cbind(tmp$x,tmp$y),color=grp.color,lwd=layer.par$lwd,lty=layer.par$lty)},
+						ellipse 		= .layer<-function(){ellipse.group(obj=cbind(tmp$x,tmp$y),color=grp.color,lwd=layer.par$lwd,lty=layer.par$lty,
 											border="black",ellipse.level=layer.par$ellipse.level,show.polygon=TRUE,alpha=layer.par$transparency)},
-						polygon 		= .layer<-function(){polygon.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty,
+						polygon 		= .layer<-function(){polygon.group(obj=cbind(tmp$x,tmp$y),color=grp.color,lwd=layer.par$lwd,lty=layer.par$lty,
 											border="black",show.polygon=TRUE,alpha=layer.par$transparency)},
 						ellipse.cluster = .layer<-function()
 												{
-													ellipse.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty,
+													ellipse.group(obj=cbind(tmp$x,tmp$y),color=grp.color,lwd=layer.par$lwd,lty=layer.par$lty,
 														border="black",ellipse.level=layer.par$ellipse.level,show.polygon=TRUE,alpha=layer.par$transparency)
-														edge.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty)
+														edge.group(obj=cbind(tmp$x,tmp$y),color=grp.color,lwd=layer.par$lwd,lty=layer.par$lty)
 												} 
 							)
 				
-					#avoid for ideimensional objects					
+					#avoid for one demensional objects					
 					if(!is.null(tmp$x)&!is.null(tmp$y)){.layer()}					
 					
 					#add points
@@ -523,8 +493,10 @@ devium.scatter.plot<- function(container=NULL)
 						{
 							return() 
 						} else {
-							obj<-do.call("rbind",format.for.legend(legend.list=legend,limit=5))
-							make.plot.legend(obj)
+								par(mar=c(.5, 2, 1,.5))
+								plot.new()
+								obj<-do.call("rbind",format.for.legend(legend.list=legend,limit=5))
+								make.plot.legend(obj)
 						}				
 				},
 							
@@ -565,18 +537,18 @@ devium.scatter.plot<- function(container=NULL)
 				def.val<-function()
 					{
 						tmp<-list()
-						tmp$col = "black"
+						tmp$col = "white"
 						tmp$bg = "gray"
 						tmp$cex = 2
 						tmp$pch = 21
-						tmp$lwd = 1
+						tmp$lwd = 2
 						return(tmp)
 					}
 					
 				default<-function(name="",nrow=1)
 					{
 						tmp<-as.data.frame(matrix(
-						c(name=name,bg=rep("#FFFFFF00",length(name)),pch=rep(21,length(name)),col=rep("#FFFFFF00",length(name)),lwd=rep(1,length(name)),cex=rep(2,length(name)))
+						c(name=name,bg=rep("#FFFFFF00",length(name)),pch=rep(21,length(name)),col=rep("#FFFFFF00",length(name)),lwd=rep(2,length(name)),cex=rep(2,length(name)))
 						,nrow=nrow, ncol=6,byrow=FALSE))
 						colnames(tmp)<-c("name","bg","pch","col","lwd","cex")
 						return(tmp)
@@ -645,7 +617,7 @@ devium.scatter.plot<- function(container=NULL)
 					to.send<-function(name)
 									{
 									switch(name,
-										bg = if(!id$bg=="") name,
+										bg = if(!id$color=="") name,
 										pch = if(!id$shape=="")name, 
 										col = if(!id$border=="")name,
 										cex = if(!id$size=="") name,
@@ -666,7 +638,7 @@ devium.scatter.plot<- function(container=NULL)
 								
 					}
 					
-	make.plot.legend<-function(obj,legend.placement="topleft",new=FALSE,legend.ncol=1,legend.cex=.8)
+	make.plot.legend<-function(obj,legend.placement="topleft",new=FALSE,legend.ncol=1,legend.cex=1)
 		{
 			#obj structure by colummns 
 			#	[1] class [2] color [3] point character (required)
@@ -748,7 +720,8 @@ devium.scatter.plot<- function(container=NULL)
 												
 							#gather inputs
 							tmp<-get.inputs(form.name=form.names,lookup,default)
-						
+							assign("devium.scatter.plot.pars",tmp,envir=devium)	# for debugging
+							
 							#set x and y axis labels 
 							tmp$xlab=svalue(Xaxis)#svalue(Xaxis)
 							tmp$ylab=svalue(Yaxis)#svalue(Yaxis)
@@ -1349,18 +1322,703 @@ devium.data<-function()
 				
 	}
 	
+#2D scatter plot for 2 vectors or basic pairs plot for a data.frame 
+devium.network.plot<- function(container=NULL) 
+ {
+	#consider using package traitr
+	#access plot settings using: get("devium.scatter.plot.pars",envir=devium)	
+	#container= gwindow("test",toolkit=guiToolkit())
+	
+	#making the GUI------------------------
+	#create notebook container for GUI
+	mainWin = ggroup(horizontal = FALSE, container = container)
+	
+	#gvarbrowser(container=container)
+	
+	#make tool bar on top
+	make.tool.bar<-function(container=NULL)
+	{
+		
+			mainWin = ggroup(horizontal = FALSE, container = container)
+	
+			#make tool bar on top
+			buttonBar = ggroup(spacing = 0,container=mainWin)
+			add(mainWin, buttonBar)
+			
+			#setting options second tool bar
+			toolbar = list()
+
+			toolbar$save$icon = "save"
+			#toolbar$tmp1$separator = TRUE
+			toolbar$save$handler = function(h, ...){
+				tmp<-tryCatch(get("devium.plotnotebook.window",envir=devium),error= function(e){NULL})
+				if (is.null(tmp) || !is.gWindow(tmp) ||  is.invalid(tmp)) {
+					tmp<-gwindow("D E V I U M plot notebook", visible = TRUE)  
+					add(tmp, ggraphicsnotebook())
+					 assign("devium.plotnotebook.window", tmp, envir = devium)
+				}
+				else {
+					focus(get("devium.plotnotebook.window",envir=devium)) <- TRUE
+				}
+			}
+
+			#toolbar$tmp2$separator = TRUE
+			toolbar$plotnotebook$icon = "plot"
+			toolbar$plotnotebook$handler = function(h, ...) {
+			done.info.GUI("no plot function yet")#
+			}
+
+			toolbar$help$icon = "help"
+			toolbar$help$handler = function(h, ...) 
+			{
+				done.info.GUI("to do--> write help file.")
+			}	
+			tmp = gtoolbar(toolbar)
+			add(buttonBar, tmp, expand = TRUE)
+		}
+
+	make.tool.bar(container=mainWin)
+	
+	#notebook to hold options
+	.notebook<-gnotebook(tab.pos=2,container=mainWin,pageno=1)
+
+	
+	#options for edges
+	#-------------------------------------------
+	edge.opts<-c("object","weight","color","width","type","transparency") # form refrence
+	edge.opts.labs<-paste("  ",edge.opts,sep="") # labels
+	edge.defaults<-c("object"=NA,"weight"=NA,"color"="gray","width"=1,"type"=1,"transparency"=.75)	#fxn defaults
+	edge.fxn.names<-paste("edge.",edge.opts,sep="") # fxn input possibilities
+	
+	
+	# point properties container
+	tmp.glayout<-glayout(container=.notebook,label="Edges")
+	
+	container<-edge.var
+	opts<-edge.opts
+	opts.labs<-edge.opts.labs
+	
+	i<-1
+	for(i in 1:length(opts))
+		{	
+		
+			tmp.glayout[(i+1),2]<-assign(opts[i],gedit("", container=container)) #,envir=devium
+			tmp.glayout[(i+1),1]<-glabel(opts.labs[i],width=5)
+		}
+	
+	#add color alpha
+	point.var[9,2]<-assign("color.alpha",gslider(from = 0.1, to = 1,by=0.01,value=.75),envir=devium)
+	point.var[9,1]<-glabel("transparency")
+	
+	#for mapping point plotting properties (names up top)
+	point.var[1,3]<- glabel("  n  |  levels    options/offset")
+
+
+	
+	# make discreet or use n levels for mapping
+	#bg color
+	point.var[4,3]<-tmp<-ggroup(horizontal=TRUE)
+	assign("color.levels.bg.n",gcheckbox("n",container=tmp),envir=devium)
+	assign("color.levels.bg",gspinbutton(from=1, to=100, selected = 1, editable = FALSE,container=tmp),envir=devium)
+	#pallet
+	point.var[4,4]<- assign("color.pallet.bg",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE,container=tmp),envir=devium)
+	
+	#bordercolor
+	point.var[7,3]<-tmp<-ggroup(horizontal=TRUE)
+	assign("color.levels.col.n",gcheckbox("n",container=tmp),envir=devium)
+	assign("color.levels.col",gspinbutton(from=1, to=100, selected = 1, editable = FALSE,container=tmp),envir=devium)
+	point.var[7,4]<- assign("color.pallet.col",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE,container=tmp),envir=devium)
+	
+	i<-5
+	for(i in 5:8)
+		{
+			point.var[i,3]<-tmp<-ggroup(horizontal=TRUE)
+			assign(paste(plot.opts[i],"levels.n",sep="."),gcheckbox("n",container=tmp))
+			assign(paste(plot.opts[i],"levels",sep="."),gspinbutton(from=0, to = 20, selected = 1, editable = FALSE,container=tmp))
+			if(!i%in%c(7))
+				{
+					assign(paste(plot.opts[i],"decrease",sep="."),gbutton("-",container=tmp))
+					assign(paste(plot.opts[i],"increase",sep="."),gbutton("+",container=tmp))
+				}
+		}
+		
+	#offset	
+	
+	#options for groups
+	#-------------------------------------------
+	group<-glayout(container = .notebook,label="Groups")
+	group[1,1]<-glabel("  variable")
+	group[1,2]<-assign("group.type.var",gedit("",container=group),envir=devium)# choosing type of visualization
+	group[1,3]<-glabel("visualization")
+	group[1,4]<-assign("group.type",gcombobox(c("none","ellipse","polygon","cluster","ellipse.cluster"), selected = 1, editable = FALSE,container=group),envir=devium)
+	
+	#setting color and grouping options
+	group[2,2]<-tmp<-ggroup(horizontal=TRUE)
+	group[2,1]<-glabel("  color pallet")
+	group[2,2]<-assign("color.pallet.group",gcombobox(c("rainbow","heat","topo","terrain","chromatic"), selected = 1, editable = FALSE),envir=devium)
+	group[3,1]<-glabel("  levels")
+	group[3,2]<-tmp<-ggroup(horizontal=TRUE)
+	assign("color.levels.group.n",gcheckbox("n",container=tmp),envir=devium)
+	assign("color.levels.group",gspinbutton(from=1, to=100, selected = 1, editable = FALSE,container=tmp),envir=devium)
+	
+	# visual options
+	group[4,1]<-glabel("  transparency")
+	group[4,2]<-assign("group.transparency",gslider(from = 0, to = 1, by = .05,value=0.5),envir=devium)
+	group[4,3]<-tmp<-ggroup(horizontal=TRUE)
+	glabel("line width",container=tmp)
+	assign("group.width",gspinbutton(from = 0, to = 10, by = 1,value=1,container=tmp),envir=devium)
+	group[4,4]<-tmp<-ggroup(horizontal=TRUE)
+	glabel("line type",container=tmp)
+	assign("group.line.type",gspinbutton(from = 0, to = 6, by = 1,value=1,container=tmp),envir=devium)
+	# C.I. for ellipse
+    group[5,1]<-glabel("  ellipse level")
+	group[5,2]<-assign("ellipse.level",gslider(from = 0, to = .99, by = .01,value=0.95),envir=devium)
+	
+	#global plotting options
+	global<-ggroup(container = .notebook,label="Global")
+	
+	#legend plotting options
+	legend<-ggroup(container = .notebook,label="Legend")
+	svalue(.notebook)<-1
+	#GUI Done next need functions for handlers
+	#-------------------------------------------
+	
+	
+	#add handlers for drag and drop objects
+	#should minimaly change name dislayed and call a fxn
+	#which gathers inputs from all fomr fields
+	#based on 
+	# plot.opts 	= names of drag and drop objects
+	# plot.defaults = generics for NA or NULL
+	# plot.names 	= names of objects in another fxn
+	
+	#function to update form with droped objects name
+	drop.names<-function(name)
+		{
+			#name = form obj name
+			adddroptarget(name,handler = function(h,...) 
+				{
+					svalue(name)<-id(h$dropdata)
+				})
+
+		}
+	
+	#function to gather all form inputs
+	#based on plot opts 	
+	gather.names<-function(names)
+		{
+			tmp<-lapply(1:length(names),function(i)
+				{
+					svalue(get(names[i]))
+				})
+			names(tmp)<-names	
+			return(tmp)			
+		}
+	
+	# match names between objects (form and fxn)
+	# and get object values
+	get.named<-function(obj)
+		{
+			
+			id<-names(obj)
+			tmp<-lapply(1:length(id),function(i)
+				{
+					tryCatch(gget(svalue(get(id[i]))),error=function(e){NULL})
+				})
+			#match names based on loolup table
+			names(tmp)<-id	
+			return(tmp)			
+		}
+	
+	#translate between form and fxn based on look up table
+	translate.names <-function(names,lookup=cbind(plot.opts,plot.names))
+		{
+		#lookup 	= 	is a column matrix with the first column the index
+		#				for the object
+		# 				and subsequent columns the translations
+				id<-lookup[,1]
+				lookup[id%in%names,-1,drop=FALSE]				
+		}
+
+	#add entry in plot legend object
+
+	set.plot.legend<-function(obj,name="scatter.plot.legend",env=devium)
+		{
+			#object = get("scatter.plot.legend.ids", env= devium) contains names of mapped objects
+		
+			#check or make "scatter.plot.legend"
+			if(!exists( name,env=devium)){assign(name,list(),env=devium)}
+			record<-get(name,env=env)
+			
+			#append for legend 
+			#get unique joint levels
+			tmp<-join.columns(obj)
+			if(class(tmp)=="NULL")
+				{
+					return()
+				}else{
+					tmp<-do.call("rbind",strsplit(unique(tmp),"\\|"))
+					colnames(tmp)<-c("name",names(obj))
+					record[[names(obj)]]<-as.data.frame(tmp)
+					
+					#store for legend
+					assign(name,record,env=env)
+				}
+		}
+		
+	#convert options to fxn inputs and/or set defaults if missing/NULL
+	convert.or.set<-function(named.obj,default=plot.defaults)
+		{
+
+			#functions to do conversions
+			#create "scatter.plot.legend" in env devium
+			#convert object to color
+			convert.to.color<-function(object,pallet="rainbow",alpha=.5,legend="color")
+					{
+						
+						#function to add transparency to colors
+						alpha.col<-function(color,alpha)
+							{
+								tmp <- col2rgb(color)/255 
+								rgb(tmp[1,],tmp[2,],tmp[3,],alpha=alpha)
+							}
+						
+						fct<-as.factor(unlist(object))
+						out<-switch(pallet,
+						rainbow	 	= 	rainbow(nlevels(fct),alpha=alpha)[fct],						
+						heat 		= 	heat.colors(nlevels(fct),alpha=alpha)[fct],
+						terrain 	= 	terrain.colors(nlevels(fct),alpha=alpha)[fct], 
+						topo		= 	topo.colors(nlevels(fct),alpha=alpha)[fct],
+						chromatic 	= 	cm.colors(nlevels(fct),alpha=alpha)[fct])
+						
+						#bind with factor for legend
+						obj<-list(data.frame(factor = fct,color=out))
+						names(obj)<-legend
+						#save to legend 
+						set.plot.legend(obj,name="scatter.plot.legend",env=devium)
+						
+						return(out)
+					}
+					
+			#convert object to shape
+			convert.to.shape<-function(object,from=c(21:25,1:20),legend="pch")
+					{
+						fct<-as.factor(unlist(object))
+						out<-as.numeric(from[1:nlevels(fct)][fct])
+						
+						#bind with factor for legend
+						obj<-list(data.frame(factor = fct,pch=out))
+						names(obj)<-legend
+						#save to legend 
+						set.plot.legend(obj,name="scatter.plot.legend",env=devium)
+						return(out)
+					}
+
+			#convert to size
+			convert.to.size<-function(object,from=c(1:100),legend="cex")
+					{
+						fct<-as.factor(unlist(object))
+						out<-as.numeric(from[1:nlevels(fct)][fct])
+						
+						#bind with factor for legend
+						obj<-list(data.frame(factor = fct,pch=out))
+						names(obj)<-legend
+						#save to legend 
+						set.plot.legend(obj,name="scatter.plot.legend",env=devium)	
+						return(out)
+					}
+			
+			id<-names(named.obj)
+			obj<-lapply(1:length(id),function(i)
+				{	
+					
+					out<-switch(id[i],
+								x 		= named.obj[i],
+								y 		= named.obj[i],
+								bg 		= convert.to.color(named.obj[i],legend="bg", pallet=if.or("color.pallet.bg",default="rainbow"),alpha=if.or("color.alpha",default=.75)),
+								cex 	= convert.to.size(named.obj[i],legend="cex"),
+								pch 	= convert.to.shape(named.obj[i],legend="pch"),
+								col 	= convert.to.color(named.obj[i],legend = "col",pallet=if.or("color.pallet.col",default="rainbow"),alpha=if.or("color.alpha",default=.75)),
+								lwd		= convert.to.size(named.obj[i],legend="lwd"),
+								xlab 	= named.obj[i],
+								ylab 	= named.obj[i])
+								
+					#can't use NULL above due to exclusion in string		
+					# need to set the type of the variable character or numeric
+					if(class(out)=="NULL"|length(out)==0) assign("out",default[i])
+					if(any(is.na(out))) out<-default[i]
+					unlist(out)
+				})	
+				names(obj)<-id
+				return(obj)
+		}
+	
+	#generate fxn input from form output
+	get.inputs<-function(form.names=plot.opts,lookup=cbind(plot.opts,plot.names),default=plot.defaults)
+		{
+			tmp<-gather.names(form.names)
+			assign("scatter.plot.legend.ids",tmp,env=devium)
+			tmp<-get.named(tmp)
+			tmp.names<-translate.names(names(tmp),lookup=lookup)
+			names(tmp)<-tmp.names
+			convert.or.set(tmp,default)
+		}
+		
+	#fxn to make plot 
+	new.plot<-function(fxn,tmp,layer=if.or("group.type",default="none"))
+		{
+		#need to add or new plot control 
+		if(names(dev.cur())=="null device"){x11()} #dev.new("X11")
+		
+		switch(fxn,
+			plot = 	.plot<-function(fxn) 
+				{
+					#initialize plot
+					do.call(fxn,
+							list(
+									x=tmp$x,
+									y=tmp$y,
+									type="n",
+									frame.plot=FALSE,
+									xlab=as.character(tmp$xlab), 
+									ylab=as.character(tmp$ylab)
+								))
+					
+					#add layers
+					#collect layer options
+					layer.par<-list()
+					layer.par$lwd<-if.or("group.width",default=1)
+					layer.par$lty<-if.or("group.line.type",default=1)
+					layer.par$color<-if.or("group.color",default=tmp$bg)
+					layer.par$ellipse.level<-if.or("ellipse.level",default=.95)
+					layer.par$transparency<-if.or("group.transparency",default=.5)
+					
+					
+					switch(layer,
+						none 			= .layer<-function(){return()},
+						cluster 		= .layer<-function(){edge.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty)},
+						ellipse 		= .layer<-function(){ellipse.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty,
+											border="black",ellipse.level=layer.par$ellipse.level,show.polygon=TRUE,alpha=layer.par$transparency)},
+						polygon 		= .layer<-function(){polygon.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty,
+											border="black",show.polygon=TRUE,alpha=layer.par$transparency)},
+						ellipse.cluster = .layer<-function()
+												{
+													ellipse.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty,
+														border="black",ellipse.level=layer.par$ellipse.level,show.polygon=TRUE,alpha=layer.par$transparency)
+														edge.group(obj=cbind(tmp$x,tmp$y),color=tmp$bg,lwd=layer.par$lwd,lty=layer.par$lty)
+												} 
+							)
+				
+					#avoid for one demensional objects					
+					if(!is.null(tmp$x)&!is.null(tmp$y)){.layer()}					
+					
+					#add points
+					do.call("points",
+							list(
+									x=tmp$x,
+									y=tmp$y,
+									col=tmp$col,
+									bg=tmp$bg,
+									cex=as.numeric(tmp$cex),
+									pch=as.numeric(tmp$pch),
+									lwd=as.numeric(tmp$lwd)
+								))
+								
+					#make legend
+					legend<-get("scatter.plot.legend",env=devium)
+					if(length(legend)==0) 
+						{
+							return() 
+						} else {
+							obj<-do.call("rbind",format.for.legend(legend.list=legend,limit=5))
+							make.plot.legend(obj)
+						}				
+				},
+							
+			pairs = .plot<-function(fxn) 
+				{
+				do.call(fxn,
+							list(
+									x=tmp$x,
+									col=tmp$col,
+									bg=tmp$bg,
+									frame.plot=FALSE,
+									cex=as.numeric(tmp$cex),
+									pch=as.numeric(tmp$pch),
+									lwd=as.numeric(tmp$lwd)
+								)
+							)
+				})
+				
+			.plot(fxn)	
+			bringToTop(which=dev.cur())
+		}
+	
+	#make plot legend
+	format.for.legend<-function(legend.list=get("scatter.plot.legend",env=devium),limit=4)
+			{
+				check.get.packages("gtools")
+				#take a named list and place items in columns for merged legend or separate for separate and
+				#format
+				#obj structure by colummns 
+				#	[1] name 
+				#	[2] color 
+				#	[3] shape
+				#	[4] outline color 
+				#	[5] outline width 
+				#	[6] size
+				
+				#use to set defualt if error 
+				def.val<-function()
+					{
+						tmp<-list()
+						tmp$col = "black"
+						tmp$bg = "gray"
+						tmp$cex = 2
+						tmp$pch = 21
+						tmp$lwd = 1
+						return(tmp)
+					}
+					
+				default<-function(name="",nrow=1)
+					{
+						tmp<-as.data.frame(matrix(
+						c(name=name,bg=rep("#FFFFFF00",length(name)),pch=rep(21,length(name)),col=rep("#FFFFFF00",length(name)),lwd=rep(1,length(name)),cex=rep(2,length(name)))
+						,nrow=nrow, ncol=6,byrow=FALSE))
+						colnames(tmp)<-c("name","bg","pch","col","lwd","cex")
+						return(tmp)
+					}
+				
+				#initialize				
+				#obj1<-as.matrix(legend.list[[1]])[as.matrix(order(legend.list[[1]][,"name"])),]	
+				#attempt to merge legend on common mapping "name"
+				#common<-sapply(2:(length(legend.list)),function(i)
+				#	{
+				#		obj2<-as.matrix(legend.list[[i]])[order(as.matrix(legend.list[[i]][,"name"])),]
+				#		match<-as.matrix(obj1[,"name"])==intersect(as.matrix(obj1[,"name"]),as.matrix(obj2[,"name"]))
+				#		tmp<-cbind(obj1[match,1],obj1[match,-1],obj2[match,-1])
+				#	})
+					
+				#convert to default format
+				list.names<-names(legend.list)
+				
+				out<-lapply(1:length(legend.list),function(i)
+					{
+						
+						fill<-default(name=list.names[i] )
+						obj<-legend.list[[i]][as.matrix(order(legend.list[[i]][,"name"])),]
+						out<-merge(fill,obj,all.x=TRUE,all.y=TRUE)
+						#out<-out[,order(colnames(out))] # common order
+						
+						#fill NA with default values
+						def<-def.val()
+						tmp<-sapply(1:ncol(out),function(j)
+							{
+								tmp<-as.matrix(unlist(out[,j]) )
+								tmp[is.na(tmp)]<-as.matrix(def[colnames(out)[j]])
+								out[,j]<-tmp
+							})
+						colnames(tmp)<-colnames(out)
+						
+						#limit output 
+						obj<-tmp[-1,]
+						#test the number of unique levels
+						test<-as.factor(unlist(obj[,1]))
+						if(limit<nlevels(test))
+							{
+								limit.id<-quantile(1:nrow(obj),seq(0,1,length.out=limit))+1
+							} else {
+								limit.id<-unique.id(test) + 1
+							}
+							
+						tmp[c(1,limit.id),c("name","bg","pch","col","lwd","cex")]				
+					})
+					
+					#ids for mapped objects
+					id<-get("scatter.plot.legend.ids", env= devium)
+					n<-names(out)<-names(legend.list)
+					
+					mapped<-function(name)
+								{
+								switch(name,
+									bg = paste("color",id$color),
+									pch = paste("shape",id$shape), 
+									col = paste("border",id$border),
+									cex = paste("size",id$size),
+									lwd = paste("width",id$border))
+								}
+					#only return non-generic legend items
+					# identify return index
+					to.send<-function(name)
+									{
+									switch(name,
+										bg = if(!id$color=="") name,
+										pch = if(!id$shape=="")name, 
+										col = if(!id$border=="")name,
+										cex = if(!id$size=="") name,
+										lwd = if(!id$width=="") name)
+									}
+					
+					lapply(1:length(n),function(i)
+						{
+							if(is.null(to.send(n[i])))
+								{
+									return()
+								}else{
+									tmp<-out[[n[i]]]
+									tmp[1,1]<-mapped(n[i])
+									tmp
+								}
+						})	
+								
+					}
+					
+	make.plot.legend<-function(obj,legend.placement="topleft",new=FALSE,legend.ncol=1,legend.cex=.8)
+		{
+			#obj structure by colummns 
+			#	[1] class [2] color [3] point character (required)
+			#	[4] outline color [5] outline width (optional)
+			#	[6] line or point logic [7] line type for lines (not used)
+			
+			if(is.null(obj))
+				{
+					return()
+				}else{
+				
+				plot.legend<-function(place)
+					{
+						
+						if(place=="custom"){ place<-locator(1)}
+							legend(place,ncol=legend.ncol, legend=c(as.character(obj[,1])),
+							col=as.character(obj[,4]),pt.lwd=as.numeric(obj[,5]),pt.bg=as.character(obj[,2]),pch=as.numeric(obj[,3]),cex=legend.cex,pt.cex=as.numeric(obj[,6]),bty="n")
+					}
+
+			if(new==TRUE)
+			{
+				x11()
+				par(mar=c(.1,.1,.1,.1))
+				plot(1,1,type="n",xaxt="n",yaxt="n",frame.plot=FALSE,xlab="",ylab="")
+			}
+			
+			plot.legend(legend.placement)
+			}	
+		}
+
+	#generic call to plot
+	refresh.plot<-function(form.names=plot.opts,lookup=cbind(plot.opts,plot.names),default=plot.defaults)
+		{
+						
+			#gather inputs
+			tmp<-get.inputs(form.name=form.names,lookup,default)
+		
+			#set x and y axis labels 
+			tmp$xlab=svalue(Xaxis)#svalue(Xaxis)
+			tmp$ylab=svalue(Yaxis)#svalue(Yaxis)
+			
+			#check to see if x/y is a data.frame (will be NULL in tmp)
+			cx<-tryCatch(get(svalue(Xaxis)),error=function(e){NULL})
+			cy<-tryCatch(get(svalue(Yaxis)),error=function(e){NULL})
+			
+			if(class(cx)=="data.frame")
+				{
+					tmp$x<-cx
+				}
+				
+			if(class(cy)=="data.frame")
+				{
+					tmp$x<-cy
+				}
+						
+			#select pairs for data.frames
+			if(is.data.frame(tmp$x))
+				{
+						new.plot("pairs",tmp)	
+					} else {
+						new.plot("plot",tmp)	
+				}
+		}
+	
+	#fxn to set set form handlers
+	make.plot.handler<-function(form.names,lookup,default)
+		{
+			handler.name<-paste("handler",form.names,sep=".")
+			i<-1
+			for(i in 1:length(form.names))
+				{
+					#form obj
+					obj<-get(form.names[i]) #envir=devium
+					#gather inputs and plot
+					assign(handler.name[i],function(h,...) 
+					{
+							#upadate form to show drop source
+							svalue(h$obj)<-id(h$dropdata)
+												
+							#gather inputs
+							tmp<-get.inputs(form.name=form.names,lookup,default)
+							assign("devium.scatter.plot.pars",tmp,envir=devium)	# for debugging
+							
+							#set x and y axis labels 
+							tmp$xlab=svalue(Xaxis)#svalue(Xaxis)
+							tmp$ylab=svalue(Yaxis)#svalue(Yaxis)
+							
+							#check to see if x/y is a data.frame (will be NULL in tmp)
+							cx<-tryCatch(get(svalue(Xaxis)),error=function(e){NULL})
+							cy<-tryCatch(get(svalue(Yaxis)),error=function(e){NULL})
+							
+							if(class(cx)=="data.frame")
+								{
+									tmp$x<-cx
+								}
+								
+							if(class(cy)=="data.frame")
+								{
+									tmp$x<-cy
+								}
+										
+							#select pairs for data.frames
+							if(is.data.frame(tmp$x))
+								{
+										new.plot("pairs",tmp)	
+									} else {
+										new.plot("plot",tmp)	
+								}
+					})
+			}
+				
+				#assign handler to form 
+				i<-1
+				handler.list<-data.frame(form.name=form.names,handler=handler.name)
+				for(i in 1:nrow(handler.list))
+				{
+					adddroptarget(get(as.character(handler.list[i,1])),handler=get(as.character(handler.list[i,2])))
+				}
+		}
+		
+	make.plot.handler(form.names=plot.opts,lookup=cbind(plot.opts,plot.names),default=plot.defaults)
+	assign("devium.scatter.plot.notebook", mainWin,envir = devium)
+	return(mainWin)
+	}
+	
 #completely taking out pmg functions 
-DEVIUM.GUI<-function (width = 975, height = .75 * width) 
+devium.gui<-function (width = 850, height = .75 * width, source=NULL) 
 {	
+	#enable the loading of gui and elements from source  
+	if(!is.null(source))
+		{ 
+			#check object to descide what parts odf source dir sould be reloaded
+			# for now use some critical fxn in the envir
+			if(!exists("check.get.packages")){source.dir(source)} 
+		}
+	
 	#main window dimensions and options
 	rightWidth = width * 0.6
 	mainHeight = height * 0.8
 	options(guiToolkit = "RGtk2")
-	cliType = "console" # use console instead of in gui cli
+	#cliType = "console" # use console instead of in gui cli
 
 	#load accesory packages
 	# fix this to download te package if not available
-	 packages<-apply(matrix(c("gWidgets","gWidgetsRGtk2","proto")),1,library, character.only=T)
+	 check.get.packages(c("gWidgets","gWidgetsRGtk2","proto","cairoDevice","RGtk2"))
 	 
 	 #accesory functions from R package "pmg" 
 	 # avoid loading package due to non controllable GUI popup
@@ -1374,8 +2032,7 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
 					if(!is.environment("devium")){ assign("devium",new.env(),envir= .GlobalEnv)}
 					
 					#check for devium objects and set to null if they don't exist
-					for (i in c("devium.helpBrowser.window", "devium.plotnotebook.window", 
-						"devium.main.window")) 
+					for (i in c("devium.helpBrowser.window", "devium.plotnotebook.window")) 
 						{
 						if(!exists(i))
 							{
@@ -1386,7 +2043,7 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
 		}
 	 create.devium.env()	
 	 
-	 # will need to change everything when namespaec is implemented... 
+	 # will need to change everything when namespace is implemented... 
 	 devium.closeALL<-function () 
 		{
 			for (i in c("devium.helpBrowser.window", "devium.plotnotebook.window", 
@@ -1397,7 +2054,7 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
 						window = get(i,envir = devium)
 						try(dispose(window), silent = TRUE)
 						assign(i, NULL, envir = devium)
-					}
+					}	
 				}
 		}			
 
@@ -1413,108 +2070,82 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
 	#if not create one
 	create.devium.main<-function()
 		{
-		tmp<-tryCatch(get("devium.main.window", envir=devium),erorr=function(e){NULL})
+		tmp<-tryCatch(get("devium.main.window", envir=".GlobalEnv"),erorr=function(e){NULL})
 		if (is.null(tmp) || !is.gWindow(tmp) || is.invalid(tmp)) 
 			{
 				#assign("devium.main.window", gwindow("D E V I U M", visible = FALSE), "devium") # no class
-				tmp<-gwindow("D E V I U M", visible = FALSE) #uses the proto class
+				tmp<-gwindow("D E V I U M", visible = TRUE) # FALSE #uses the proto class
 				size(tmp) <- c(width, height)
-				assign("devium.main.window", tmp, envir=devium)
+				assign("devium.main.window", tmp, envir=".GlobalEnv")
 			} else {
 				return()
 			}
 		}
+		
 	create.devium.main()
 	
+	#creation of main GUI objects
+	#------------------------------------------------
+    assign("devium.notebook", gnotebook(closebuttons = TRUE, dontCloseThese = 1, tearable = FALSE),envir= devium) # notebook for holding more GUIs for plotting and analyses
+    assign("devium.statusBar", gstatusbar("", container = NULL),envir= devium) # status bar at the bottom
+    mainGroup = ggroup(horizontal = FALSE, spacing = 0, container = get("devium.main.window", envir=".GlobalEnv"), expand = TRUE) # top level group for window
+   
+   
 	#Top menue
-	#-------------------------
+	#-------------------------------------------------
 	devium.menu<-list()
-	devium.menu$Data$`Import Data`$handler<-function(h,...){add(get("devium.notebook",envir=devium),devium.data.import(), label = "Import Data") }
-	devium.menu$Data$`Load Data Set`$handler<-function(h,...){devium.load.Rdataset() }
+	devium.menu$File$`Save Analysis`$handler<-function(h,...){ }
+	devium.menu$File$`Clear Workspace`$handler<-function(h,...,source)
+		{
+			ask.gui("Delete all objects?",OK=function(h,...,source=NULL)
+			{
+				objs <- ls(pos = ".GlobalEnv")
+				rm(list = objs, pos = ".GlobalEnv")
+				#for now restore workspace from directory usindebugg fxn below
+				source.dir<-function(dir)
+					{
+						o.dir<-getwd()
+						setwd(dir)
+						obj<-dir()
+						sapply(1:length(obj),function(i)
+							{
+								tryCatch(source(obj[i]),error=function(e){print(paste("can't load:",obj[i]))})
+							})
+						setwd(o.dir)	
+					}
+					#need to know the location of devium library to source it
+					if(!is.null(source)){ source.dir(source)}
+			})	
+
+		}
+		
+	devium.menu$Data$`Load Data`$handler<-function(h,...){add(get("devium.notebook",envir=devium),devium.data.import(), label = "Import Data") }
+	devium.menu$Data$`Load R Data`$handler<-function(h,...){devium.load.Rdataset() }
 	
 	#plots
 	devium.menu$Plots$`Scatter Plot`$handler<-function(h,...)
 		{
 			add(get("devium.notebook",envir=devium),devium.scatter.plot(), label = "Scatter Plot") 
-			#add buttons to the top (save, plot) 
+			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
+			svalue(tmp)<-.2
+	
 		}
 		
 	devium.menu$Plots$`Plot Builder`$handler<-function(h,...)
 		{
 			add(get("devium.notebook",envir=devium),devium.qplot(), label = "Plot Builder") 
 		}	
-	
-	#devium.menu$Plots$`Plot Builder`$handler<-function(h,...) # unstable due to threading problems
-	#	{
-	#		#need to close devium first else R will crash ~ 5 min post call to
-	#		# plot builder from Deducer due to "threadsafe" problem
-	#		dispose(get("devium.main.window",envir=devium))
-	#		out<-devium.plot.builder()# this GUI will focus on itself and untill released
-	#		assign("plot.builder.call",out[-1],envir=devium)
-	#		DEVIUM.GUI()
-	#		obj<-get("devium.cli",envir=devium)
-	#		svalue(obj) <- Paste(get("plot.builder.call",envir=devium))
-	#	}
-	
-	#creation of GUI objects to go into devium.main.window
-	#top menu
-    assign("devium.menuBar", gmenu(devium.menu, container = NULL),envir= devium)
-	#notebook  tab "Data"
-    assign("devium.notebook", gnotebook(closebuttons = TRUE, dontCloseThese = 1, tearable = FALSE),envir= devium)
-    assign("devium.statusBar", gstatusbar("", container = NULL),envir= devium)
-    mainGroup = ggroup(horizontal = FALSE, spacing = 0, container = get("devium.main.window", envir=devium), expand = TRUE)
-   
-   #add objects to group
+		
+	#make top menue
+	assign("devium.menuBar", gmenu(devium.menu, container = NULL),envir= devium) # top most menue
 	add(mainGroup, get("devium.menuBar",envir=devium)) # very tedious to do this, no wonder namespace is preffereble
 	
-	#make menu then add
-	help.menu<-list()
-	help.menu$About$`DEVIUM`$handler<-function (h, ...)
-			{
-				add(get("devium.notebook",envir=devium), devium.about(), label = "About D E V I U M")
-			}
-	help.menu$About$`DEVIUM`$icon<-"about"
-
-    helpMenu = gmenu(help.menu, name = "R Help")
-    add(get("devium.menuBar",envir=devium), helpMenu)
+	#lower menue (2nd from the top) w/ images
+	#----------------------------------------------------------
 	
-	#make a button bar below menue
+	#make a button bar below menue  
     buttonBar = ggroup(spacing = 0)
-    add(mainGroup, buttonBar)
-    bottomGroup = ggroup(horizontal = TRUE)
-    add(mainGroup, bottomGroup, expand = TRUE)
-    devium.droparea = ggroup(horizontal = FALSE, container = bottomGroup)
-	
-	#varbrowser with summary option
-     assign("devium.varbrowser", gvarbrowser(handler = function(h, ...) 
-		{
-			tmp<-get("devium.varbrowser",envir=devium)
-			value<- svalue(tmp)
-			if(!is.null(tryCatch(gget(value),error=function(e){})))	{tmp<-gget(value);assign(get("value"),tmp)}
-			tmp2<-get("devium.notebook",envir=devium)
-			add(tmp2, devium.summary(value), label = Paste("Summary of ", value))
-		}),envir= devium)
-		
-	#assign("devium.varbrowser", gvarbrowser(handler = function(h, ...) {
-    #    value = svalue(devium.varbrowser)
-    #   add(devium.notebook, devium.summary(value), label = Paste("Summary of ", 
-    #        svalue(h$obj)))
-    #}),envir= devium)
-	
-	# need to include or append calls to it to instead go to the R console 
-    commandGroup = gexpandgroup("Command area",expand=FALSE)
-    visible(commandGroup) <- TRUE
-    rightPanedGroup = gpanedgroup(get("devium.notebook",envir=devium), commandGroup, horizontal = FALSE)
-    pg = gpanedgroup(get("devium.varbrowser", envir=devium),  rightPanedGroup)
-	
-	#need to do else error...has to better way?
-	tmp<-get("devium.notebook",envir=devium)
-	size(tmp)<-c(rightWidth, mainHeight * 0.67)
-    assign("devium.notebook",tmp,envir=devium)
-	
-    add(bottomGroup, pg, expand = TRUE)
-    add(mainGroup, get("devium.statusBar",envir=devium))
-	add(mainGroup,get("devium.notebook",envir=devium))
+    add(mainGroup, buttonBar) # top most menu
 	
 	#setting options second tool bar
     toolbar = list()
@@ -1563,6 +2194,13 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
     assign("devium.toolBar", tmp,envir=devium)
 	add(buttonBar, tmp, expand = TRUE)
 	
+	#lower major portion of the app
+	#--------------------------------------------------------------	
+    bottomGroup = ggroup(horizontal = TRUE,container=mainGroup) 	#lower group holding var browser and note bok for calling guis
+	
+    # left most drop area with small images
+	#--------------------------------------------------------------
+    devium.droparea = ggroup(horizontal = FALSE, container = bottomGroup) # space for left most drop area
 	#making side bar of small images with drag and drop
 	tmp<-devium.droparea
 	addSpace(tmp, 20)
@@ -1584,13 +2222,15 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
 	
 	#handlers for the small image sidebar
     adddroptarget(summaryDrop, handler = function(h, ...) {
-	obj<-get("devium.cli",envir=devium)
-        svalue(obj) <-Paste("summary(", list(h$dropdata),")")
+	#obj<-get("devium.cli",envir=devium)
+        #svalue(obj) <-Paste("summary(", list(h$dropdata),")")
+		rpel(Paste("summary(", list(h$dropdata),")"))
     })
 	
     adddroptarget(plotDrop, handler = function(h, ...) {
-		obj<-get("devium.cli",envir=devium)
-        svalue(obj) <- Paste("plot(", list(h$dropdata), ")")
+		#obj<-get("devium.cli",envir=devium)
+        #svalue(obj) <- Paste("plot(", list(h$dropdata), ")")
+		rpel(Paste("plot(", list(h$dropdata), ")"))
     })
 	
 	#rpel is eval text strin in a given environment
@@ -1599,14 +2239,36 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
     })
 	
     adddroptarget(removeDrop, handler = function(h, ...) {
-		obj<-get("devium.cli",envir=devium)
-        svalue(obj) <- Paste("rm(", list(h$dropdata), ")")
+		#obj<-get("devium.cli",envir=devium)
+       # svalue(obj) <- Paste("rm(", list(h$dropdata), ")")
+	   rpel(Paste("rm(", list(h$dropdata), ")"))
     })
 	
-	#to get a console in the GUI
-    assign("devium.cli", gcommandline("", width = rightWidth, height = mainHeight * 0.33, useConsole = TRUE), envir= devium)
-    add(commandGroup, get("devium.cli",envir=devium)) #, expand = TRUE
-	svalue(rightPanedGroup)<-1 # open closed console
+	#varbrowser with summary option
+     assign("devium.varbrowser", gvarbrowser(handler = function(h, ...) 
+		{
+			tmp<-get("devium.varbrowser",envir=devium)
+			value<- svalue(tmp)
+			if(!is.null(tryCatch(gget(value),error=function(e){})))	{tmp<-gget(value);assign(get("value"),tmp)}
+			tmp2<-get("devium.notebook",envir=devium)
+			add(tmp2, devium.summary(value), label = Paste("Summary of ", value))
+		}),envir= devium)
+	
+	# make group w/  movable separator to hold var browser and gui notebook
+	#------------------------------
+	#need to do else error...has to better way?
+	tmp<-get("devium.notebook",envir=devium)
+	size(tmp)<-c(rightWidth*0.67, mainHeight)
+    assign("devium.notebook",tmp,envir=devium)
+	
+	pg = gpanedgroup(container=bottomGroup,expand = TRUE)
+	add(pg,get("devium.varbrowser", envir=devium))
+	add(pg,get("devium.notebook",envir=devium))
+	assign("devium.bottom.panedgroup",pg,envir=devium)
+	
+	#add bottom most status bar
+	add(mainGroup, get("devium.statusBar",envir=devium)) #status
+
 	#data frame viewer
     x = as.numeric(NA)
     df = data.frame(X1 = x)
@@ -1623,14 +2285,14 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
 			theFactsMam <-list() 
 			theFactsMam$Author<-"Dmitry Grapov"
 			theFactsMam$Version<-"0.01"
-			theFactsMam$Title<-"Play with your data!"
-			theFactsMam$URL<-"www.devium.com"
-			theFactsMam$Description<-"A GUI "
+			theFactsMam$Title<-"Data Play Land"
+			theFactsMam$URL<-"www.imdevsoftware.wordpress.com"
+			theFactsMam$Description<-"A GUI for dynamic data exploration and visualization"
 			theFactsMam$License<-"GPL (>= 2)"
 			theFactsMam<-do.call("cbind",theFactsMam)
 			glabel(Paste("<b>D E V I U M - </b>\n","<b>D</b>ynamic multivariat<b>E</b> data analysis and <b>VI</b>s<b>U</b>alization platfor<b>M</b>\n", "<i>", theFactsMam[1, "Title"], 
 				"</i>\n", "Version ", theFactsMam[1, "Version"], "\n\n", 
-				theFactsMam[1, "URL"], "\n", "Comments to devium.software@gmail.com\n", 
+				theFactsMam[1, "URL"], "\n", "Comments to dgrapov@gmail.com\n", 
 				"\n\n", theFactsMam[1, "Author"], "\n\n", theFactsMam[1, 
 					"Description"], "\n"), markup = TRUE, container = group)
 			addSpring(group, 10)
@@ -1640,8 +2302,6 @@ DEVIUM.GUI<-function (width = 975, height = .75 * width)
     add(get("devium.notebook",envir=devium),devium.about(), label = "About D E V I U M")
 	
 	#show form
-	tmp<-get("devium.main.window",envir=devium)
+	tmp<-get("devium.main.window",envir=d".GlobalEnv")
     visible(tmp) <- TRUE
-	#close console sash
-	svalue(rightPanedGroup)<-1
-}
+	}

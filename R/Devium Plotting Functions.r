@@ -3,6 +3,8 @@
 #function to add transparency to colors
 alpha.col<-function(color,alpha)
 	{
+		#check to see if alpha already set
+		
 		tmp <- col2rgb(color)/255 
 		rgb(tmp[1,],tmp[2,],tmp[3,],alpha=alpha)
 	}
@@ -142,3 +144,117 @@ polygon.group<-function(obj,color,lwd=1,lty=1,border="#00000050",.level=.95,show
 					}		
 			}
 	}		
+
+#interactively choose colors	
+getcolors <- function(n){
+	# from http://menugget.blogspot.com/2013/01/choosing-colors-visually-with-getcolors.html#more
+	 N <- 6
+	 
+	 X <- seq(N^2)-0.5
+	 Y <- seq(N)-0.5
+	 Z <- matrix(0, nrow=length(X), ncol=length(Y))
+	 
+	 LEV <- seq(0,1,,N) 
+	 R <- rep(LEV, each=N^2)
+	 G <- rep(rep(LEV, each=N), N)
+	 B <- rep(LEV, N^2)
+	 
+	 x11(width=6, height=6)
+	 layout(matrix(1:2, nrow=2, ncol=1), widths=c(6), heights=c(1.5,4.5))
+	 op <- par(mar=c(1,3,2,1))
+	 
+	 image(X,Y,Z, col=NA, xlab="", ylab="", xaxt="n", yaxt="n")
+	 for(i in seq(Z)){
+	  xs <- c(((i-1) %% N^2), ((i-1) %% N^2), ((i-1) %% N^2) + 1, ((i-1) %% N^2) + 1)
+	  ys <- c(((i-1) %/% N^2), ((i-1) %/% N^2)+1, ((i-1) %/% N^2) + 1, ((i-1) %/% N^2))
+	  polygon(xs, ys, col=rgb(R[i], G[i], B[i]), border=NA)
+	 }
+	 mtext(paste("Click on", n, "colors [please]"), side=3, line=0.5)
+	 box()
+	 
+	 COLS <- NA*seq(n)
+	 for(i in seq(n)){
+	  coord <- locator(1)
+	  red <- coord$y / N
+	  green <- coord$x / N^2
+	  blue <- (coord$x %% N) / N
+	  #pos <- (round(coord$y-1) * N^2) + round(coord$x)
+	  COLS[i] <- rgb(red, green, blue)
+	 }
+	 
+	 par(mar=c(1,3,0,1))
+	 pal <- colorRampPalette(c("black", "white"))
+	 image(x=1:100, y=seq(n), z=matrix(rep(1:100,n), nrow=100, ncol=n), col=pal(100), xlab="", ylab="", xaxt="n", yaxt="n")
+	 box()
+	 for(i in seq(n)){
+	  lines(x=c(1,100), y=c(i,i), col=COLS[i], lwd=4)
+	 }
+	 axis(2, at=seq(n))
+	 
+	 par(op)
+	 
+	 COLS
+}
+
+#add scale to plot
+image.scale <- function(z, zlim, col = heat.colors(12),breaks, horiz=TRUE, ylim=NULL, xlim=NULL, ...){
+ if(!missing(breaks)){
+  if(length(breaks) != (length(col)+1)){stop("must have one more break than colour")}
+ }
+ if(missing(breaks) & !missing(zlim)){
+  breaks <- seq(zlim[1], zlim[2], length.out=(length(col)+1)) 
+ }
+ if(missing(breaks) & missing(zlim)){
+  zlim <- range(z, na.rm=TRUE)
+  zlim[2] <- zlim[2]+c(zlim[2]-zlim[1])*(1E-3)#adds a bit to the range in both directions
+  zlim[1] <- zlim[1]-c(zlim[2]-zlim[1])*(1E-3)
+  breaks <- seq(zlim[1], zlim[2], length.out=(length(col)+1))
+ }
+ poly <- vector(mode="list", length(col))
+ for(i in seq(poly)){
+  poly[[i]] <- c(breaks[i], breaks[i+1], breaks[i+1], breaks[i])
+ }
+ xaxt <- ifelse(horiz, "s", "n")
+ yaxt <- ifelse(horiz, "n", "s")
+ if(horiz){YLIM<-c(0,1); XLIM<-range(breaks)}
+ if(!horiz){YLIM<-range(breaks); XLIM<-c(0,1)}
+ if(missing(xlim)) xlim=XLIM
+ if(missing(ylim)) ylim=YLIM
+ plot(1,1,t="n",ylim=ylim, xlim=xlim, xaxt=xaxt, yaxt=yaxt, xaxs="i", yaxs="i", ...)  
+ for(i in seq(poly)){
+  if(horiz){
+   polygon(poly[[i]], c(0,0,1,1), col=col[i], border=NA)
+  }
+  if(!horiz){
+   polygon(c(0,0,1,1), poly[[i]], col=col[i], border=NA)
+  }
+ }
+}
+
+#map object to a color (save object to a legend "scatter.plot.legend" in envir = devium,, eventually make this defineable)
+convert.to.color<-function(object,pallet="rainbow",alpha=.5,legend="color")
+	{
+		
+		#function to add transparency to colors
+		alpha.col<-function(color,alpha)
+			{
+				tmp <- col2rgb(color)/255 
+				rgb(tmp[1,],tmp[2,],tmp[3,],alpha=alpha)
+			}
+		
+		fct<-as.factor(unlist(object))
+		out<-switch(pallet,
+		rainbow	 	= 	rainbow(nlevels(fct),alpha=alpha)[fct],						
+		heat 		= 	heat.colors(nlevels(fct),alpha=alpha)[fct],
+		terrain 	= 	terrain.colors(nlevels(fct),alpha=alpha)[fct], 
+		topo		= 	topo.colors(nlevels(fct),alpha=alpha)[fct],
+		chromatic 	= 	cm.colors(nlevels(fct),alpha=alpha)[fct])
+		
+		#bind with factor for legend
+		obj<-list(data.frame(factor = fct,color=out))
+		names(obj)<-legend
+		#save to legend 
+		set.plot.legend(obj,name="scatter.plot.legend",env=devium)
+		
+		return(out)
+	}
