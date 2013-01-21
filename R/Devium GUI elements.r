@@ -2151,7 +2151,7 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
     toolbar = list()
     toolbar$quit$icon = "quit"
 	toolbar$quit$handler = function(h, ...) {
-		tmp<-get("devium.main.window",envir=devium)
+		tmp<-get("devium.main.window",envir=".GlobalEnv")
         dispose(tmp)
         devium.closeALL()
 		}
@@ -2302,6 +2302,6 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
     add(get("devium.notebook",envir=devium),devium.about(), label = "About D E V I U M")
 	
 	#show form
-	tmp<-get("devium.main.window",envir=d".GlobalEnv")
+	tmp<-get("devium.main.window",envir=".GlobalEnv")
     visible(tmp) <- TRUE
 	}
