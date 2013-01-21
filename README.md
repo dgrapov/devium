@@ -29,7 +29,7 @@ Installation
 For now it can be installed by using the source code in the devium/R directory.
 Copy and paste the following code in to R to source the necessary files.</p>
 
-Run the following `function` to get files from github, needs `package` `Rcurl` to access https
+Run the following code below (copy and paste into the R console), which includes the`function` `source.dir` which is used to get files from github (depends on `package` `Rcurl`for https access).
 ```R
 #function to get files from github, needs package Rcurl to acces https
 source.dir<-function(type="file",dir=getwd(),
@@ -72,5 +72,6 @@ devium.gui()
  
 #load a data set for a demo
 data<-iris
+#end
 ```
 
