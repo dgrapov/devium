@@ -261,118 +261,10 @@ devium.scatter.plot<- function(container=NULL)
 				lookup[id%in%names,-1,drop=FALSE]				
 		}
 
-	#add entry in plot legend object
-
-	set.plot.legend<-function(obj,name="scatter.plot.legend",env=devium)
-		{
-			#object = get("scatter.plot.legend.ids", env= devium) contains names of mapped objects
-		
-			#check or make "scatter.plot.legend"
-			if(!exists( name,env=devium)){assign(name,list(),env=devium)}
-			record<-get(name,env=env)
-			
-			#append for legend 
-			#get unique joint levels
-			tmp<-join.columns(obj)
-			if(class(tmp)=="NULL")
-				{
-					return()
-				}else{
-					tmp<-do.call("rbind",strsplit(unique(tmp),"\\|"))
-					colnames(tmp)<-c("name",names(obj))
-					record[[names(obj)]]<-as.data.frame(tmp)
-					
-					#store for legend
-					assign(name,record,env=env)
-				}
-		}
-		
+	
 	#convert options to fxn inputs and/or set defaults if missing/NULL
 	convert.or.set<-function(named.obj,default=plot.defaults)
 		{
-
-			#functions to do conversions
-			#create "scatter.plot.legend" in env devium
-			#convert object to color
-			convert.to.color<-function(object,pallet="rainbow",alpha=.5,legend="color")
-					{
-						
-						#function to add transparency to colors
-						alpha.col<-function(color,alpha)
-							{
-								tmp <- col2rgb(color)/255 
-								rgb(tmp[1,],tmp[2,],tmp[3,],alpha=alpha)
-							}
-						
-						fct<-as.factor(unlist(object))
-						out<-switch(pallet,
-						rainbow	 	= 	rainbow(nlevels(fct),alpha=alpha)[fct],						
-						heat 		= 	heat.colors(nlevels(fct),alpha=alpha)[fct],
-						terrain 	= 	terrain.colors(nlevels(fct),alpha=alpha)[fct], 
-						topo		= 	topo.colors(nlevels(fct),alpha=alpha)[fct],
-						chromatic 	= 	cm.colors(nlevels(fct),alpha=alpha)[fct])
-						
-						#bind with factor for legend
-						obj<-list(data.frame(factor = fct,color=out))
-						names(obj)<-legend
-						#save to legend 
-						set.plot.legend(obj,name="scatter.plot.legend",env=devium)
-						
-						return(out)
-					}
-					
-			#convert object to shape
-			convert.to.shape<-function(object,from=c(21:25,1:20),legend="pch")
-					{
-						fct<-as.factor(unlist(object))
-						out<-as.numeric(from[1:nlevels(fct)][fct])
-						
-						#bind with factor for legend
-						obj<-list(data.frame(factor = fct,pch=out))
-						names(obj)<-legend
-						#save to legend 
-						set.plot.legend(obj,name="scatter.plot.legend",env=devium)
-						return(out)
-					}
-
-			#convert to size
-			convert.to.size<-function(object,from=c(1:100),legend="cex")
-					{
-						
-						fct<-as.factor(unlist(object))
-						if(nlevels(fct)==0)
-							{
-								olen<-1 
-							} else {
-								olen<-nlevels(fct)
-							}
-						
-						if(legend=="cex")
-							{
-								from=seq(if.or("size.min",default=1),if.or("size.max",default=5),length.out=olen)
-							} else {
-								from=seq(if.or("width.min",default=1),if.or("width.max",default=5),length.out=olen)
-							}
-							
-					
-						out<-as.numeric(from[1:nlevels(fct)][fct])
-						
-						
-						#bind with factor for legend
-						obj<-list(data.frame(factor = fct,pch=out))
-						names(obj)<-legend
-						#save to legend 
-						set.plot.legend(obj,name="scatter.plot.legend",env=devium)	
-						
-						#hack to change size with out a mapping obj
-						if(olen==1)
-							{ 
-								out<-from 
-							}
-							
-						return(out)
-					}
-			
 			id<-names(named.obj)
 			obj<-lapply(1:length(id),function(i)
 				{	
@@ -2070,13 +1962,13 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
 	#if not create one
 	create.devium.main<-function()
 		{
-		tmp<-tryCatch(get("devium.main.window", envir=".GlobalEnv"),erorr=function(e){NULL})
+		tmp<-tryCatch(get("devium.main.window", envir=.GlobalEnv),error=function(e){NULL})
 		if (is.null(tmp) || !is.gWindow(tmp) || is.invalid(tmp)) 
 			{
 				#assign("devium.main.window", gwindow("D E V I U M", visible = FALSE), "devium") # no class
 				tmp<-gwindow("D E V I U M", visible = TRUE) # FALSE #uses the proto class
 				size(tmp) <- c(width, height)
-				assign("devium.main.window", tmp, envir=".GlobalEnv")
+				assign("devium.main.window", tmp, envir=.GlobalEnv)
 			} else {
 				return()
 			}
@@ -2088,7 +1980,7 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
 	#------------------------------------------------
     assign("devium.notebook", gnotebook(closebuttons = TRUE, dontCloseThese = 1, tearable = FALSE),envir= devium) # notebook for holding more GUIs for plotting and analyses
     assign("devium.statusBar", gstatusbar("", container = NULL),envir= devium) # status bar at the bottom
-    mainGroup = ggroup(horizontal = FALSE, spacing = 0, container = get("devium.main.window", envir=".GlobalEnv"), expand = TRUE) # top level group for window
+    mainGroup = ggroup(horizontal = FALSE, spacing = 0, container = get("devium.main.window", envir=.GlobalEnv), expand = TRUE) # top level group for window
    
    
 	#Top menue
@@ -2151,7 +2043,7 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
     toolbar = list()
     toolbar$quit$icon = "quit"
 	toolbar$quit$handler = function(h, ...) {
-		tmp<-get("devium.main.window",envir=".GlobalEnv")
+		tmp<-get("devium.main.window",envir=.GlobalEnv)
         dispose(tmp)
         devium.closeALL()
 		}
@@ -2302,6 +2194,6 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
     add(get("devium.notebook",envir=devium),devium.about(), label = "About D E V I U M")
 	
 	#show form
-	tmp<-get("devium.main.window",envir=".GlobalEnv")
+	tmp<-get("devium.main.window",envir=.GlobalEnv)
     visible(tmp) <- TRUE
 	}

@@ -1,5 +1,3 @@
-
-
 #function to add transparency to colors
 alpha.col<-function(color,alpha)
 	{
@@ -231,7 +229,7 @@ image.scale <- function(z, zlim, col = heat.colors(12),breaks, horiz=TRUE, ylim=
  }
 }
 
-#map object to a color (save object to a legend "scatter.plot.legend" in envir = devium,, eventually make this defineable)
+#map object to a color (save object to a legend "scatter.plot.legend" in envir = devium, eventually make this defineable)
 convert.to.color<-function(object,pallet="rainbow",alpha=.5,legend="color")
 	{
 		
@@ -258,3 +256,81 @@ convert.to.color<-function(object,pallet="rainbow",alpha=.5,legend="color")
 		
 		return(out)
 	}
+
+#convert/map object to shape
+convert.to.shape<-function(object,from=c(21:25,1:20),legend="pch")
+	{
+		fct<-as.factor(unlist(object))
+		out<-as.numeric(from[1:nlevels(fct)][fct])
+		
+		#bind with factor for legend
+		obj<-list(data.frame(factor = fct,pch=out))
+		names(obj)<-legend
+		#save to legend 
+		set.plot.legend(obj,name="scatter.plot.legend",env=devium)
+		return(out)
+	}
+
+#convert.map object to size
+convert.to.size<-function(object,from=c(1:100),legend="cex")
+		{
+			
+			fct<-as.factor(unlist(object))
+			if(nlevels(fct)==0)
+				{
+					olen<-1 
+				} else {
+					olen<-nlevels(fct)
+				}
+			
+			if(legend=="cex")
+				{
+					from=seq(if.or("size.min",default=1),if.or("size.max",default=5),length.out=olen)
+				} else {
+					from=seq(if.or("width.min",default=1),if.or("width.max",default=5),length.out=olen)
+				}
+				
+		
+			out<-as.numeric(from[1:nlevels(fct)][fct])
+			
+			
+			#bind with factor for legend
+			obj<-list(data.frame(factor = fct,pch=out))
+			names(obj)<-legend
+			#save to legend 
+			set.plot.legend(obj,name="scatter.plot.legend",env=devium)	
+			
+			#hack to change size with out a mapping obj
+			if(olen==1)
+				{ 
+					out<-from 
+				}
+				
+			return(out)
+		}
+
+#add entry in plot legend object
+set.plot.legend<-function(obj,name="scatter.plot.legend",env=devium)
+	{
+		#object = get("scatter.plot.legend.ids", env= devium) contains names of mapped objects
+	
+		#check or make "scatter.plot.legend"
+		if(!exists( name,env=devium)){assign(name,list(),env=devium)}
+		record<-get(name,env=env)
+		
+		#append for legend 
+		#get unique joint levels
+		tmp<-join.columns(obj)
+		if(class(tmp)=="NULL")
+			{
+				return()
+			}else{
+				tmp<-do.call("rbind",strsplit(unique(tmp),"\\|"))
+				colnames(tmp)<-c("name",names(obj))
+				record[[names(obj)]]<-as.data.frame(tmp)
+				
+				#store for legend
+				assign(name,record,env=env)
+			}
+	}
+			
