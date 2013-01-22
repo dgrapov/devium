@@ -54,7 +54,7 @@ source.dir<-function(type="file",dir=getwd(),
 					},
 		"https" = .local<-function(file.list)	
 					{
-						if(require(Rcurl)==FALSE){install.packages("Rcurl");library(RCurl)} else { library(RCurl)}
+						if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 						if(is.null(file.list)){return()}else{obj<-file.list}
 						sapply(1:length(obj),function(i)
 						{
