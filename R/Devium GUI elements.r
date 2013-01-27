@@ -10,7 +10,7 @@ done.info.GUI<-function(message)
 
 #ask question do OK fxn		
 ask.gui<-function(message, OK=function(h,...){print("OK!")})
-	{
+{
 		done<-gwindow("Question",width = 200, height= 100)
 		g<-glayout(cont = done)
 		g[2,1]<-glabel(message,container = g)
@@ -22,8 +22,128 @@ ask.gui<-function(message, OK=function(h,...){print("OK!")})
 					error=function(e){print("couldn't proceed")});dispose(done)
 				})
 	}
+
+#GUI for pcaMethods
+devium.PCA.gui<-function(container=NULL)
+{
+	check.get.packages(c("pcaMethods"))
+	options(device="gWidgetsRGtk2")
 	
+	#for debugging
+	#container= gwindow("test")
+
+	
+	#use buttons to assign variables to a main object: get("devium.pca.object",envir=devium)
+	#upon execute 
+	# 1) gather gui inputs
+	# 2) translate
+	# 3) send translated inputs to main fxn
+	
+	#gui objects
+	gui.objects<-c("pca.data","pca.scaling","pca.center","pca.algorithm","pca.components")
+	
+	 #fxn to create the environment "devium" if it does not exist
+	 create.devium.env()	
+	 
+	 if(!exists("devium.pca.object",envir=devium))
+		{
+			tmp<-list()
+			tmp$"max.pca.components"<-3 # some defaults
+			assign("devium.pca.object",tmp,envir=devium)
+			
+		}
+	 
+	mainWin = ggroup(horizontal = FALSE, container = container)
+	
+	#make tool bar on top
+	make.tool.bar<-function(container=NULL)
+	{
+		
+			mainWin = ggroup(horizontal = FALSE, container = container)
+	
+			#make tool bar on top
+			buttonBar = ggroup(spacing = 0,container=mainWin)
+			add(mainWin, buttonBar)
+			
+			#setting options second tool bar
+			toolbar = list()
+
+			toolbar$save$icon = "save"
+			#toolbar$tmp1$separator = TRUE
+			toolbar$save$handler = function(h, ...){done.info.GUI("add save options: to excel, etc")}
 				
+			#toolbar$tmp2$separator = TRUE
+			toolbar$execute$icon = "execute"
+			toolbar$execute$handler = function(h, ...) {
+			d.get(gui.objects) # get all objects in form
+			devium.pca.calculate(pca.inputs=get("devium.pca.object",envir=devium)) # calculate PCA
+			}
+
+			toolbar$help$icon = "help"
+			toolbar$help$handler = function(h, ...) 
+			{
+				done.info.GUI("to do--> write help file.")
+			}	
+			
+			toolbar$plot$icon = "plot"
+			toolbar$plot$handler = function(h, ...) 
+			{
+				done.info.GUI("to do--> write help file.")
+			}	
+			tmp = gtoolbar(toolbar)
+			add(buttonBar, tmp, expand = TRUE)
+		}
+		
+	#make top tool bar
+	make.tool.bar(container=mainWin)
+	
+	#notebook to hold options
+	.notebook<-gnotebook(tab.pos=2,container=mainWin,pageno=1)
+	
+	#variables for plots
+	#plot type and subset
+	scaling<-tmp<-glayout(container=.notebook,label="Data")
+	tmp[1,1:2]<-assign("pca.data",gedit("",container=tmp),envir=devium)
+	adddroptarget(get("pca.data",envir=devium),handler = function(h,...) 
+	{
+			svalue(h$obj)<-id(h$dropdata)
+			d.assign("pca.data",get(id(h$dropdata)))
+			#set upper limit for components
+			obj<-tryCatch(get("devium.pca.object",envir=devium),error=function(e){NULL})
+			upper.limit<-min(dim(obj$pca.data))
+			if(class(upper.limit)=="NULL")
+				{
+					return()
+				} else {
+					d.assign("max.pca.components",upper.limit)#set upper limit for components
+				}
+	})
+	
+	
+	tmp[2,1]<-glabel("scaling")
+	tmp[2,2]<-assign("pca.scaling",gcombobox(c("none","pareto", "vector", "uv"),selected = 4),envir=devium)#,envir=devium
+	tmp[3,1]<-glabel("center",container=tmp)
+	tmp[3,2]<-assign("pca.center",gcheckbox("",checked = TRUE,container=tmp),envir=devium)#, envir=devium
+	
+	#methods
+	pca.methods<-tmp<-glayout(container=.notebook,label="Methods")
+	tmp[1,1]<-glabel("algorithm")
+	tmp[1,2]<-assign("pca.algorithm",gcombobox(listPcaMethods(),container=tmp),envir=devium)#,envir=devium
+	tmp[2,1]<-glabel("components",container=tmp)
+	#pca components
+	get.max.pc<-function(){tmp<-get("devium.pca.object",envir=devium);tmp$max.pca.components}
+	tmp[2,2]<-assign("pca.components",gspinbutton(from = 1, to =get.max.pc(),value= get.max.pc(),container=tmp, handler=function(h,...)
+		{
+			#set upper limit for components
+			tmp[2,2]<-assign("pca.components",gspinbutton(from = 2, to = get.max.pc(),container=pca.methods), envir=devium)
+		}),envir= devium)
+		
+	#not sure need to assign this
+	svalue(.notebook)<-1 # show first tab on start up
+	assign("devium.pca.notebook", mainWin,envir = devium)
+	return(mainWin)
+	}
+	
 #2D scatter plot for 2 vectors or basic pairs plot for a data.frame 
 devium.scatter.plot<- function(container=NULL) 
  {
@@ -385,7 +505,7 @@ devium.scatter.plot<- function(container=NULL)
 						{
 							return() 
 						} else {
-								par(mar=c(.5, 2, 1,.5))
+								par(mar=c(.5, 2, 4,.5))
 								plot.new()
 								obj<-do.call("rbind",format.for.legend(legend.list=legend,limit=5))
 								make.plot.legend(obj)
@@ -431,7 +551,7 @@ devium.scatter.plot<- function(container=NULL)
 						tmp<-list()
 						tmp$col = "white"
 						tmp$bg = "gray"
-						tmp$cex = 2
+						tmp$cex = 3
 						tmp$pch = 21
 						tmp$lwd = 2
 						return(tmp)
@@ -440,7 +560,7 @@ devium.scatter.plot<- function(container=NULL)
 				default<-function(name="",nrow=1)
 					{
 						tmp<-as.data.frame(matrix(
-						c(name=name,bg=rep("#FFFFFF00",length(name)),pch=rep(21,length(name)),col=rep("#FFFFFF00",length(name)),lwd=rep(2,length(name)),cex=rep(2,length(name)))
+						c(name=name,bg=rep("#FFFFFF00",length(name)),pch=rep(21,length(name)),col=rep("#FFFFFF00",length(name)),lwd=rep(2,length(name)),cex=rep(3,length(name)))
 						,nrow=nrow, ncol=6,byrow=FALSE))
 						colnames(tmp)<-c("name","bg","pch","col","lwd","cex")
 						return(tmp)
@@ -530,7 +650,7 @@ devium.scatter.plot<- function(container=NULL)
 								
 					}
 					
-	make.plot.legend<-function(obj,legend.placement="topleft",new=FALSE,legend.ncol=1,legend.cex=1)
+	make.plot.legend<-function(obj,legend.placement="topleft",new=FALSE,legend.ncol=1,legend.cex=1.5)
 		{
 			#obj structure by colummns 
 			#	[1] class [2] color [3] point character (required)
@@ -553,7 +673,7 @@ devium.scatter.plot<- function(container=NULL)
 			if(new==TRUE)
 			{
 				x11()
-				par(mar=c(.1,.1,.1,.1))
+				par(mar=c(.1,.1,.4,.1))
 				plot(1,1,type="n",xaxt="n",yaxt="n",frame.plot=FALSE,xlab="",ylab="")
 			}
 			
@@ -608,6 +728,7 @@ devium.scatter.plot<- function(container=NULL)
 					assign(handler.name[i],function(h,...) 
 					{
 							#upadate form to show drop source
+							print(id(h$dropdata))
 							svalue(h$obj)<-id(h$dropdata)
 												
 							#gather inputs
@@ -666,48 +787,80 @@ devium.qplot<- function(container=NULL)
 	#container= gwindow("test")
 	#gvarbrowser(container=container)
 	
-	#create notebook container for GUI
 	mainWin = ggroup(horizontal = FALSE, container = container)
 	
-	#variables for plots
-	#plotting variable labels  and drag n drop boxes widget
-	labels<-gexpandgroup(text="Asthetic",horizontal=FALSE, container=mainWin,pos=0)
+	#make tool bar on top
+	make.tool.bar<-function(container=NULL)
+	{
+		
+			mainWin = ggroup(horizontal = FALSE, container = container)
 	
-	#create empty space in form using glabel  there is a function for this
-	gspacer<-function(number, container)
-			{	
-				i<-1
-				for(i in 1:number)
-				#sapply(1:number,function(i) # wont work
-					{
-						glabel("",container=container)
-					}#)
-			}	
+			#make tool bar on top
+			buttonBar = ggroup(spacing = 0,container=mainWin)
+			add(mainWin, buttonBar)
+			
+			#setting options second tool bar
+			toolbar = list()
 
-	gspacer(1,labels)
+			toolbar$save$icon = "save"
+			#toolbar$tmp1$separator = TRUE
+			toolbar$save$handler = function(h, ...){
+				tmp<-tryCatch(get("devium.plotnotebook.window",envir=devium),error= function(e){NULL})
+				if (is.null(tmp) || !is.gWindow(tmp) ||  is.invalid(tmp)) {
+					tmp<-gwindow("D E V I U M plot notebook", visible = TRUE)  
+					add(tmp, ggraphicsnotebook())
+					 assign("devium.plotnotebook.window", tmp, envir = devium)
+				}
+				else {
+					focus(get("devium.plotnotebook.window",envir=devium)) <- TRUE
+				}
+			}
+
+			#toolbar$tmp2$separator = TRUE
+			toolbar$plotnotebook$icon = "plot"
+			toolbar$plotnotebook$handler = function(h, ...) {
+			done.info.GUI("to do--> write refresh plot file")
+			}
+
+			toolbar$help$icon = "help"
+			toolbar$help$handler = function(h, ...) 
+			{
+				done.info.GUI("to do--> write help file.")
+			}	
+			tmp = gtoolbar(toolbar)
+			add(buttonBar, tmp, expand = TRUE)
+		}
+		
+	#make top tool bar
+	make.tool.bar(container=mainWin)
 	
+	#notebook to hold options
+	.notebook<-gnotebook(tab.pos=2,container=mainWin,pageno=1)
+	
+	#variables for plots
+	#plot type and subset
+	plot.type<-tmp<-glayout(container=.notebook,label="Type")
+	tmp[1,2]<-assign("qplot.plot.type",gcombobox(c("point","line"),value="point"))
+	tmp[2,1]<-glabel("subset",container=tmp)
+	tmp[2,2]<-assign("qplot.subset.var",gedit("",container=tmp,width=20))
+	
+	asthetic<-glayout(container=.notebook,label="Asthetics")
 	
 	#options for plot asthetics
 	plot.opts<-c("x","y","color","size","shape","alpha") # form refrence
+	plot.opts.labels<-c("  X-axis","  Y-Axis","  color","  size","  shape/style","  transparency")
 	plot.names<-c("x","y","color","size","shape","alpha") # fxn input possibilities
 	
 	# to left align (has to be an easier way!)
 	#check length and add white space to make all the same length
-	ln<-sapply(strsplit(plot.opts,""),length)
-	aligned.plot.opts<-sapply(1:length(plot.opts),function(i)
-		{
-			spaces<-(max(ln)-ln[i])
-			#convert underscore to spaces
-			paste(gsub("_"," ",plot.opts[i]),paste(rep(" ",spaces),collapse=""),sep="")
-		})
-		
+	tmp<-asthetic	
 	for(i in 1:length(plot.opts))
 		{	
-			grp<-paste("tmp",i)
-			assign(grp,ggroup(horizontal=TRUE, container=labels))
-			assign(plot.opts[i],gedit("", container=get(grp)))
-			glabel(aligned.plot.opts[i],container=get(grp))
+			
+			tmp[i,1]<-glabel(plot.opts.labels[i],container=tmp)
+			tmp[i,2]<-assign(plot.opts[i],gedit("", container=tmp,width=20))
 		}
+		
 	
 	#add handlers for drag and drop objects
 	#should minimaly change name dislayed and call a fxn
@@ -864,12 +1017,13 @@ devium.data.import<-function (container = NULL)
         tbl2[2, 1] <- "Google account"
         tbl2[2, 2] <- (gaccount = gedit("name@gmail.com", container= tbl2))
 		tbl2[3, 1] <- "Password"
-        tbl2[3, 2] <- (gpassword = gedit("*********", container= tbl2))
-		
+        tbl2[3, 2] <- tmp<-(gpassword = gedit("*********", container= tbl2))
+		visible(tmp)<-FALSE # hide password
+ 
 		# connect button --> connects to google account and gets 
 		# list of available spreadsheets to the gdroplist above, asigned items in gdocs env
 		# assigns connection to "gconnection" in gdocs env
-		tbl2[3, 3] <- (gconnect = gbutton(text = "Connect",container = tbl2, 
+		tbl2[3, 3] <- (gconnect = gbutton(text = "Connect",container = tbl2,
 			handler = function(h,...)
 				{
 					tryCatch(
@@ -1129,90 +1283,106 @@ devium.summary<-function(obj,...)
 }
 
 #data transformation gui
-devium.data<-function()
-	{
+devium.data<-function(container=NULL)
+{
+		#results stored in get("devium.data.object",envir=devium)
 		#for debugging
-		container= gwindow("test")
+		#container= gwindow("test")
+		mainWin = ggroup(horizontal = FALSE, container = container,expand=TRUE)
 		
-		#call new browser for looking at target object
-		main = ggroup(horizontal = FALSE, container = container)
-		
-		#options for GUI and mapping to call
-		gui.opts<-c("Target","Remove","Merge","Subset") # form refrence
-		gui.defaults<-c(cut.obj=NA, merge.obj=NA,trans.obj=NA)	#fxn defaults
-		fxn.names<-c("cut.obj","y","merge.obj","trans.obj") # fxn input possibilities
-        
-		#function to try to align text
-		try.align<-function(list)
-			{
-				ln<-lapply(1:length(list),function(i){sapply(strsplit(as.character(list[[i]]),""),length)})# length
-				vec<-unlist(ln)
-				lapply(1:length(list),function(i)
-				{
-					
-					#convert underscore to spaces
-					sapply(1:length(list[[i]]),function(j)
-						{
-							spaces<-(max(vec)-ln[[i]][j])
-							paste(list[[i]][j],paste(rep(" ",spaces),collapse=""),sep="")
-						})
-					
-				})
-			}
-		
-		#make a list to hold options
-		make.list <-list()
-		make.list$gpexp<-gui.opts #expand group names
-		make.list$edits<-list("Data",c("Remove"),c("With","Index"),c("Only","Excluding")) #list for making editable (blank input) space
-		make.list$labels<-try.align(list("Data  ","Name  ",c("With","Index"),c("Only","Excluding")))#names for edit boxes)
-		make.list$buttons<-list(NA,c("Apply"),c(NA,"Apply"),c("Apply","Apply")) #list of button names (NA = avoid)
-		
+		#make tool bar on top
+		make.tool.bar<-function(container=NULL)
+		{
 			
-		#upon drop each should write its input to an approriate obj in  env=devium
-
+				mainWin = ggroup(horizontal = FALSE, container = container)
 		
-		i<-1
-		for(i in 1:length(make.list$gpexp))
-			{	
-				exp.group<-make.list$gpexp[[i]] # expand group text
-				tmp.main<-gframe(container=main) # its frame
-				tmp<-gexpandgroup(text=exp.group, container=tmp.main, pos=2) #make expand group
-				#object to hold label; edit, button combo
-				grp<-paste("tmp",i)
-				assign(grp,ggroup(horizontal=FALSE, container=tmp))
-				table = glayout(adjust = "right")
-				cont<-add(get(grp), table)
-				#populate expand group base on edits
-				tmp<-tryCatch(make.list$edits[[i]],error=function(e){NA})
-				j<-1
-				for(j in 1: length(tmp))
-					{
-						
-						#try to make edit, label , button 
-						#label
-						tmp<-tryCatch(make.list$labels[[i]][j],error=function(e){NA})
-						if(!is.na(tmp))
-							{
-								table[j,1]<-glabel(tmp,container=cont,font.attr = list(c(family="monospace")))
-							}
-						#edit
-						tmp<-tryCatch(make.list$edits[[i]][j],error=function(e){NA})
-						if(!is.na(tmp))
-							{
-								table[j,2]<-assign(tmp,gedit("", container=cont))
-							}
-					
-						#button
-						tmp<-tryCatch(make.list$buttons[[i]][j],error=function(e){NA})
-						if(!is.na(tmp))
-							{
-								table[j,3]<-gbutton(text = tmp,container = cont )
-							}
-					}	
-			} 
+				#make tool bar on top
+				buttonBar = ggroup(spacing = 0,container=mainWin)
+				add(mainWin, buttonBar)
 				
+				#setting options second tool bar
+				toolbar = list()
+
+				#toolbar$tmp2$separator = TRUE
+				toolbar$execute$icon = "execute"
+				toolbar$execute$handler = function(h, ...) {
+				check.get.obj(gui.objects,main.object="devium.data.object") #assign all objects in form to main.object
+				tmp<-get("devium.data.object",envir=devium)#get object
+				if(is.null(tmp$devium.data)|tmp$devium.data=="")
+					{ 
+							return()
+					} else {
+						#transformed obj
+							trans.obj<-transform.to.normal(data=get(tmp$devium.data),data.name=tmp$devium.data, test.method=tmp$devium.normalize.test, 
+								alpha = 0.05 , force.positive=TRUE, transformation=tmp$devium.normalize.transformation)
+						#scale and center
+						tmp.data<-scale.data(trans.obj[[1]])
+						trans.obj[[1]]<-tmp.data
+						#save output to global	
+						transform.to.normal.output(obj=trans.obj,name="transformed.data", envir=devium)
+					}
+				}
+
+				toolbar$help$icon = "help"
+				toolbar$help$handler = function(h, ...) 
+				{
+					done.info.GUI("to do--> write help file.")
+				}	
 				
-	}
+				toolbar$plot$icon = "plot"
+				toolbar$plot$handler = function(h, ...) 
+				{
+					done.info.GUI("to do--> write help file.")
+				}	
+				tmp = gtoolbar(toolbar)
+				add(buttonBar, tmp, expand = TRUE)
+			}
+			
+		#make top tool bar
+		make.tool.bar(container=mainWin)
+		
+		#gui objects
+		gui.objects<-c("devium.data","devium.data.scaling","devium.data.center","devium.normalize.test","devium.normalize.transformation")
+		
+		 #fxn to create the environment "devium" if it does not exist
+		 create.devium.env()	
+		 
+		 if(!exists("devium.data.obj",envir=devium))
+			{
+				tmp<-list()
+				# some defaults
+				assign("devium.data.obj",tmp,envir=devium)
+				
+			}
+	 
+		#target data
+		data.tab<-tmp<-gframe("Data",container=mainWin)
+		assign("devium.data",gedit("",container=tmp),envir=devium)
+		adddroptarget(get("devium.data",envir=devium),handler = function(h,...) 
+		{
+				svalue(h$obj)<-id(h$dropdata)
+				d.assign("devium.data",get(id(h$dropdata),main.object="devium.data.object"))
+		})
+		
+		#notebook to hold options
+		.notebook<-gnotebook(tab.pos=2,container=mainWin,pageno=1,expand=TRUE)
+		
+		##modify: split, merge, merge remove add
+		modify<-tmp<-glayout(container=.notebook,label="Modify")
+		
+		#transform: normalize, scale, center
+		tmp<-glayout(container=.notebook,label="Scale")
+		tmp[1,1]<-glabel("  scale",container=tmp)
+		tmp[1,2]<-assign("devium.data.scaling",gcombobox(c("none","pareto", "vector", "uv","range"),selected = 4,container=tmp),envir=devium)#,envir=devium
+		tmp[2,1]<-glabel("  center",container=tmp)
+		tmp[2,2]<-assign("devium.data.center",gcheckbox("",checked = TRUE,container=tmp),envir=devium)#, envir=devium
+		tmp<-glayout(container=.notebook,label="Transform")
+		tmp[1,1]<-glabel("  transformation",container=tmp)
+		tmp[1,2]<-assign("devium.normalize.transformation",gcombobox(c("none","log","BOX-COX"),container=tmp),envir=devium)#,envir=devium
+		tmp[2,1]<-glabel("  test normality",container=tmp)
+		tmp[2,2]<-assign("devium.normalize.test",gcombobox(c("Anderson-Darling","Shapiro-Wilk","Cramer-von Mises","Kolmogorov-Smirno","Shapiro-Francia"),container=tmp),envir=devium)#,envir=devium
+		return(mainWin)
+}
 	
 #2D scatter plot for 2 vectors or basic pairs plot for a data.frame 
 devium.network.plot<- function(container=NULL) 
@@ -1889,7 +2059,7 @@ devium.network.plot<- function(container=NULL)
 	make.plot.handler(form.names=plot.opts,lookup=cbind(plot.opts,plot.names),default=plot.defaults)
 	assign("devium.scatter.plot.notebook", mainWin,envir = devium)
 	return(mainWin)
-	}
+}
 	
 #completely taking out pmg functions 
 devium.gui<-function (width = 850, height = .75 * width, source=NULL) 
@@ -1901,6 +2071,12 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
 			# for now use some critical fxn in the envir
 			if(!exists("check.get.packages")){source.dir(source)} 
 		}
+	
+	#remove any old widgets 
+	#objs<-objects(,envir=devium)
+	#don't remove functions (later fix this)
+	#is.fxn<-!sapply(1:length(objs),is.function)
+	#rm(list = objs[is.fxn], pos = devium)
 	
 	#main window dimensions and options
 	rightWidth = width * 0.6
@@ -1992,31 +2168,30 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
 			ask.gui("Delete all objects?",OK=function(h,...,source=NULL)
 			{
 				objs <- ls(pos = ".GlobalEnv")
-				rm(list = objs, pos = ".GlobalEnv")
-				#for now restore workspace from directory usindebugg fxn below
-				source.dir<-function(dir)
-					{
-						o.dir<-getwd()
-						setwd(dir)
-						obj<-dir()
-						sapply(1:length(obj),function(i)
-							{
-								tryCatch(source(obj[i]),error=function(e){print(paste("can't load:",obj[i]))})
-							})
-						setwd(o.dir)	
-					}
+				#don't remove functions (later fix this)
+				is.fxn<-!sapply(1:length(objs),is.function)
+				rm(list = objs[is.fxn], pos = ".GlobalEnv")
+				#for now restore workspace from directory using fxn below
+				
 					#need to know the location of devium library to source it
 					if(!is.null(source)){ source.dir(source)}
 			})	
 
 		}
 		
-	devium.menu$Data$`Load Data`$handler<-function(h,...){add(get("devium.notebook",envir=devium),devium.data.import(), label = "Import Data") }
+	devium.menu$Data$`Load Data`$handler<-function(h,...)
+		{
+			add(get("devium.notebook",envir=devium),devium.data.import(), label = "Import Data") 
+			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
+			svalue(tmp)<-.2
+		}
 	devium.menu$Data$`Load R Data`$handler<-function(h,...){devium.load.Rdataset() }
+	devium.menu$Data$`Modify Data`$handler<-function(h,...){add(get("devium.notebook",envir=devium),devium.data(), label = "Modify Data") }
 	
 	#plots
 	devium.menu$Plots$`Scatter Plot`$handler<-function(h,...)
 		{
+			x11() # need to change this for non-windows machines
 			add(get("devium.notebook",envir=devium),devium.scatter.plot(), label = "Scatter Plot") 
 			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
 			svalue(tmp)<-.2
@@ -2025,9 +2200,14 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
 		
 	devium.menu$Plots$`Plot Builder`$handler<-function(h,...)
 		{
+			x11() # need to change this for non-windows machines
 			add(get("devium.notebook",envir=devium),devium.qplot(), label = "Plot Builder") 
 		}	
-		
+	
+	devium.menu$Methods$`PCA`$handler<-function(h,...)
+		{
+			add(get("devium.notebook",envir=devium),devium.PCA.gui(), label = "PCA") 
+		}	
 	#make top menue
 	assign("devium.menuBar", gmenu(devium.menu, container = NULL),envir= devium) # top most menue
 	add(mainGroup, get("devium.menuBar",envir=devium)) # very tedious to do this, no wonder namespace is preffereble
@@ -2180,7 +2360,7 @@ devium.gui<-function (width = 850, height = .75 * width, source=NULL)
 			theFactsMam$Title<-"Data Play Land"
 			theFactsMam$URL<-"www.imdevsoftware.wordpress.com"
 			theFactsMam$Description<-"A GUI for dynamic data exploration and visualization"
-			theFactsMam$License<-"GPL (>= 2)"
+			# theFactsMam$License<-"GPL (>= 2)"
 			theFactsMam<-do.call("cbind",theFactsMam)
 			glabel(Paste("<b>D E V I U M - </b>\n","<b>D</b>ynamic multivariat<b>E</b> data analysis and <b>VI</b>s<b>U</b>alization platfor<b>M</b>\n", "<i>", theFactsMam[1, "Title"], 
 				"</i>\n", "Version ", theFactsMam[1, "Version"], "\n\n", 

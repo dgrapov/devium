@@ -1,15 +1,3 @@
-#load all source files in a directory
-source.dir<-function(dir)
-	{
-		o.dir<-getwd()
-		setwd(dir)
-		obj<-dir()
-		sapply(1:length(obj),function(i)
-			{
-				tryCatch(source(obj[i]),error=function(e){print(paste("can't load:",obj[i]))})
-			})
-		setwd(o.dir)	
-	}
 
 #collapse columns as strings
 join.columns<-function(obj)
@@ -232,4 +220,112 @@ rpel<-function (string, envir = .GlobalEnv)
 	{
 		eval(parse(text = string), envir = envir)
 	}
+	
+#function to calculate placement of list items into an Excel worksheet
+list.placement.full<-function(data.list,list.names,direction,start.col,start.row,spacer)
+	{
+        
+		#accessory fxn
+		list.object.dim.full<-function(data.list,list.names)
+        {
+                l.dim<-list()
+                n<-length(data.list)
+                i<-1
+                for(i in 1:n)
+                {
+                tmp.list<-as.data.frame(data.list[[i]])
+                height<-dim(tmp.list)[1]
+                width<-dim(as.data.frame(tmp.list))[2]
+                l.dim[[i]]<-as.data.frame(matrix(cbind(width,height),ncol=2))
+                }
+                        out<-do.call("rbind",l.dim)
+                        out<-cbind(list.names,out)
+                        colnames(out)<-c("objects","width","height")
+                        out
+        }
+		
+		set.1<-list.object.dim.full(data.list,list.names)
+        col.i<-rbind(matrix(LETTERS,ncol=1),matrix(paste(rep(LETTERS,each=length(LETTERS)),rep(LETTERS,length(LETTERS)),sep=""),ncol=1))
+        row.i<-matrix(1:1e6,ncol=1)
+        place.row<-matrix()
+        place.col<-matrix()
+        place.range<-matrix()
+        columns<-matrix()
+        rows<-matrix()
+        n<-dim(set.1)[1]
+        i<-1
+                for(i in 1:n)
+					{
+                        place.row[i]<-start.row+sum(unlist(set.1[1:i,3]))+spacer*(i-1)-unlist(set.1[i,3])
+                        place.col[i]<-col.i[start.col+sum(unlist(set.1[1:(i),2]))+spacer*(i-1)-unlist(set.1[i,2])]
+                        if(direction=="vertical"){
+                        place.range[i]<-matrix(paste(col.i[start.col],place.row[i],sep=""),ncol=1)} else{
+                        if(direction=="horizontal"){
+                        place.range[i]<-matrix(paste(place.col[i],start.row,sep=""),ncol=1)}}}
+                        ex.range<-as.data.frame(cbind(set.1,place.range))
+                        ex.range
+	}
 
+#function to get gwidget svalues for assigned widgets
+d.get<-function(object, main.object="devium.pca.object",envir=devium)
+	{
+		#check to see if main object exists else create
+		sapply(1:length(object),function(i)
+			{
+				tmp<-svalue(get(object[i],envir=envir))
+				d.assign(add.obj=object[i],value=tmp,main.object,envir=envir)
+			})
+	}
+	
+#function to get gwidget svalues for assigned widgets
+#main.object and its envir as string
+check.get.obj<-function(object, main.object="devium.pca.object",envir="devium")
+	{
+		#check to see if main object exists else create
+		check.get.envir(main.object,envir)
+		env<-get(envir)
+		sapply(1:length(object),function(i)
+			{
+				tmp<-svalue(get(object[i],envir=get(envir)))
+				d.assign(add.obj=object[i],value=tmp,main.object,envir=get(envir))
+			})
+	}	
+
+check.get.envir<-function(main.object,envir)
+	{
+				if(!exists(envir)){ assign(envir,new.env(),envir= .GlobalEnv)} 
+				if(!exists(main.object,envir=get(envir))){assign(main.object,list(),envir=get(envir))}
+	}
+	
+ #fxn to create the environment "devium" if it does not exist
+ create.devium.env<-function()
+	{
+		if(!exists("devium"))
+				{
+				if(!is.environment("devium")){ assign("devium",new.env(),envir= .GlobalEnv)}
+				
+				#check for devium objects and set to null if they don't exist
+				for (i in c("devium.helpBrowser.window", "devium.plotnotebook.window")) 
+					{
+					if(!exists(i))
+						{
+							assign(i, NULL, envir = devium)
+						}
+					}
+				}
+	}	
+	  
+ #function to make assignments to storage object
+ d.assign<-function(add.obj,value,main.object="devium.pca.object",envir=devium)
+	{
+		tmp<-get(get("main.object"),envir=envir)
+		tmp[[add.obj]]<-value
+		assign(get("main.object"),tmp,envir=devium)
+	}
+	
+#from plyr: get as text
+.<-function (..., .env = parent.frame()) 
+{
+    structure(as.list(match.call()[-1]), env = .env, class = "quoted")
+}
+	
