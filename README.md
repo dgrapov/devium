@@ -30,5 +30,5 @@ For now it can be installed by using the source code in the devium/R directory.
 Copy and paste the following code in to R to source the necessary files.</p>
 
  ```r
-source("http://pastebin.com/raw.php?i=EX5x9pka")
+source("http://pastebin.com/raw.php?i=Y0YYEBia")
  ```
