@@ -1,8 +1,4 @@
 
-#if nessesary to load node attributes this neds to be done by assigning attributes to the graphNEL Object
-#this can make loading large networks very slow
-
-
 # functions
 #-------------------------------------------------------------
 #create a network from a graphNeL object
@@ -513,7 +509,8 @@ edge.list.to.graphNEL<-function(edge.list)
 				obj
 			})
 		
-		new("graphNEL", nodes=names(out), edgeL=out,edgemode="undirected")
+		obj<-new("graphNEL", nodes=names(out), edgeL=out,edgemode="undirected")
+		return(obj)
 	}
 	
 #extract values from a square symmetric matrix based on an edge list
@@ -603,4 +600,132 @@ filter.edges<-function(edge.list,filter,cut.off=NULL)
 			}
 		return(out)
 	}
-			
+
+#create edge list and network attributes file from meta.data wioth CID keys
+#data<- bound with CIDS
+#filter object basd on cid index to remove duplicates
+unique.obj<-function(data, index)
+	{
+		#accesory function to return position of first instance of unique object 
+		id<-unique.id(index)
+		data[id,]
+	}
+
+#get KEGG reactant pairs
+kegg.pairs<-function(database=read.table("http://metamap.googlecode.com/svn/trunk/MetaMapp/src/java/kegg-rpairlinks.txt",header=FALSE),lookup)
+	{
+		ids<-sapply(1:nrow(lookup),function(i)
+			{
+				#
+				c(which(as.character(lookup[i,1])==as.character(database[,1])),which(as.character(lookup[i,1])==as.character(database[,2])))				
+			})
+		names(ids)<-lookup[,2]	
+		
+		#construct symmetric matrix then extract unique edge list
+		mat<-do.call("rbind",lapply(1:length(ids),function(i)
+			{
+				obj<-ids[[i]]
+				match<-sapply(1:length(ids), function(j)
+					{
+						tmp<-ids[[j]]
+						sum(tmp%in%obj)
+					})
+			}))
+		dimnames(mat)<-list(names(ids),names(ids))
+		elist<-gen.mat.to.edge.list(mat)
+		as.data.frame(elist[elist[,3]==1,])		
+	}
+
+#querry chemical translation service (CTS) 
+
+#functions for devium network GUI to calculate edge list
+devium.network.execute<-function(object)
+	{
+		main<-tryCatch(get(object$devium.network.target.object),error=function(e){NULL})
+				if(is.null(main))
+					{ 
+							return()
+					} else {
+						#temporary routing functions
+						edge.list.type<-object$devium.network.edge.list.type
+						switch(edge.list.type,
+						"spearman correlations" = .local<-function()
+															{
+																#cut out factors if present
+																tmp.data<-main[sapply(1:ncol(main), function(i) {class(main[,i])=="numeric"})]
+																cor.mat<-cor(tmp.data, method="spearman") #use correlations to get edge list
+	
+																#make edge list from a square symmetric matrix	
+																edge.list<-gen.mat.to.edge.list(cor.mat)
+							
+																#add options for filter
+																
+																#return edge list
+																return(edge.list[,1:2])
+																
+															},
+						"KEGG reaction pairs" = .local<-function()
+															{
+																#autogenerate look up based on matching CIDs to KEGG ids
+																
+																#extract rpairs from data base
+							
+																#return edge list
+																return()
+																
+															}
+							
+							
+						)
+					elist<-.local()	
+					d.assign("devium.network.edge.list.calculated",elist,main.object="devium.network.object")
+					#may want to to also assign to global	
+					assign(paste(object$devium.network.target.object,"network.edge.list", sep="."),elist, envir=globalenv())
+					}
+	}
+
+#functions for devium network GUI to plot edge list
+devium.network.plot<-function(edge.list, type)
+	{
+		switch(type,
+			"static" = .local<-function(edge.list,type)
+								{
+									#create grapNEL object from edge list
+									graph.obj<-edge.list.to.graphNEL(edge.list)
+									# could coalculate tis directly but fornow going through NEL because it is also used for Cytoscape graphs
+									igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
+									#with groups marked
+									igraph.obj$V<-unclass(igraph.obj)[[9]][[3]]$name #add labels has to be a better way?
+									mark.groups<-list()	
+									if(names(dev.cur())[1]=="null device"){x11()} # make device if not present
+									plot(igraph.obj, mark.groups=mark.groups,layout=layout.fruchterman.reingold, 
+											vertex.label=igraph.obj$V, vertex.color="gray",vertex.size=6, frame=FALSE,vertex.label.dist=-.3)
+									# later use vertex + edge options to set these (color, size, etc)
+								},
+		 "interactive" = .local<-function(edge.list,type)
+								{
+									#create grapNEL object from edge list
+									graph.obj<-edge.list.to.graphNEL(edge.list)
+									# could coalculate tis directly but fornow going through NEL because it is also used for Cytoscape graphs
+									igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
+									#with groups marked
+									igraph.obj$V<-unclass(igraph.obj)[[9]][[3]]$name #add labels has to be a better way?
+									mark.groups<-list()
+									tkplot(igraph.obj, layout=layout.fruchterman.reingold, vertex.color="gray",vertex.size=6, vertex.label=igraph.obj$V, frame=FALSE,vertex.label.dist=-1.5)
+								},
+								
+			"3D-plot" = .local<-function(edge.list,type)
+								{
+									#create grapNEL object from edge list
+									graph.obj<-edge.list.to.graphNEL(edge.list)
+									# could coalculate tis directly but fornow going through NEL because it is also used for Cytoscape graphs
+									igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
+									#with groups marked
+									igraph.obj$V<-unclass(igraph.obj)[[9]][[3]]$name #add labels has to be a better way?
+									rglplot(igraph.obj,layout=layout.fruchterman.reingold, vertex.color="gray",vertex.size=6, vertex.label=igraph.obj$V, vertex.label.dist=-.25)
+								})
+				#make sure there is a graphics device
+				if(names(dev.cur())[1]=="null device"){x11()}
+					.local(edge.list,type)
+	}
+	

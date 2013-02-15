@@ -333,4 +333,5 @@ set.plot.legend<-function(obj,name="scatter.plot.legend",env=devium)
 				assign(name,record,env=env)
 			}
 	}
-			
+						
+#make a box plot colored on factor themed for node inset in networks
