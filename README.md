@@ -32,3 +32,4 @@ Copy and paste the following code in to R to source the necessary files.</p>
  ```r
 source("http://pastebin.com/raw.php?i=Y0YYEBia")
  ```
+ Note if you don't yet have the GTK+ toolkit installed you need to specify to "Install GTK+" when prompted from the R command line.
