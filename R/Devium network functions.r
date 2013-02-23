@@ -611,15 +611,38 @@ unique.obj<-function(data, index)
 		data[id,]
 	}
 
-#get KEGG reactant pairs
-kegg.pairs<-function(database=read.table("http://metamap.googlecode.com/svn/trunk/MetaMapp/src/java/kegg-rpairlinks.txt",header=FALSE),lookup)
+#look up KEGG reactant pairs 
+get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964564/raw/aec1a5097a3265d22109c9b34edd99a28f4012a3/KEGG+reaction+pairs")
 	{
-		ids<-sapply(1:nrow(lookup),function(i)
+		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
+		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
+		tmp<-strsplit(text,"\\n")
+		tmp2<-strsplit(as.character(unlist(tmp)), "\t")
+		#fix header errors
+		tmp2[[1]]<-strsplit(tmp2[[1]],"\\  ")
+		matrix(unlist(tmp2),ncol=2, byrow=TRUE)
+	}
+#look up CID to KEGG translation 	
+get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c84f8f209f961b23adbf7d7bd1f704ce7a1166ed/CID_KEGG+pairs")
+	{
+		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
+		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
+		tmp<-strsplit(text,"\\n")
+		tmp2<-strsplit(as.character(unlist(tmp)), "\t")
+		#fix header errors
+		matrix(unlist(tmp2),ncol=2, byrow=TRUE)
+	}
+
+	#making an edge list based on CIDs from KEGG reactant pairs
+CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pairs())
+	{
+		matched<-lookup[c(1:nrow(lookup))[lookup[,1]%in%cid],]
+		ids<-sapply(1:nrow(matched),function(i)
 			{
 				#
-				c(which(as.character(lookup[i,1])==as.character(database[,1])),which(as.character(lookup[i,1])==as.character(database[,2])))				
+				c(which(as.character(matched[i,2])==as.character(database[,1])),which(as.character(matched[i,2])==as.character(database[,2])))				
 			})
-		names(ids)<-lookup[,2]	
+		names(ids)<-matched[,1]	# cid of all paired by cid
 		
 		#construct symmetric matrix then extract unique edge list
 		mat<-do.call("rbind",lapply(1:length(ids),function(i)
@@ -633,14 +656,105 @@ kegg.pairs<-function(database=read.table("http://metamap.googlecode.com/svn/trun
 			}))
 		dimnames(mat)<-list(names(ids),names(ids))
 		elist<-gen.mat.to.edge.list(mat)
-		as.data.frame(elist[elist[,3]==1,])		
+		as.data.frame(elist[elist[,3]==1,1:2])	#cid source to cid target based on kegg pairs	
 	}
 
-#querry chemical translation service (CTS) 
+#get tanimoto distances from cids
+CID.to.tanimoto<-function(cids, cut.off = .7, parallel=TRUE)
+{
+	#used cids = PUBCHEM CIDS to calculate tanimoto distances
+	check.get.packages(c("snow","doSNOW","foreach","ChemmineR")) # need packages
+	
+	#get fingerprint for calcs
+	data(pubchemFPencoding)
+	compounds <- getIds(as.numeric(cids))
+	# Convert base 64 encoded fingerprints to character vector, matrix or FPset object
+	fpset <- fp2bit(compounds, type=3)
+	dimnames(fpset@fpma)[1]<-list(as.character(cids))
+	
+	if(parallel==TRUE)
+		{
+				#change this later
+				cl.tmp = makeCluster(rep("localhost",Sys.getenv('NUMBER_OF_PROCESSORS')), type="SOCK") 
+				registerDoSNOW(cl.tmp) 
+				out<-foreach(j=c(1:length(cid(fpset))),.combine="cbind") %dopar% ChemmineR::fpSim(fpset[j], fpset, sorted=FALSE)#length(codes)
+				stopCluster(cl.tmp)	
+		} else {
+		
+				out<-sapply(1:length(cid(fpset)),function(i){ChemmineR::fpSim(fpset[i], fpset, sorted=FALSE)})
+		}
+		
+	#edgelist
+	colnames(out)<-unlist(dimnames(out)[1])
+	elist<-gen.mat.to.edge.list(out)
+	
+	#optionally filter based on score based on score
+	obj<-as.matrix(elist)
+	pass<-!as.numeric(obj[,3])<=cut.off
+	
+	#return edgelist 
+	as.data.frame(obj[pass,1:2])
+}
+
+#querry chemical translation service (CTS) to get tanimoto from inchis
+#very slow
+CID.to.tanimoto<-function(cid,lookup=get.CID.INCHIcode.pairs())
+	{
+		check.get.packages("XML")
+		matched<-lookup[c(1:nrow(lookup))[lookup[,1]%in%cid],]
+		matched<-matched[!matched[,2]=="",]
+		codes<-gsub("=", "%3D", matched[,2])
+		#use webservice to get tanimoto score between cids based in inchi key
+		#do in parallel
+		check.get.packages(c("snow","doSNOW","foreach"))
+
+		i<-1
+		out<-list()
+		for(i in 1:length(codes))
+			{
+				
+				cl.tmp = makeCluster(rep("localhost",Sys.getenv('NUMBER_OF_PROCESSORS')), type="SOCK") 
+				registerDoSNOW(cl.tmp) 
+				
+				#fxn accesing web  can't be parallel?
+				.local<-function(i,j,codes)
+					{
+						url=paste("http://vulcan.fiehnlab.ucdavis.edu:8080/tanimoto-service-1.2/rest/xml/calc.xml?from=",codes[i],"&to=",codes[j],sep="")
+						
+						text<-tryCatch(XML::xmlTreeParse(url),error=function(e){NULL})
+						if(is.null(text))
+							{
+								return()
+							}else{
+								as.numeric(strsplit(unlist(text$doc$children$result[[3]]),">")[3])
+							}
+					}
+					
+			out[[i]]<-foreach(j=c(1:length(codes)),.combine="c") %dopar% .local(i,j,codes=codes)#length(codes)
+			stopCluster(cl.tmp)	
+			}
+			
+		names(ids)<-matched[,1]	# cid of all paired by cid
+		
+		#construct symmetric matrix then extract unique edge list
+		mat<-do.call("rbind",lapply(1:length(ids),function(i)
+			{
+				obj<-ids[[i]]
+				match<-sapply(1:length(ids), function(j)
+					{
+						tmp<-ids[[j]]
+						sum(tmp%in%obj)
+					})
+			}))
+		dimnames(mat)<-list(names(ids),names(ids))
+		elist<-gen.mat.to.edge.list(mat)
+		as.data.frame(elist[elist[,3]==1,1:2])	#cid source to cid target based on kegg pairs	
+	}
 
 #functions for devium network GUI to calculate edge list
 devium.network.execute<-function(object)
 	{
+		#stored in get("devium.network.object",envir=devium)
 		main<-tryCatch(get(object$devium.network.target.object),error=function(e){NULL})
 				if(is.null(main))
 					{ 
@@ -650,33 +764,35 @@ devium.network.execute<-function(object)
 						edge.list.type<-object$devium.network.edge.list.type
 						switch(edge.list.type,
 						"spearman correlations" = .local<-function()
-															{
-																#cut out factors if present
-																tmp.data<-main[sapply(1:ncol(main), function(i) {class(main[,i])=="numeric"})]
-																cor.mat<-cor(tmp.data, method="spearman") #use correlations to get edge list
-	
-																#make edge list from a square symmetric matrix	
-																edge.list<-gen.mat.to.edge.list(cor.mat)
-							
-																#add options for filter
-																
-																#return edge list
-																return(edge.list[,1:2])
-																
-															},
-						"KEGG reaction pairs" = .local<-function()
-															{
-																#autogenerate look up based on matching CIDs to KEGG ids
-																
-																#extract rpairs from data base
-							
-																#return edge list
-																return()
-																
-															}
-							
+													{
+														#cut out factors if present
+														tmp.data<-main[sapply(1:ncol(main), function(i) {class(main[,i])=="numeric"})]
+														cor.mat<-cor(tmp.data, method="spearman") #use correlations to get edge list
+
+														#make edge list from a square symmetric matrix	
+														edge.list<-gen.mat.to.edge.list(cor.mat)
+					
+														#add options for filter
+														
+														#return edge list and value
+														return(edge.list) # [,1:2]
+														
+													},
+													
+						"KEGG reaction pairs" 	= .local<-function()
+													{
+														#return edge list
+														CID.to.KEGG.pairs(as.matrix(main),database=get.KEGG.pairs(),lookup=get.CID.KEGG.pairs())
+													},
+													
+						"Tanimoto distances"	= .local<-function()
+													{
+														#return edge list
+														CID.to.tanimoto(as.matrix(main), cut.off = .7, parallel=TRUE)
+													}							
 							
 						)
+						
 					elist<-.local()	
 					d.assign("devium.network.edge.list.calculated",elist,main.object="devium.network.object")
 					#may want to to also assign to global	
@@ -685,24 +801,15 @@ devium.network.execute<-function(object)
 	}
 
 #functions for devium network GUI to plot edge list
-devium.network.plot<-function(edge.list, type)
+devium.network.plot<-function(edge.list, type, graph.obj=NULL)
 	{
+		check.get.packages(c("igraph","graph")) 
+		#optionaly try to get defaults
+		
+		
 		switch(type,
-			"static" = .local<-function(edge.list,type)
-								{
-									#create grapNEL object from edge list
-									graph.obj<-edge.list.to.graphNEL(edge.list)
-									# could coalculate tis directly but fornow going through NEL because it is also used for Cytoscape graphs
-									igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
-									#with groups marked
-									igraph.obj$V<-unclass(igraph.obj)[[9]][[3]]$name #add labels has to be a better way?
-									mark.groups<-list()	
-									if(names(dev.cur())[1]=="null device"){x11()} # make device if not present
-									plot(igraph.obj, mark.groups=mark.groups,layout=layout.fruchterman.reingold, 
-											vertex.label=igraph.obj$V, vertex.color="gray",vertex.size=6, frame=FALSE,vertex.label.dist=-.3)
-									# later use vertex + edge options to set these (color, size, etc)
-								},
-		 "interactive" = .local<-function(edge.list,type)
+		"static" = .local<-function(edge.list,graph.obj){devium.igraph.plot(edge.list[,1:2], graph.par.obj=graph.obj,add=FALSE)},
+		 "interactive" = .local<-function(edge.list,type,graph.obj)
 								{
 									#create grapNEL object from edge list
 									graph.obj<-edge.list.to.graphNEL(edge.list)
@@ -714,7 +821,7 @@ devium.network.plot<-function(edge.list, type)
 									tkplot(igraph.obj, layout=layout.fruchterman.reingold, vertex.color="gray",vertex.size=6, vertex.label=igraph.obj$V, frame=FALSE,vertex.label.dist=-1.5)
 								},
 								
-			"3D-plot" = .local<-function(edge.list,type)
+			"3D-plot" = .local<-function(edge.list,type,graph.obj)
 								{
 									#create grapNEL object from edge list
 									graph.obj<-edge.list.to.graphNEL(edge.list)
@@ -724,8 +831,70 @@ devium.network.plot<-function(edge.list, type)
 									igraph.obj$V<-unclass(igraph.obj)[[9]][[3]]$name #add labels has to be a better way?
 									rglplot(igraph.obj,layout=layout.fruchterman.reingold, vertex.color="gray",vertex.size=6, vertex.label=igraph.obj$V, vertex.label.dist=-.25)
 								})
-				#make sure there is a graphics device
-				if(names(dev.cur())[1]=="null device"){x11()}
-					.local(edge.list,type)
+				
+			.local(edge.list,graph.obj)
 	}
+
+#function to add to existing igraph.plot
+devium.igraph.plot<-function(edge.list, graph.par.obj=NULL,add=FALSE)
+	{
+		check.get.packages(c("igraph","graph")) 
+		
+		#create grapNEL object from edge list
+		graph.obj<-edge.list.to.graphNEL(edge.list)
+		# could calculate tis directly but for now going through NEL because it is also used for Cytoscape graphs
+		igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
 	
+		
+		#default options
+		defaults<-list(
+		x= igraph.obj,
+		mark.groups =  NULL,
+		layout = get("layout.fruchterman.reingold"),  #have to get this later
+		vertex.label = unclass(igraph.obj)[[9]][[3]]$name, #this it the graph object later 
+		vertex.color ="gray",
+		vertex.size = 6,
+		vertex.label.dist=-.3)
+		
+		#join defaults with graph.par.obj
+		graph.par<-defaults
+		i<-1
+		for(i in 1:length(defaults))
+			{
+				j<-1
+				for(j in 1:length(names(graph.par.obj)))
+					{
+						if(as.character(names(defaults)[i])%in%as.character(names(graph.par.obj)[j]))
+							{
+									graph.par[[i]]<-tryCatch(get(unlist(graph.par.obj[j])),error=function(e){graph.par.obj[j]})
+							} else { 
+									tmp<-graph.par[i]
+									graph.par[i]<-tmp
+							}
+						names(graph.par[i])<-names(defaults)[i]
+					}
+			}
+		
+		# # make a call to set visual properties
+		# tmp<-graph.par
+		# tmp.call<-sapply(1:length(tmp),function(i)
+			# {
+				# if(length(tmp[[i]])>1)
+					# {
+							# paste(names(tmp)[i],"=get(graph.par[",i,"])", sep="")
+					# } else {
+							# tmp.obj<-data.frame(cbind(names(tmp)[i],tmp[i]))
+							# join.columns(tmp.obj,char="=",quote.last=TRUE)
+					# }
+			# })
+					
+		# #make character joined on ","
+		# visual.call<-paste(c(unlist(tmp.call), paste("add=",add,sep="")),collapse=",")
+			
+		# #graph making properties
+		# graph.call<-paste(c("x=get('igraph.obj')",unlist(visual.call)),collapse=",")
+		
+		#call plot
+		do.call("plot",graph.par)
+			
+	}

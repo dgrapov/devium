@@ -1,6 +1,6 @@
 
 #collapse columns as strings
-join.columns<-function(obj,char="|")
+join.columns<-function(obj,char="|",quote.last=FALSE)
         {
 		
 			if(class(obj)=="list"){obj<-as.matrix(obj[[1]])} else {obj<-as.matrix(obj)}
@@ -16,7 +16,12 @@ join.columns<-function(obj,char="|")
 									i<-1
 									for(i in 1:(n-1))
 									{
-											sobj[,i]<-paste(as.character(obj[,i]),as.character(obj[,i+1]),sep=char)
+											if(quote.last==TRUE)
+											{
+														sobj[,i]<-paste(as.character(obj[,i]),paste("'",as.character(obj[,i+1]),"'",sep=""),sep=char)
+											} else {
+														sobj[,i]<-paste(as.character(obj[,i]),as.character(obj[,i+1]),sep=char)
+											}
 									}
 									sobj[,-n]
 							}else{
@@ -118,7 +123,7 @@ extract.on.index<-function(database,index=database[,1,drop=FALSE],what,extract.o
 		return(out)
 	}
 
-	#check object value or set default on condition
+#check object value or set default on condition
 if.or<-function(object,if.value=NULL,default,environment=devium)
 	{
 		obj<-tryCatch(svalue(get(object,envir=environment)),error=function(e){NA})
@@ -316,11 +321,15 @@ check.get.envir<-function(main.object,envir)
 	}	
 	  
  #function to make assignments to storage object
- d.assign<-function(add.obj,value,main.object="devium.pca.object",envir=devium)
+ d.assign<-function(add.obj,value,main.object,envir=devium) #main.object="devium.pca.object"
 	{
-		tmp<-get(get("main.object"),envir=envir)
-		tmp[[add.obj]]<-value
-		assign(get("main.object"),tmp,envir=devium)
+		.local<-function()
+			{
+				tmp<-get(main.object,envir=envir)
+				tmp[[add.obj]]<-value
+				assign(get("main.object"),tmp,envir=devium)
+			}
+			tryCatch(.local(),error=function(e){})
 	}
 	
 #from plyr: get as text

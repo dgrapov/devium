@@ -1,9 +1,9 @@
 Package: devium
 Type: Package
-Title: A dynamic GUI for multivariate data analysis and visualization.
+Title: Dynamic Multivariate Data Analysis and Visualization Platform
 Version: 1.0
 Date: 2013-01-10
 Author: Dmitry Grapov
 Maintainer: Dmitry Grapov <dgrapov@ucdavis.edu>
-Description: To do: list all the great suff devium can do 
-License: GPL
+Description: A dynamic GUI for multivariate data analysis and visualization.
+License: GPL-2

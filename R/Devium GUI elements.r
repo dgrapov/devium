@@ -308,11 +308,13 @@ devium.scatter.plot<- function(container=NULL)
 	
 	# C.I. for ellipse
     group[5,1]<-glabel("  ellipse level")
-	group[5,2]<-assign("ellipse.level",gslider(from = 0, to = .99, by = .01,value=0.95))#,handler=function(h,...){refresh.plot()}),envir=devium) # disable for manual refresh only
+	group[5,2]<-assign("ellipse.level",gslider(from = 0, to = .99, by = .01,value=0.95,
+		handler=function(h,...){refresh.plot(plot=FALSE)}),envir=devium)#,handler=function(h,...){refresh.plot(plot=FALSE)}),envir=devium) # disable for manual refresh only
 	#line type
 	group[5,3]<-tmp<-ggroup(horizontal=FALSE)
 	glabel("line type",container=tmp)
-	assign("group.line.type",gspinbutton(from = 0, to = 6, by = 1,value=1,container=tmp))#,handler=function(h,...){refresh.plot()}),envir=devium)
+	assign("group.line.type",gspinbutton(from = 0, to = 6, by = 1,value=1,
+		handler=function(h,...){refresh.plot()},container=tmp),envir=devium)#,handler=function(h,...){refresh.plot()}),envir=devium)
 	
 	
 	#global plotting options
@@ -426,6 +428,7 @@ devium.scatter.plot<- function(container=NULL)
 		{
 		
 		#if(names(dev.cur())=="null device")
+		if(names(dev.cur())[1]=="null device"){x11()} 
 			#{
 				opar<-par()
 				layout(matrix(c(1,1,1,1,1,1,2,2),nrow=2,ncol=4))
@@ -682,9 +685,9 @@ devium.scatter.plot<- function(container=NULL)
 		}
 
 	#generic call to plot
-	refresh.plot<-function(form.names=plot.opts,lookup=cbind(plot.opts,plot.names),default=plot.defaults)
+	refresh.plot<-function(form.names=plot.opts,lookup=cbind(plot.opts,plot.names),default=plot.defaults, plot=TRUE)
 		{
-						
+			if(names(dev.cur())[1]=="null device"){x11()} 			
 			#gather inputs
 			tmp<-get.inputs(form.name=form.names,lookup,default)
 		
@@ -705,14 +708,17 @@ devium.scatter.plot<- function(container=NULL)
 				{
 					tmp$x<-cy
 				}
-						
-			#select pairs for data.frames
-			if(is.data.frame(tmp$x))
-				{
-						new.plot("pairs",tmp)	
-					} else {
-						new.plot("plot",tmp)	
-				}
+				
+			if(plot==TRUE)
+			{
+				#select pairs for data.frames
+				if(is.data.frame(tmp$x))
+					{
+							new.plot("pairs",tmp)	
+						} else {
+							new.plot("plot",tmp)	
+					}
+			}
 		}
 	
 	#fxn to set set form handlers
@@ -1430,10 +1436,35 @@ devium.network.gui<-function(container=NULL)
 				toolbar$plot$icon = "plot"
 				toolbar$plot$handler = function(h, ...) 
 				{
-					#update options
+					#update options main objects
 					check.get.obj(object=gui.objects,main.object="devium.network.object") #assign all objects in form to main.object
+					
+					.<-get("devium.network.object",envir=devium)
+					#objects for visual properties
+					visual.par<-list(
+					layout = .$"devium.network.layout",  #have to get this later
+					vertex.label = .$"devium.network.labels" #, #this it the graph object later 
+					#vertex.color ="gray",
+					#vertex.size = 6,
+					#vertex.label.dist=-.3
+					)
+					
+					#cut out NULL
+					keep<-sapply(1:length(visual.par), function(i)
+						{
+							!visual.par[[i]]==""
+						})
+						
+					tmp<-visual.par[c(1:length(visual.par))[keep]]
+					names(tmp)<-names(visual.par)[c(1:length(visual.par))[keep]]
+					
 					#plot
-					devium.network.plot(edge.list=get("devium.network.object",envir=devium)$"devium.network.edge.list.calculated", type=get("devium.network.object",envir=devium)$"devium.network.plot.type")
+					devium.network.plot(edge.list=get("devium.network.object",envir=devium)$"devium.network.edge.list.calculated", 
+										type=get("devium.network.object",envir=devium)$"devium.network.plot.type",
+										graph.obj=tmp)
+					
+					#
+					
 				}	
 				tmp = gtoolbar(toolbar)
 				add(buttonBar, tmp, expand = TRUE)
@@ -1443,7 +1474,13 @@ devium.network.gui<-function(container=NULL)
 		make.tool.bar(container=mainWin)
 		
 		#gui objects possible options
-		gui.objects<-c("devium.network.target.object","devium.network.target.type","devium.network.edge.list.type","devium.network.plot.type")
+		gui.objects<-c("devium.network.target.object", # data.frame or character
+						"devium.network.target.type", # data or cid
+						"devium.network.edge.list.type", # calculation type
+						"devium.network.plot.type",# plot type
+						"devium.network.layout",#layout
+						"devium.network.labels" #labels
+						) 
 		
 		 #fxn to create the environment "devium" if it does not exist
 		 create.devium.env()	
@@ -1474,7 +1511,7 @@ devium.network.gui<-function(container=NULL)
 						{
 							return()
 						} else { 
-							#get aorgs to determine options
+							#get args to determine options
 							tmp<-svalue(get("devium.network.target.type",envir=devium))
 							if(tmp=="Data")
 								{
@@ -1500,11 +1537,24 @@ devium.network.gui<-function(container=NULL)
 		#VERTICES
 		tmp<-glayout(container=.notebook,label="Vertices")
 		
-		
 		#plotting
 		tmp<-glayout(container=.notebook,label="Graph")
 		tmp[1,1]<-glabel("  visualization",container=tmp)
-		tmp[1,2]<-assign("devium.network.plot.type",gcombobox(c("static","interactive", "3D-plot", "Cytoscape"),selected = 1,container=tmp),envir=devium)#,envir=devium#,envir=devium
+		tmp[1,2]<-assign("devium.network.plot.type",gcombobox(c("static","interactive", "3D-plot", "Cytoscape"),selected = 2,container=tmp),envir=devium)#,envir=devium#,envir=devium
+		tmp[2,1]<-glabel("  layout",container=tmp)
+		tmp[2,2]<-assign("devium.network.layout",
+						gcombobox(c("layout.random","layout.circle","layout.sphere","layout.fruchterman.reingold",
+							"layout.kamada.kawai","layout.spring","layout.reingold.tilford","layout.fruchterman.reingold.grid",
+							"layout.lgl","layout.graphopt","layout.mds","layout.svd","layout.norm","layout.drl"),
+						selected = 4,container=tmp),envir=devium)#,envir=devium#,envir=devium
+		tmp[3,1]<-glabel("  labels",container=tmp)
+		tmp[3,2]<-assign("devium.network.labels",gedit("",container=tmp),envir=devium)
+		adddroptarget(get("devium.network.labels",envir=devium),handler = function(h,...) 
+		{
+				svalue(h$obj)<-id(h$dropdata)
+				d.assign("devium.network.labels",get(id(h$dropdata),main.object="devium.network.object"))			
+		})
+		
 		svalue(.notebook)<-1
 		return(mainWin)
 }
