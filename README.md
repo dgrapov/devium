@@ -13,7 +13,7 @@ A GUI for interactive plotting and analysis of multivariate data.
  
   - Linked brushing of multiple plots -  iplots
  
-  - Network Visualizations - RCytoscape
+  - Network Visualizations - igraph (static, interactive and 3D), Cytoscape (RCytoscape)
  
   - Analyses - univariate and multivariate
  
