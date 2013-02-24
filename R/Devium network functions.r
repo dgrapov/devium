@@ -836,25 +836,25 @@ devium.network.plot<-function(edge.list, type, graph.obj=NULL)
 	}
 
 #function to add to existing igraph.plot
-devium.igraph.plot<-function(edge.list, graph.par.obj=NULL,add=FALSE)
+devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add=FALSE)
 	{
 		check.get.packages(c("igraph","graph")) 
-		
 		#create grapNEL object from edge list
 		graph.obj<-edge.list.to.graphNEL(edge.list)
 		# could calculate tis directly but for now going through NEL because it is also used for Cytoscape graphs
 		igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
 	
 		
-		#default options
+		#default options for igraph.plot
 		defaults<-list(
-		x= igraph.obj,
+		x = igraph.obj,
 		mark.groups =  NULL,
-		layout = get("layout.fruchterman.reingold"),  #have to get this later
+		layout = "layout.fruchterman.reingold",  #have to get this later
 		vertex.label = unclass(igraph.obj)[[9]][[3]]$name, #this it the graph object later 
 		vertex.color ="gray",
 		vertex.size = 6,
 		vertex.label.dist=-.3)
+		
 		
 		#join defaults with graph.par.obj
 		graph.par<-defaults
@@ -864,37 +864,41 @@ devium.igraph.plot<-function(edge.list, graph.par.obj=NULL,add=FALSE)
 				j<-1
 				for(j in 1:length(names(graph.par.obj)))
 					{
-						if(as.character(names(defaults)[i])%in%as.character(names(graph.par.obj)[j]))
+						if(as.character(names(defaults)[i])==as.character(names(graph.par.obj)[j]))
 							{
-									graph.par[[i]]<-tryCatch(get(unlist(graph.par.obj[j])),error=function(e){graph.par.obj[j]})
-							} else { 
-									tmp<-graph.par[i]
-									graph.par[i]<-tmp
-							}
-						names(graph.par[i])<-names(defaults)[i]
+									graph.par[[i]]<- graph.par.obj[[j]] #tryCatch(get(unlist(graph.par.obj[j])),error=function(e){graph.par.obj[j]})
+							} #else { 
+									# tmp<-graph.par[i]
+									# graph.par[i]<-tmp
+							# }
 					}
 			}
 		
-		# # make a call to set visual properties
-		# tmp<-graph.par
-		# tmp.call<-sapply(1:length(tmp),function(i)
-			# {
-				# if(length(tmp[[i]])>1)
-					# {
-							# paste(names(tmp)[i],"=get(graph.par[",i,"])", sep="")
-					# } else {
-							# tmp.obj<-data.frame(cbind(names(tmp)[i],tmp[i]))
-							# join.columns(tmp.obj,char="=",quote.last=TRUE)
-					# }
-			# })
-					
-		# #make character joined on ","
-		# visual.call<-paste(c(unlist(tmp.call), paste("add=",add,sep="")),collapse=",")
-			
-		# #graph making properties
-		# graph.call<-paste(c("x=get('igraph.obj')",unlist(visual.call)),collapse=",")
+		#translate names to use call for tkplot and rgl plot
+		#switch names to generate calls for tkplot 
+		switch(plot.type,
+		"interactive" 	= names(defaults)[c(1,2)]<-c("graph","..."),
+		"3D-plot" 		= names(defaults)[c(2)]<-"...")
 		
+		names(graph.par)<-names(defaults)
+		
+		#calculate layout to be shared by all plots
+		graph.par[names(graph.par)=="layout"][[1]]<-as.matrix(do.call(unlist(graph.par[names(graph.par)=="layout"]),list(graph.par[[1]])))
+		
+		#try to get objects ... if error stay with default ( was in the loop above, but need mechanism to not get for layout)
+		
+		
+		#add third dimension if using 2D layout for 3D-plot
+		if(plot.type=="3D-plot" & ncol(as.data.frame(graph.par[names(graph.par)=="layout"]))<3)
+			{
+				graph.par[names(graph.par)=="layout"][[1]]<-as.matrix(cbind(as.data.frame(graph.par[names(graph.par)=="layout"]),0))
+			}
+		
+	
 		#call plot
-		do.call("plot",graph.par)
-			
+		switch(plot.type,
+				static 		= do.call("plot",graph.par),
+				interactive = do.call("tkplot",graph.par),
+				"3D-plot" 	= do.call("rglplot",graph.par))
+		
 	}

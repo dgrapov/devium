@@ -1436,14 +1436,20 @@ devium.network.gui<-function(container=NULL)
 				toolbar$plot$icon = "plot"
 				toolbar$plot$handler = function(h, ...) 
 				{
+					
 					#update options main objects
 					check.get.obj(object=gui.objects,main.object="devium.network.object") #assign all objects in form to main.object
+					.<-get("devium.network.object",envir=devium) # main object
 					
-					.<-get("devium.network.object",envir=devium)
+					#check to see if edge list exists else create one from GUI set options
+					object.name<-paste(.$devium.network.target.object,".network.edge.list",sep="")
+					if(!exists(object.name)){devium.network.execute(.)}							
+
+				
 					#objects for visual properties
 					visual.par<-list(
 					layout = .$"devium.network.layout",  #have to get this later
-					vertex.label = .$"devium.network.labels" #, #this it the graph object later 
+					vertex.label = tryCatch(as.character(unlist(get(.$"devium.network.labels"))),error=function(e){.$"devium.network.labels"}) #, #this it the graph object later 
 					#vertex.color ="gray",
 					#vertex.size = 6,
 					#vertex.label.dist=-.3
@@ -1452,18 +1458,17 @@ devium.network.gui<-function(container=NULL)
 					#cut out NULL
 					keep<-sapply(1:length(visual.par), function(i)
 						{
-							!visual.par[[i]]==""
+							all(!visual.par[[i]]=="")
 						})
 						
 					tmp<-visual.par[c(1:length(visual.par))[keep]]
 					names(tmp)<-names(visual.par)[c(1:length(visual.par))[keep]]
 					
 					#plot
-					devium.network.plot(edge.list=get("devium.network.object",envir=devium)$"devium.network.edge.list.calculated", 
-										type=get("devium.network.object",envir=devium)$"devium.network.plot.type",
-										graph.obj=tmp)
-					
-					#
+					devium.igraph.plot(edge.list=get("devium.network.object",envir=devium)$"devium.network.edge.list.calculated", 
+										plot.type=get("devium.network.object",envir=devium)$"devium.network.plot.type",
+										graph.par.obj=tmp)
+										#
 					
 				}	
 				tmp = gtoolbar(toolbar)
@@ -1538,7 +1543,7 @@ devium.network.gui<-function(container=NULL)
 		tmp<-glayout(container=.notebook,label="Vertices")
 		
 		#plotting
-		tmp<-glayout(container=.notebook,label="Graph")
+		tmp<-glayout(container=.notebook,label="Global")
 		tmp[1,1]<-glabel("  visualization",container=tmp)
 		tmp[1,2]<-assign("devium.network.plot.type",gcombobox(c("static","interactive", "3D-plot", "Cytoscape"),selected = 2,container=tmp),envir=devium)#,envir=devium#,envir=devium
 		tmp[2,1]<-glabel("  layout",container=tmp)
@@ -1676,32 +1681,35 @@ devium.gui<-function (width = 850, height = .75 * width)
 	devium.menu$Data$`Load R Data`$handler<-function(h,...){devium.load.Rdataset() }
 	devium.menu$Data$`Modify Data`$handler<-function(h,...){add(get("devium.notebook",envir=devium),devium.data(), label = "Modify Data") }
 	
-	#plots
+	#METHODS
+	devium.menu$Methods$`PCA`$handler<-function(h,...)
+		{
+			add(get("devium.notebook",envir=devium),devium.PCA.gui(), label = "PCA") 
+		}
+		
+		devium.menu$Methods$`Network`$handler<-function(h,...)
+		{
+			#x11() # need to change this for non-windows machines
+			add(get("devium.notebook",envir=devium),devium.network.gui(), label = "Network") 
+		}	
+		
+		
+	#PLOTS
 	devium.menu$Plots$`Scatter Plot`$handler<-function(h,...)
 		{
 			#x11() # need to change this for non-windows machines
 			add(get("devium.notebook",envir=devium),devium.scatter.plot(), label = "Scatter Plot") 
 			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
 			svalue(tmp)<-.2
-	
 		}
 		
-	devium.menu$Plots$`Plot Builder`$handler<-function(h,...)
+	devium.menu$Plots$`Dynamic Plot`$handler<-function(h,...)
 		{
 			#x11() # need to change this for non-windows machines
 			add(get("devium.notebook",envir=devium),devium.qplot(), label = "Plot Builder") 
 		}	
 		
-	devium.menu$Plots$`Network`$handler<-function(h,...)
-		{
-			#x11() # need to change this for non-windows machines
-			add(get("devium.notebook",envir=devium),devium.network.gui(), label = "Network") 
-		}	
-		
-	devium.menu$Methods$`PCA`$handler<-function(h,...)
-		{
-			add(get("devium.notebook",envir=devium),devium.PCA.gui(), label = "PCA") 
-		}	
+	
 		
 	
 	#make top menue
