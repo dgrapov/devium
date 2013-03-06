@@ -2,8 +2,7 @@
 # functions
 #-------------------------------------------------------------
 #create a network from a graphNeL object
-make.cynet<-function(graph,network.name,layout='jgraph-spring')
-	{
+make.cynet<-function(graph,network.name,layout='jgraph-spring'){
 		check.get.packages("RCytoscape")
 		
 		#check connection 
@@ -29,8 +28,7 @@ make.cynet<-function(graph,network.name,layout='jgraph-spring')
 	}
 
 #set characteristics of edges in an existing cytoscape network
-set.edge.attribute<-function(network,edge.names,edge.attribute,edge.attribute.value)
-	{
+set.edge.attribute<-function(network,edge.names,edge.attribute,edge.attribute.value){
 	
 		var<-edge.attribute.value
 		
@@ -59,8 +57,7 @@ set.edge.attribute<-function(network,edge.names,edge.attribute,edge.attribute.va
 	}
 
 #set characteristics of nodes in existing cytoscape network
-set.node.attribute<-function(network,node.names,node.attribute,node.attribute.value)
-	{
+set.node.attribute<-function(network,node.names,node.attribute,node.attribute.value){
 		#check node names against what is in the network 
 		var<-node.attribute.value
 		graph.names<-getAllNodes(network)
@@ -125,8 +122,7 @@ set.node.attribute<-function(network,node.names,node.attribute,node.attribute.va
 	}
 
 #dynamically link graph node and edge selections	
-link.cyto.graph.nodes.select<-function(graphs,visual.style.names=NULL)
-	{
+link.cyto.graph.nodes.select<-function(graphs,visual.style.names=NULL){
 		#graphs should be a character string of graph names
 		#with out knowing the active graph scan all for active nodes
 		selected<-unique(as.character(na.omit(do.call("rbind",lapply(1:length(graphs),function(i)
@@ -155,8 +151,7 @@ link.cyto.graph.nodes.select<-function(graphs,visual.style.names=NULL)
 	}
 
 #save cytoscape network styles 
-save.cyto.graph.styles<-function(network,prefix=NA)
-	{
+save.cyto.graph.styles<-function(network,prefix=NA){
 		sapply(1:length(network),function(i)
 		{
 			if(is.na(prefix))name<-paste("style-",network[i],sep="") else name<-paste(prefix,network[i],sep="") 
@@ -167,8 +162,7 @@ save.cyto.graph.styles<-function(network,prefix=NA)
 	}
 
 #delete styles (not validated)	
-delete.cyto.graph.styles<-function(network)
-	{
+delete.cyto.graph.styles<-function(network){
 		sapply(1:length(network),function(i)
 		{
 			name<-paste(network[i],"-style",sep="")
@@ -179,8 +173,7 @@ delete.cyto.graph.styles<-function(network)
 	}
 
 #create a node legend network
-cyto.node.legend<-function(network="new",node.attribute,node.attribute.value,node.names,legend.title="node legend",unique.matched=FALSE)
-	{
+cyto.node.legend<-function(network="new",node.attribute,node.attribute.value,node.names,legend.title="node legend",unique.matched=FALSE){
 		if(!class(network)=="CytoscapeWindowClass")	
 			{
 				#get unique properties
@@ -241,14 +234,12 @@ cyto.node.legend<-function(network="new",node.attribute,node.attribute.value,nod
 	}
 	
 #format cytoscape edge names to edge list
-convert.to.edge.list<-function(graph)
-	{	
+convert.to.edge.list<-function(graph){	
 		return(do.call("rbind",strsplit(as.character(names(cy2.edge.names (graph@graph) )),"~")))
 	}
 
 #convert  qpgraph output to edge list output
-mat.to.edge.list<-function(input,graph)
-	{
+mat.to.edge.list<-function(input,graph){
 		#parse qpgraph object into pieces
 		# generalize later if necessary
 		p.cor.r<-input$R
@@ -284,8 +275,7 @@ mat.to.edge.list<-function(input,graph)
 	}
 
 #generic convert symmetric matrix to edge list (use the upper triangle) (shoud make a class)
-gen.mat.to.edge.list<-function(mat)
-	{
+gen.mat.to.edge.list<-function(mat){
 		
 		#accessory function
 		all.pairs<-function(r,type="one")
@@ -308,8 +298,7 @@ gen.mat.to.edge.list<-function(mat)
 	}
 
 #trim edge list based on some reference index 
-edge.list.trim<-function(edge.list,index,cut,less.than=FALSE)
-		{
+edge.list.trim<-function(edge.list,index,cut,less.than=FALSE){
 			if(less.than==TRUE){
 					edge.list[index<=cut,,drop=FALSE]
 				}else{
@@ -320,8 +309,7 @@ edge.list.trim<-function(edge.list,index,cut,less.than=FALSE)
 #----Identify differences in measures between two classes given some 
 # threshhold (i.e. p-value) and filter out put based on pcor, combined network
 # inputs structure as output from qpgraph
-compare.2class.network<-function(network,class1.obj,class2.obj, threshold=0.05)
-	{
+compare.2class.network<-function(network,class1.obj,class2.obj, threshold=0.05){
 		#Extract edge correlation and p-value
 		#class 1
 		edge.cor1<-mat.to.edge.list(class1.obj,network)
@@ -353,8 +341,7 @@ compare.2class.network<-function(network,class1.obj,class2.obj, threshold=0.05)
 	}
 
 #subset data and compare common and unique connections based on qpnetworks	
-qpgraph.compare<-function(data,factor,threshold="auto",...)
-	{
+qpgraph.compare<-function(data,factor,threshold="auto",...){
 		#Use factor to split data by rows  and calculate
 		#qpnetworks
 		#if threshhold ="auto" then it is estimated where all nodes are connected
@@ -413,8 +400,7 @@ qpgraph.compare<-function(data,factor,threshold="auto",...)
 			}
 		
 #generate qpgraph
-make.ave.qpgraph<-function(data,tests=200,for.col=TRUE,...)
-	{
+make.ave.qpgraph<-function(data,tests=200,for.col=TRUE,...){
 		library(qpgraph)
 		.local<-function(data,tests=200,for.col=TRUE,...)
 		{
@@ -427,8 +413,7 @@ make.ave.qpgraph<-function(data,tests=200,for.col=TRUE,...)
 	}
 	
 #plot graph edge/vertex number vs threshhold
-choose.qpgraph.threshold<-function(qpnetwork,.threshold=c(0,.6),choose=NULL)
-	{
+choose.qpgraph.threshold<-function(qpnetwork,.threshold=c(0,.6),choose=NULL){
 		#choose elbow in vertex vs. edge plot
 		int<-c(seq(.threshold[1],.threshold[2],by=.01)[-1])
 		
@@ -471,8 +456,7 @@ choose.qpgraph.threshold<-function(qpnetwork,.threshold=c(0,.6),choose=NULL)
 #partial correlation coefficients and p-values
 #some times this can not be calculated due too few observations
 #do instead via qpgraph
-partial.correl<- function(data, qpnet, verbose=T, for.col=TRUE,...)
-	{
+partial.correl<- function(data, qpnet, verbose=T, for.col=TRUE,...){
 		.local<-function(data, qpnet, verbose=verbose,long.dim.are.variables,...)
 			{
 				qpPAC(data, g=qpnet, verbose=verbose,long.dim.are.variables=long.dim.are.variables,...) 
@@ -482,8 +466,7 @@ partial.correl<- function(data, qpnet, verbose=T, for.col=TRUE,...)
 	}
 
 #make graphNEL object from edge list
-edge.list.to.graphNEL<-function(edge.list)
-	{
+edge.list.to.graphNEL<-function(edge.list){
 		check.get.packages("graph")
 		#one way
 		edge.l<-split(as.character(edge.list[,2]),as.factor(as.character(edge.list[,1])))
@@ -514,8 +497,7 @@ edge.list.to.graphNEL<-function(edge.list)
 	}
 	
 #extract values from a square symmetric matrix based on an edge list
-sym.mat.to.edge.list<-function(mat,edge.list)
-	{
+sym.mat.to.edge.list<-function(mat,edge.list){
 		# extract position of objects from a
 		# square symmetric matrix based on its dimnames
 		# according to an edge list
@@ -544,8 +526,7 @@ sym.mat.to.edge.list<-function(mat,edge.list)
 
 #sort edge list/attributes to match order of cytoscape network
 #account for reciprical edge naming 
-match.cynet.edge.order<-function(obj,cynet)
-	{
+match.cynet.edge.order<-function(obj,cynet){
 		cy.order<-names(cy2.edge.names (cynet@graph))
 		my.order<-rownames(obj)
 		
@@ -573,8 +554,7 @@ match.cynet.edge.order<-function(obj,cynet)
 	}	
 
 #filter edges based on some weight or binary index
-filter.edges<-function(edge.list,filter,cut.off=NULL)
-	{
+filter.edges<-function(edge.list,filter,cut.off=NULL){
 		#check to see if each side of the edge (to or from) meets requirement
 		#if cut.off = NULL 
 		#filter must be a two column matrix with node names and logical statement if they should kept
@@ -604,16 +584,14 @@ filter.edges<-function(edge.list,filter,cut.off=NULL)
 #create edge list and network attributes file from meta.data wioth CID keys
 #data<- bound with CIDS
 #filter object basd on cid index to remove duplicates
-unique.obj<-function(data, index)
-	{
+unique.obj<-function(data, index){
 		#accesory function to return position of first instance of unique object 
 		id<-unique.id(index)
 		data[id,]
 	}
 
 #look up KEGG reactant pairs 
-get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964564/raw/aec1a5097a3265d22109c9b34edd99a28f4012a3/KEGG+reaction+pairs")
-	{
+get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964564/raw/aec1a5097a3265d22109c9b34edd99a28f4012a3/KEGG+reaction+pairs"){
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
 		tmp<-strsplit(text,"\\n")
@@ -622,9 +600,9 @@ get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964564/raw/aec1a5
 		tmp2[[1]]<-strsplit(tmp2[[1]],"\\  ")
 		matrix(unlist(tmp2),ncol=2, byrow=TRUE)
 	}
-#look up CID to KEGG translation 	
-get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c84f8f209f961b23adbf7d7bd1f704ce7a1166ed/CID_KEGG+pairs")
-	{
+
+	#look up CID to KEGG translation 	
+get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c84f8f209f961b23adbf7d7bd1f704ce7a1166ed/CID_KEGG+pairs"){
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
 		tmp<-strsplit(text,"\\n")
@@ -634,8 +612,7 @@ get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c8
 	}
 
 	#making an edge list based on CIDs from KEGG reactant pairs
-CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pairs())
-	{
+CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pairs()){
 		matched<-lookup[c(1:nrow(lookup))[lookup[,1]%in%cid],]
 		ids<-sapply(1:nrow(matched),function(i)
 			{
@@ -659,18 +636,45 @@ CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pa
 		as.data.frame(elist[elist[,3]==1,1:2])	#cid source to cid target based on kegg pairs	
 	}
 
+#calculate correlations and p-values
+devium.calculate.correlations<-function(data,type){
+		check.get.packages(c("WGCNA","Hmisc"))
+		#data will be coerced to a matrix
+		# type includes pearson (WGCA), biweight(WGCA), spearman
+		switch(type,
+			pearson 	= .local<-function(data){
+							obj<-corAndPvalue(as.matrix(data), use = "pairwise.complete.obs", alternative = "two.sided")
+							list(cor=obj$cor,p.value=obj$p)
+							},		
+			biweight 	= .local<-function(data){
+							obj<-bicorAndPvalue(as.matrix(data),use = "pairwise.complete.obs", alternative = "two.sided")
+							list(cor=obj$cor,p.value=obj$p)
+							},
+			spearman    = .local<-function(data){
+							obj<-rcorr(as.matrix(data),type="spearman")
+							list(cor=obj$r,p.value=obj$P)
+							})
+			.local(data)				
+	}
+
 #get tanimoto distances from cids
-CID.to.tanimoto<-function(cids, cut.off = .7, parallel=TRUE)
-{
+CID.to.tanimoto<-function(cids, cut.off = .7, parallel=TRUE){
 	#used cids = PUBCHEM CIDS to calculate tanimoto distances
-	check.get.packages(c("snow","doSNOW","foreach","ChemmineR")) # need packages
+	check.get.packages(c("snow","doSNOW","foreach","ChemmineR")) # need to use others for mac
 	
 	#get fingerprint for calcs
 	data(pubchemFPencoding)
-	compounds <- getIds(as.numeric(cids))
+	cid.objects<-unique(as.numeric(as.character(unlist(cids)))) # need
+	#print to screen any duplictes which get removed 
+	cat(paste("Duplicates of", paste(as.character(unlist(cids))[duplicated(as.numeric(as.character(unlist(cids))))]), "were removed" ),"\n")
+	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint. This may take a moment.","\n")
+	compounds <- getIds(cid.objects)
 	# Convert base 64 encoded fingerprints to character vector, matrix or FPset object
 	fpset <- fp2bit(compounds, type=3)
-	dimnames(fpset@fpma)[1]<-list(as.character(cids))
+	
+
+	dupe<-
+	dimnames(fpset@fpma)[1]<-list(as.character(cid.objects))
 	
 	if(parallel==TRUE)
 		{
@@ -693,13 +697,12 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=TRUE)
 	pass<-!as.numeric(obj[,3])<=cut.off
 	
 	#return edgelist 
-	as.data.frame(obj[pass,1:2])
+	as.data.frame(obj[pass,1:3])
+	#rm(pubchemFPencoding) # optional
 }
 
-#querry chemical translation service (CTS) to get tanimoto from inchis
-#very slow
-CID.to.tanimoto<-function(cid,lookup=get.CID.INCHIcode.pairs())
-	{
+#querry chemical translation service (CTS) to get tanimoto from inchis (very slow)
+CID.to.tanimoto.CTS<-function(cid,lookup=get.CID.INCHIcode.pairs()){
 		check.get.packages("XML")
 		matched<-lookup[c(1:nrow(lookup))[lookup[,1]%in%cid],]
 		matched<-matched[!matched[,2]=="",]
@@ -752,92 +755,104 @@ CID.to.tanimoto<-function(cid,lookup=get.CID.INCHIcode.pairs())
 	}
 
 #functions for devium network GUI to calculate edge list
-devium.network.execute<-function(object)
-	{
+devium.network.execute<-function(object,filter=as.numeric(object$devium.network.edge.list.weight.cutoff)){
+		check.get.packages(c("WGCNA","Hmisc"))
 		#stored in get("devium.network.object",envir=devium)
-		main<-tryCatch(get(object$devium.network.target.object),error=function(e){NULL})
-				if(is.null(main))
-					{ 
-							return()
-					} else {
-						#temporary routing functions
-						edge.list.type<-object$devium.network.edge.list.type
-						switch(edge.list.type,
-						"spearman correlations" = .local<-function()
-													{
-														#cut out factors if present
-														tmp.data<-main[sapply(1:ncol(main), function(i) {class(main[,i])=="numeric"})]
-														cor.mat<-cor(tmp.data, method="spearman") #use correlations to get edge list
-
-														#make edge list from a square symmetric matrix	
-														edge.list<-gen.mat.to.edge.list(cor.mat)
-					
-														#add options for filter
-														
-														#return edge list and value
-														return(edge.list) # [,1:2]
-														
-													},
-													
-						"KEGG reaction pairs" 	= .local<-function()
-													{
-														#return edge list
-														CID.to.KEGG.pairs(as.matrix(main),database=get.KEGG.pairs(),lookup=get.CID.KEGG.pairs())
-													},
-													
-						"Tanimoto distances"	= .local<-function()
-													{
-														#return edge list
-														CID.to.tanimoto(as.matrix(main), cut.off = .7, parallel=TRUE)
-													}							
-							
-						)
-						
-					elist<-.local()	
-					d.assign("devium.network.edge.list.calculated",elist,main.object="devium.network.object")
-					#may want to to also assign to global	
-					assign(paste(object$devium.network.target.object,"network.edge.list", sep="."),elist, envir=globalenv())
-					}
-	}
-
-#functions for devium network GUI to plot edge list
-devium.network.plot<-function(edge.list, type, graph.obj=NULL)
-	{
-		check.get.packages(c("igraph","graph")) 
-		#optionaly try to get defaults
-		
-		
-		switch(type,
-		"static" = .local<-function(edge.list,graph.obj){devium.igraph.plot(edge.list[,1:2], graph.par.obj=graph.obj,add=FALSE)},
-		 "interactive" = .local<-function(edge.list,type,graph.obj)
-								{
-									#create grapNEL object from edge list
-									graph.obj<-edge.list.to.graphNEL(edge.list)
-									# could coalculate tis directly but fornow going through NEL because it is also used for Cytoscape graphs
-									igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
-									#with groups marked
-									igraph.obj$V<-unclass(igraph.obj)[[9]][[3]]$name #add labels has to be a better way?
-									mark.groups<-list()
-									tkplot(igraph.obj, layout=layout.fruchterman.reingold, vertex.color="gray",vertex.size=6, vertex.label=igraph.obj$V, frame=FALSE,vertex.label.dist=-1.5)
-								},
-								
-			"3D-plot" = .local<-function(edge.list,type,graph.obj)
-								{
-									#create grapNEL object from edge list
-									graph.obj<-edge.list.to.graphNEL(edge.list)
-									# could coalculate tis directly but fornow going through NEL because it is also used for Cytoscape graphs
-									igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
-									#with groups marked
-									igraph.obj$V<-unclass(igraph.obj)[[9]][[3]]$name #add labels has to be a better way?
-									rglplot(igraph.obj,layout=layout.fruchterman.reingold, vertex.color="gray",vertex.size=6, vertex.label=igraph.obj$V, vertex.label.dist=-.25)
-								})
+		#switch for data  of CIDs
+		if(object$devium.network.target.type=="Data"){
+					main<-tryCatch(get(object$devium.network.target.object),error=function(e){NULL})
+			} else{
+					main<-tryCatch(get(object$devium.network.target.object),error=function(e){NULL})
+					#check if it is inside a data frame and try to get it
+					if(is.null(main)) {main<-tryCatch(as.matrix(as.numeric(as.character(unlist(gget(object$devium.network.target.object))))),error=function(e){NULL})}
+			}
+			
+			if(is.null(main))
+				{ 
+						return()
+				} else {
 				
-			.local(edge.list,graph.obj)
+					#routing functions
+					edge.list.type<-object$devium.network.edge.list.type
+					tmp.data<-main[sapply(1:ncol(main), function(i) {class(main[,i])=="numeric"})]#cut out factors if present need for data
+					switch(edge.list.type,
+					"spearman correlations" = .local<-function()
+												{
+													
+													cor.mat<-devium.calculate.correlations(tmp.data,type="spearman") 
+
+													#make edge list from a square symmetric matrix	
+													edge.list<-gen.mat.to.edge.list(cor.mat$cor)
+				
+													#add options for filter
+													weight.list<-gen.mat.to.edge.list(cor.mat$p.value)
+													
+													filtered.list<-edge.list[as.numeric(as.character(unlist(weight.list[,3])))<=filter,]
+													
+													#return edge list and value
+													list(full.edge.list=edge.list,weights = data.frame(weight.list[,3],drop=FALSE), filtered.edge.list = filtered.list )
+												},
+					"pearson correlations" = .local<-function()
+												{
+													
+													cor.mat<-devium.calculate.correlations(tmp.data,type="pearson") 
+
+													#make edge list from a square symmetric matrix	
+													edge.list<-gen.mat.to.edge.list(cor.mat$cor)
+				
+													#add options for filter
+													weight.list<-gen.mat.to.edge.list(cor.mat$p.value)
+													
+													filtered.list<-edge.list[as.numeric(as.character(unlist(weight.list[,3])))<=filter,]
+													
+													#return edge list and value
+													list(full.edge.list=edge.list,weights = data.frame(weight.list[,3],drop=FALSE), filtered.edge.list = filtered.list )
+												},
+					"biweight mid-correlation" = .local<-function()
+												{
+													
+													cor.mat<-devium.calculate.correlations(tmp.data,type="biweight") 
+
+													#make edge list from a square symmetric matrix	
+													edge.list<-gen.mat.to.edge.list(cor.mat$cor)
+				
+													#add options for filter
+													weight.list<-gen.mat.to.edge.list(cor.mat$p.value)
+													
+													filtered.list<-edge.list[as.numeric(as.character(unlist(weight.list[,3])))<=filter,]
+													
+													#return edge list and value
+													list(full.edge.list=edge.list,weights = data.frame(weight.list[,3],drop=FALSE), filtered.edge.list = filtered.list )
+												},							
+					"KEGG reaction pairs" 	= .local<-function()
+												{
+													#return edge list
+													obj<-CID.to.KEGG.pairs(as.matrix(main),database=get.KEGG.pairs(),lookup=get.CID.KEGG.pairs())
+													out<-data.frame(cbind(obj,1))
+													list(full.edge.list=out,weights = data.frame(cbind(obj[,1:2],1)[,3],drop=FALSE), filtered.edge.list = obj )
+												},
+												
+					"Tanimoto distances"	= .local<-function()
+												{
+													#return edge list
+													obj<-CID.to.tanimoto(as.matrix(main), cut.off = filter, parallel=TRUE)
+													filtered<-obj[as.numeric(as.character(unlist(obj[,3])))>=filter,]
+													list(full.edge.list=obj,weights = data.frame(obj[,3],drop=FALSE), filtered.edge.list = filtered )
+												}		
+							)
+					
+				elist<-.local()	
+				d.assign("devium.network.edge.list.full",elist$full.edge.list,main.object="devium.network.object")
+				d.assign("devium.network.edge.list.weights",elist$weights,main.object="devium.network.object")
+				d.assign("devium.network.edge.list.calculated",elist$filtered.edge.list,main.object="devium.network.object")
+				
+				#may want to to also assign to global	
+				assign(paste(object$devium.network.target.object,"network.edge.list", sep="."),elist$filtered.edge.list, envir=globalenv())
+				}
 	}
 
 #function to add to existing igraph.plot
-devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add=FALSE)
-	{
+devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add=FALSE){
 		check.get.packages(c("igraph","graph")) 
 		#create grapNEL object from edge list
 		graph.obj<-edge.list.to.graphNEL(edge.list)
@@ -893,7 +908,6 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 			{
 				graph.par[names(graph.par)=="layout"][[1]]<-as.matrix(cbind(as.data.frame(graph.par[names(graph.par)=="layout"]),0))
 			}
-		
 	
 		#call plot
 		switch(plot.type,

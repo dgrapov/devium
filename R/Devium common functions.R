@@ -1,4 +1,189 @@
+#import from clipboard
+read.excel <- function(type="with.dimnames") {
+						  #assume row and colnames are included but may not be unique
+						  tmp<-read.table("clipboard",sep="\t")
+						  devium.data.format(tmp, type)
+						}
 
+#format data objects: identify headers and meta data, and give sepearately 
+devium.data.format<-function(obj, type){
+	#type can be with.dimnames
+	# with.meta.data
+	
+	switch(type,
+		with.dimnames = .local<-function(obj)
+							{
+								obj.names<-list(rownames = as.character(unlist(obj[-1,1])), colnames = as.character(unlist(obj[1,-1])))
+								obj<-as.data.frame(matrix(as.numeric(as.character(unlist(obj[-1,-1]))),nrow=length(obj.names$rownames), ncol=length(obj.names$colnames)))
+								is.error<-NULL
+								is.error<-tryCatch(dimnames(obj)<-obj.names,
+								error=function(e)
+										{ 
+											NULL
+										})#need to set as protected 
+								if(is.null(is.error)){list(data=obj,rownames=obj.names$rownames,colnames=obj.names$colnames)} else {obj}
+							},
+							
+		with.meta.data = .local<-function(obj)
+							{
+							#look for "" and set headers based on first non "" row and column
+							object<-obj
+							
+							#identify boundaries of data the rest is meta data
+							sample.start<-max(which(object[1,]=="")+2)
+							variable.start<-max(which(object[,1]=="")+2)
+
+							#data
+							drows<-nrow(object)
+							dcols<-max(c(1:ncol(object))[!sapply(1:ncol(object),function(i){sum(is.na(object[,i]))==drows})])
+							tmp.data<-as.data.frame(as.matrix(object[c(variable.start:drows),c(sample.start:dcols)]))
+							.names<-dimnames(tmp.data)
+							
+							#make sure all factors converted to numeric 
+							tmp.data<-as.data.frame(matrix(as.numeric(as.character(unlist(tmp.data))),nrow=nrow(tmp.data), ncol=ncol(tmp.data)))
+							dimnames(tmp.data)<-.names
+							
+							#get variable and sample meta data
+							row.meta<-as.data.frame(t(as.matrix(object[c(1:(variable.start-2)),c(sample.start:dcols)])))
+							col.meta<-as.data.frame(as.matrix(object[c(variable.start:drows),c(1:(sample.start-1))]))
+							
+							#attempt to set colnames
+							tryCatch(colnames(row.meta)<-as.character(unlist(obj[1:(variable.start-2),(sample.start-1)])),errro=function(e){})
+							tryCatch(colnames(col.meta)<-as.character(unlist(obj[(variable.start-1),1:(sample.start-1)])),errro=function(e){})
+							
+							
+							#convert data to all numeric prior to return
+							data<-do.call("cbind",unclass(tmp.data));dimnames(tmp.data)<-.names # need to break factors
+
+							#return results as a list
+							list(data=tmp.data,row.metadata=row.meta,col.metadata=col.meta)
+							})					
+	.local(obj)
+		
+}
+
+#format binbase output (data with meta data structure)
+format.binbase.output<-function(data)
+	{
+		#data = name as string
+		object<-get(data)
+		#format data object
+		sample.start<-which(colnames(object)=="file.id")+1
+		variable.start<-which(object[,1]=="BinBase name")+1
+
+		#data
+		drows<-nrow(object)
+		dcols<-max(c(1:ncol(object))[!sapply(1:ncol(object),function(i){sum(is.na(object[,i]))==drows})])
+		tmp.data<-as.data.frame(t(as.matrix(object[c(variable.start:drows),c(sample.start:dcols)])))
+		.names<-dimnames(tmp.data)
+		#make sure all factors aconverted to numeric 
+		tmp.data<-as.data.frame(matrix(as.numeric(as.character(unlist(tmp.data))),nrow=nrow(tmp.data), ncol=ncol(tmp.data)))
+		dimnames(tmp.data)<-.names
+		
+		#get variable and sample meta data
+		row.meta<-as.data.frame(t(as.matrix(object[c(1:(variable.start-2)),c(sample.start:dcols)])))
+		col.meta<-as.data.frame(as.matrix(object[c(variable.start:drows),c(1:(sample.start-2))]))
+		#convert data to all numeric prior to return
+		data<-do.call("cbind",unclass(tmp.data));dimnames(tmp.data)<-.names # need to break factors
+
+		#return results as a list
+		list(data=tmp.data,row.metadata=row.meta,col.metadata=col.meta)
+	}
+
+#return objects to excel	
+return.to.Excel<-function(workbook.path="new",return.obj.list,return.name=names(return.obj.list),workbook.name=NULL)
+	{
+		check.get.packages(c("XLConnect"))
+		
+		#load workbok
+		if (!workbook.path=="new")
+			{
+				#connect to worksheet
+				old.dir<-getwd()
+				wd<-dirname(workbook.path)
+				workbook.name<-basename(workbook.path)
+				setwd(wd)
+				wb = loadWorkbook(workbook.name, create = FALSE)
+				
+			}else{
+			
+				if(is.null(workbook.name)){workbook.name<-paste('Workbook',format(Sys.time(), "%Y.%m.%d_%I_%M_%p"),"xls", sep = ".")}
+				wb = loadWorkbook(workbook.name, create = TRUE)
+			}
+			
+		#place objects in workbook
+		sapply(1:length(return.name),function(i)
+			{
+				obj.name<-rename(x=return.name[i],pattern=c(" ","\\$"))
+				#create sheet
+				createSheet(wb, name = obj.name)
+				
+				#delete name is if exists
+				tryCatch(removeName(wb,obj.name),error=function(e){})
+				createName(wb, name = obj.name, formula = paste(obj.name, "$A$1", sep = "!"))
+				
+				#bind rownames else not visible
+				return<-cbind(rownames(return.obj.list[[i]]),return.obj.list[[i]]);colnames(return)[1]<-"Variables"
+				writeNamedRegion(wb, data = return, name = obj.name, header = TRUE)
+				
+				#add excel auto filters need to avoid text and mean +/- stdev column else all all broken
+				corners = getReferenceCoordinates(wb, obj.name)
+				#don't include first column of variable names
+				corners[1,2]<-(corners[2,2]-(corners[2,2]-2))
+				corners[2,2]<-corners[2,2]-1
+				setAutoFilter(wb, sheet = obj.name, reference = aref(corners[1,], corners[2,]))
+			})
+			
+			saveWorkbook(wb)
+	}
+
+#get object from EXCEL	1
+get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name=NULL,a,return=TRUE,environment=.GlobalEnv)
+				{
+					check.get.packages(c("XLConnect"))
+					old.dir<-getwd() # original working directory
+
+					#check to see if workbook exists
+					get.workbook<-function(workbook.path)
+						{
+							wd<-dirname(workbook.path)
+							setwd(wd)
+							loadWorkbook(basename(workbook.path))
+						}
+						
+					workbook<-tryCatch(get.workbook(workbook.path), error=function(e) {NULL})	
+					
+					if (is.null(workbook) )
+						{
+							return(cat("file doesn't exist where you are looking", "\n"))
+						} else {
+								#check if named range exists
+								obj<-tryCatch(readNamedRegion(workbook, name =  get.obj.name , header = FALSE),error= function(e) {NULL})
+								
+								if(is.null(obj))
+									{
+										#check if worksheet exists
+										obj<-tryCatch(readWorksheet(workbook, sheet = get.object.sheet),error=function(e) {NULL})
+										if(is.null(obj))
+											{
+												return(cat("the object can't be loaded", "\n"))
+											} else {
+													#assign sheet to environment
+													tmp.obj<-get.object.sheet
+											}
+									} else {
+											#assign named range to environment
+											tmp.obj<-get.obj.name
+									}
+
+						}
+					setwd(old.dir)
+					#return obj
+					#assign
+					assign(tmp.obj,obj,envir=environment)
+					if(return){get(tmp.obj,envir=environment)}
+}						
+				
 #collapse columns as strings
 join.columns<-function(obj,char="|",quote.last=FALSE)
         {
@@ -296,6 +481,7 @@ check.get.obj<-function(object, main.object="devium.pca.object",envir="devium")
 			})
 	}	
 
+#check to see if environment exists else create one
 check.get.envir<-function(main.object,envir)
 	{
 				if(!exists(envir)){ assign(envir,new.env(),envir= .GlobalEnv)} 

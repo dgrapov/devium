@@ -26,13 +26,12 @@ ask.gui<-function(message, OK=function(h,...){print("OK!")})
 #GUI for pcaMethods
 devium.PCA.gui<-function(container=NULL)
 {
-	check.get.packages(c("pcaMethods"))
+	check.get.packages(c("aroma.light","pcaMethods"))
 	options(device="gWidgetsRGtk2")
 	
 	#for debugging
 	#container= gwindow("test")
 
-	
 	#use buttons to assign variables to a main object: get("devium.pca.object",envir=devium)
 	#upon execute 
 	# 1) gather gui inputs
@@ -59,6 +58,7 @@ devium.PCA.gui<-function(container=NULL)
 	make.tool.bar<-function(container=NULL)
 	{
 		
+			# for debugging container=gwindow()
 			mainWin = ggroup(horizontal = FALSE, container = container)
 	
 			#make tool bar on top
@@ -106,16 +106,16 @@ devium.PCA.gui<-function(container=NULL)
 	tmp[1,1:2]<-assign("pca.data",gedit("",container=tmp),envir=devium)
 	adddroptarget(get("pca.data",envir=devium),handler = function(h,...) 
 	{
-			svalue(h$obj)<-id(h$dropdata)
-			d.assign("pca.data",get(id(h$dropdata)))
+			svalue(h$obj)<-(h$dropdata)
+			d.assign("pca.data",main.object="devium.pca.object",get((h$dropdata)))
 			#set upper limit for components
 			obj<-tryCatch(get("devium.pca.object",envir=devium),error=function(e){NULL})
-			upper.limit<-min(dim(obj$pca.data))
+			upper.limit<-min(dim(tryCatch(obj$pca.data,error=function(e){data.frame(NULL)})))
 			if(class(upper.limit)=="NULL")
 				{
 					return()
 				} else {
-					d.assign("max.pca.components",upper.limit)#set upper limit for components
+					d.assign("max.pca.components",main.object="devium.pca.object",upper.limit)#set upper limit for components
 				}
 	})
 	
@@ -128,7 +128,7 @@ devium.PCA.gui<-function(container=NULL)
 	#methods
 	pca.methods<-tmp<-glayout(container=.notebook,label="Methods")
 	tmp[1,1]<-glabel("algorithm")
-	tmp[1,2]<-assign("pca.algorithm",gcombobox(listPcaMethods(),container=tmp),envir=devium)#,envir=devium
+	tmp[1,2]<-assign("pca.algorithm",gcombobox(c("svd","rnipals", "bpca", "ppca", "svdImpute","nlpca"),container=tmp),envir=devium)#,envir=devium # avoid nipals,robustPCA due to errors
 	tmp[2,1]<-glabel("components",container=tmp)
 	#pca components
 	get.max.pc<-function(){tmp<-get("devium.pca.object",envir=devium);tmp$max.pca.components}
@@ -281,7 +281,7 @@ devium.scatter.plot<- function(container=NULL)
 		#name = form obj name
 	adddroptarget(get("group.type.var",envir=devium),handler = function(h,...) 
 	{
-			svalue(h$obj)<-id(h$dropdata)
+			svalue(h$obj)<-(h$dropdata)
 			refresh.plot()
 	})
 		
@@ -341,7 +341,7 @@ devium.scatter.plot<- function(container=NULL)
 			#name = form obj name
 			adddroptarget(name,handler = function(h,...) 
 				{
-					svalue(name)<-id(h$dropdata)
+					svalue(name)<-h$dropdata
 				})
 
 		}
@@ -531,7 +531,7 @@ devium.scatter.plot<- function(container=NULL)
 				})
 				
 			.plot(fxn)	
-			bringToTop(which=dev.cur())
+			tryCatch(bringToTop(which=dev.cur()),error=function(e){print("Check for error hidden window (Mac users)")})
 		}
 	
 	#make plot legend
@@ -734,8 +734,8 @@ devium.scatter.plot<- function(container=NULL)
 					assign(handler.name[i],function(h,...) 
 					{
 							#upadate form to show drop source
-							print(id(h$dropdata))
-							svalue(h$obj)<-id(h$dropdata)
+							
+							svalue(h$obj)<-h$dropdata
 												
 							#gather inputs
 							tmp<-get.inputs(form.name=form.names,lookup,default)
@@ -882,7 +882,7 @@ devium.qplot<- function(container=NULL)
 			#name = form obj name
 			adddroptarget(name,handler = function(h,...) 
 				{
-					svalue(name)<-id(h$dropdata)
+					svalue(name)<-h$dropdata
 				})
 
 		}
@@ -933,7 +933,7 @@ devium.qplot<- function(container=NULL)
 			if(names(dev.cur())=="null device"){x11() } #dev.new("X11")
 			p<-eval(parse(text = as.expression(x)), envir = .GlobalEnv)
 			print(p)
-			bringToTop(which=dev.cur())
+			tryCatch(bringToTop(which=dev.cur()),error=function(e){print("Check for error hidden window (Mac users)")})
 		}
 	
 	#fxn to set set form handlers
@@ -949,7 +949,7 @@ devium.qplot<- function(container=NULL)
 					assign(handler.name[i],function(h,...) 
 					{
 							#upadate form to show drop source
-							svalue(h$obj)<-id(h$dropdata)
+							svalue(h$obj)<-h$dropdata
 												
 							#gather inputs
 							tmp<-get.inputs(form.name=form.names)
@@ -974,27 +974,59 @@ devium.qplot<- function(container=NULL)
 #function to make gui to lad data from csv or google docs
 devium.data.import<-function (container = NULL) 
 {
+		#container=gwindow()
 		#for import of: CSVs (read.csv, assume header)
+		#for clipboard assume row and column names
 		#google spreadsheets (RGoogleDocs)
 		#Excel Worksheet (XLConnect)
 		
 		main = ggroup(horizontal = FALSE, container = container)
 		
-		#to load from CSV
-        csv = gexpandgroup(text="Import CSV",horizontal=FALSE, container=main, pos=2)
+		#load from clipboard
+        csv = gexpandgroup(text="From: Clipboard",horizontal=FALSE, container=main, pos=2)
 		g = ggroup(horizontal = FALSE, cont = csv)
         tbl = glayout(cont = g)
-        tbl[2, 1] <- "Select file         " # has to be a better way to align this below
-        tbl[2, 2] <- (filebrowse = gfilebrowse(text = "browse to select", action = invisible, container = tbl, filter = "*.csv", quote = FALSE))
+		tbl[2, 1:2]<-data.opts<-gradio(c("with row and column names", "with meta data"), container = tbl)
+        tbl[3, 1] <- "New Name          " # has to be a better way to align this below
+        tbl[3, 2] <- clip.name<-gedit("clipboard")
 		
-		#message for completed load
-		done.info.GUI<-function(file.name)
-			{
-				done<-gwindow("Information",width = 200, height= 100)
-				g<-glayout(cont = done)
-				g[2,1]<-glabel(paste("Load Successful, data named: ",file.name),container = g)
-				g[3,3]<-gbutton("ok",container = done, handler = function(h,...){dispose(done)})
-			}
+		#load from clipboard
+		tbl[3, 3] <- (gapply = gbutton(text = "Apply",container = tbl, 
+			handler = function(h,...)
+					{
+						name<-svalue(clip.name)
+						#read from excel and format based on type
+						type<-switch(svalue(data.opts),"with row and column names"="with.dimnames","with meta data"="with.meta.data")
+						tmp<-read.excel(type)#assign(name,tmp,envir=.GlobalEnv)
+						#assign objects to global environment
+						all<-c()
+						if(class(tmp)=="list"){
+							for(i in 1:length(tmp)){
+									obj.name<-paste(name,".",names(tmp)[i],sep="")
+									assign(obj.name,data.frame(tmp[[i]]),envir=.GlobalEnv)
+									all<-c(all,obj.name)
+								}
+						}else{
+							all<-obj.name<-name
+							assign(obj.name,data.frame(tmp),envir=.GlobalEnv)
+						}
+						#check to make sure objects exists
+						if(!tryCatch(all(sapply(all,exists)),error=function(e){TRUE}))
+							{
+								msg<-"Error occured. Make sure the object name doesn't start with a number, contain spaces or non-letter characters."
+							} else {
+								msg<-paste(all,"was successfully loaded")
+							}
+						done.info.GUI(msg)
+					}
+				))
+		
+		#load from CSV
+        csv = gexpandgroup(text="From: CSV",horizontal=FALSE, container=main, pos=2)
+		g = ggroup(horizontal = FALSE, cont = csv)
+        tbl = glayout(cont = g)
+        tbl[2, 1] <- "New Name          " # has to be a better way to align this below
+        tbl[2, 2] <- (gedit(""))
 										
 		#hitting apply button loads the CSV and 
 		tbl[2, 3] <- (gapply = gbutton(text = "Apply",container = tbl, 
@@ -1016,72 +1048,8 @@ devium.data.import<-function (container = NULL)
 						}
 				}))
 				
-		#to load from google docs		
-		gdocs = gexpandgroup(text="Import Google Spreadsheet",horizontal=FALSE, container=main, pos=2)
-		gg = ggroup(horizontal = FALSE, cont = gdocs)
-        tbl2 = glayout(cont = gg)
-        tbl2[2, 1] <- "Google account"
-        tbl2[2, 2] <- (gaccount = gedit("name@gmail.com", container= tbl2))
-		tbl2[3, 1] <- "Password"
-        tbl2[3, 2] <- tmp<-(gpassword = gedit("*********", container= tbl2))
-		visible(tmp)<-FALSE # hide password
- 
-		# connect button --> connects to google account and gets 
-		# list of available spreadsheets to the gdroplist above, asigned items in gdocs env
-		# assigns connection to "gconnection" in gdocs env
-		tbl2[3, 3] <- (gconnect = gbutton(text = "Connect",container = tbl2,
-			handler = function(h,...)
-				{
-					tryCatch(
-						{
-							tmp<-GetGoogleDoc(account=svalue(gaccount),password=svalue(gpassword),connection="new")
-							#update dropdownlist
-							items<-tmp[[2]]
-							assign("items", items, envir=gdocs)
-							assign("gconnection",get(tmp[[1]],envir=googDocs),envir = gdocs)
-							gspreadsheets[] <- items
-							svalue(gspreadsheets, index=TRUE) <- 1
-						}, error = function(e){"Check account name and password"})
-				}		
-				))
-				
-		#dropdown box for available spreadsheets
-		gdocs<-new.env()
-		assign("items", c("not connected"), envir=gdocs)
-		tbl2[4, 1] <- "Spreadsheets"
-		tbl2[4, 2] <- (gspreadsheets = gcombobox("not connected", selected = 1, editable = FALSE, container = tbl2))
-				
-		#apply button to load selectd google doc		
-		tbl2[4, 3] <- (gapply = gbutton(text = "Apply",container = tbl2, 
-			handler = function(h,...)
-				{
-					#selected file
-					theFile = svalue(gspreadsheets)
-					
-					if (!theFile == "not connected")
-						{
-							#fix name for file (get rid of spaces)
-							tmp<-paste(as.character(unlist(strsplit(theFile," "))),collapse="_")
-							tmp<-chartr(c("-"),"_",tmp) 
-							file.name<-tmp
-						
-							#now load object from google as csv asume top row = header
-							tryCatch(
-								{
-									tmp.obj<-getWorksheets(theFile,get("gconnection",envir=gdocs))
-									#later add ability to load from diffrent sheets in the same workbook
-									# for now get first sheet
-									target<-names(tmp.obj)[1]
-									sheet<-sheetAsMatrix(tmp.obj[[target]],header=TRUE, as.data.frame=TRUE, trim=TRUE)
-									assign(file.name,sheet,envir=.GlobalEnv)
-									done.info.GUI(file.name)
-								},	error=function(e){stop("error occured, check file")})
-						}
-				}		
-				))
-		
 		#import from Excel workbook
-        excel = gexpandgroup(text="Import from Excel",horizontal=FALSE, container=main, pos=2)
+        excel = gexpandgroup(text="From: Excel",horizontal=FALSE, container=main, pos=2)
 		g = ggroup(horizontal = FALSE, cont = excel)
         tbl = glayout(cont = g)
         tbl[2, 1] <- "Select Workbook" # has to be a better way to align this below
@@ -1181,8 +1149,73 @@ devium.data.import<-function (container = NULL)
 								},	error=function(e){stop("error occured, check excel named range")})
 						}
 				}		
-				))		
-		assign("devium.data.import.notebook",main,envir=devium)
+				))	
+
+		#to load from google docs		
+		gdocs = gexpandgroup(text="From: Google Spreadsheet",horizontal=FALSE, container=main, pos=2)
+		gg = ggroup(horizontal = FALSE, cont = gdocs)
+        tbl2 = glayout(cont = gg)
+        tbl2[2, 1] <- "Google account"
+        tbl2[2, 2] <- (gaccount = gedit("name@gmail.com", container= tbl2))
+		tbl2[3, 1] <- "Password"
+        tbl2[3, 2] <- tmp<-(gpassword = gedit("*********", container= tbl2))
+		visible(tmp)<-FALSE # hide password
+ 
+		# connect button --> connects to google account and gets 
+		# list of available spreadsheets to the gdroplist above, asigned items in gdocs env
+		# assigns connection to "gconnection" in gdocs env
+		tbl2[3, 3] <- (gconnect = gbutton(text = "Connect",container = tbl2,
+			handler = function(h,...)
+				{
+					tryCatch(
+						{
+							tmp<-GetGoogleDoc(account=svalue(gaccount),password=svalue(gpassword),connection="new")
+							#update dropdownlist
+							items<-tmp[[2]]
+							assign("items", items, envir=gdocs)
+							assign("gconnection",get(tmp[[1]],envir=googDocs),envir = gdocs)
+							gspreadsheets[] <- items
+							svalue(gspreadsheets, index=TRUE) <- 1
+						}, error = function(e){"Check account name and password"})
+				}		
+				))
+				
+		#dropdown box for available spreadsheets
+		gdocs<-new.env()
+		assign("items", c("not connected"), envir=gdocs)
+		tbl2[4, 1] <- "Spreadsheets"
+		tbl2[4, 2] <- (gspreadsheets = gcombobox("not connected", selected = 1, editable = FALSE, container = tbl2))
+				
+		#apply button to load selectd google doc		
+		tbl2[4, 3] <- (gapply = gbutton(text = "Apply",container = tbl2, 
+			handler = function(h,...)
+				{
+					#selected file
+					theFile = svalue(gspreadsheets)
+					
+					if (!theFile == "not connected")
+						{
+							#fix name for file (get rid of spaces)
+							tmp<-paste(as.character(unlist(strsplit(theFile," "))),collapse="_")
+							tmp<-chartr(c("-"),"_",tmp) 
+							file.name<-tmp
+						
+							#now load object from google as csv asume top row = header
+							tryCatch(
+								{
+									tmp.obj<-getWorksheets(theFile,get("gconnection",envir=gdocs))
+									#later add ability to load from diffrent sheets in the same workbook
+									# for now get first sheet
+									target<-names(tmp.obj)[1]
+									sheet<-sheetAsMatrix(tmp.obj[[target]],header=TRUE, as.data.frame=TRUE, trim=TRUE)
+									assign(file.name,sheet,envir=.GlobalEnv)
+									done.info.GUI(file.name)
+								},	error=function(e){stop("error occured, check file")})
+						}
+				}		
+				))
+		
+		assign("devium.data.import.notebook",main,envir=devium) #optional
 		return(main)
     }
 
@@ -1289,14 +1322,17 @@ devium.summary<-function(obj,...)
     visible(table) <- TRUE
     return(group)
 }
-
-#data transformation gui
-devium.data<-function(container=NULL)
-{
-		#results stored in get("devium.data.object",envir=devium)
+ 
+#data modification gui
+devium.modify.data.gui<-function(container=NULL){
+		#results stored in get("devium.modify.data.object",envir=devium)
 		#for debugging
 		#container= gwindow("test")
-		mainWin = ggroup(horizontal = FALSE, container = container,expand=TRUE)
+		
+		#remove old object upon start up
+		tryCatch(rm("devium.modify.data.object",envir=devium),error=function(e){})
+		
+		mainWin = ggroup(horizontal = FALSE, container = container)
 		
 		#make tool bar on top
 		make.tool.bar<-function(container=NULL)
@@ -1314,34 +1350,56 @@ devium.data<-function(container=NULL)
 				#toolbar$tmp2$separator = TRUE
 				toolbar$execute$icon = "execute"
 				toolbar$execute$handler = function(h, ...) {
-				check.get.obj(gui.objects,main.object="devium.data.object") #assign all objects in form to main.object
-				tmp<-get("devium.data.object",envir=devium)#get object
+				check.get.obj(gui.objects,main.object="devium.modify.data.object") #assign all objects in form to main.object
+				tmp<-get("devium.modify.data.object",envir=devium)#get object
 				if(is.null(tmp$devium.data)|tmp$devium.data=="")
 					{ 
 							return()
 					} else {
-						#transformed obj
-							trans.obj<-transform.to.normal(data=get(tmp$devium.data),data.name=tmp$devium.data, test.method=tmp$devium.normalize.test, 
-								alpha = 0.05 , force.positive=TRUE, transformation=tmp$devium.normalize.transformation)
-						#scale and center
-						tmp.data<-scale.data(trans.obj[[1]])
-						trans.obj[[1]]<-tmp.data
-						#save output to global	
-						transform.to.normal.output(obj=trans.obj,name="transformed.data", envir=devium)
+						#carry out execute/operations save to main.object$new.data and then refresh data.view
+						tmp.data<-get(tmp$devium.data)
+						
+						#switch basd on options
+						switch(tmp$modify.options,
+						remove 		= .local<-function(){tmp.data[!rownames(tmp.data)%in%tmp$devium.data.selected.rows,!colnames(tmp.data)%in%tmp$devium.data.selected.cols]},
+						split  		= .local<-function(){},
+						transpose 	= .local<-function(){data.frame(t(tmp.data))},
+						merge 		= .local<-function(){},
+						subset      = .local<-function(){})
+						
+						obj<-.local()
+						d.assign("new.data",obj,main.object="devium.modify.data.object")
+						#need to delete old and make a new gtabel
+						to.delete<-get("data.view",envir=devium)
+						delete(data.view.group,to.delete)
+						data.view<-assign("data.view",gtable(obj),envir=devium)
+						add(data.view.group,data.view)
+						}
 					}
-				}
-
+				
+				toolbar$save$icon = "save"
+				toolbar$save$handler = function(h, ...) 
+				{
+					check.get.obj(gui.objects,main.object="devium.modify.data.object")
+					ask.gui(paste("Save new object as:",get("devium.modify.data.object",envir=devium)$save.as.name,"?",sep=" "),
+							OK=function(h,...){
+								.<-get("devium.modify.data.object",envir=devium)
+								assign(.$save.as.name,.$new.data,envir=.GlobalEnv)
+								})
+				}	
+				
 				toolbar$help$icon = "help"
 				toolbar$help$handler = function(h, ...) 
 				{
 					done.info.GUI("to do--> write help file.")
 				}	
 				
-				toolbar$plot$icon = "plot"
-				toolbar$plot$handler = function(h, ...) 
+				toolbar$cancel$icon = "cancel"
+				toolbar$cancel$handler = function(h, ...) 
 				{
 					done.info.GUI("to do--> write help file.")
 				}	
+				
 				tmp = gtoolbar(toolbar)
 				add(buttonBar, tmp, expand = TRUE)
 			}
@@ -1350,46 +1408,178 @@ devium.data<-function(container=NULL)
 		make.tool.bar(container=mainWin)
 		
 		#gui objects
-		gui.objects<-c("devium.data","devium.data.scaling","devium.data.center","devium.normalize.test","devium.normalize.transformation")
+		gui.objects<-c("devium.data","devium.data.selected.cols","devium.data.selected.rows","modify.options","save.as.name")
 		
 		 #fxn to create the environment "devium" if it does not exist
 		 create.devium.env()	
 		 
-		 if(!exists("devium.data.obj",envir=devium)) # should be object not obj?
+		 
+		 
+		 if(!exists("devium.modify.data.object",envir=devium)) # should be object
 			{
 				tmp<-list()
 				# some defaults
-				assign("devium.data.obj",tmp,envir=devium)
-				
+				assign("devium.modify.data.object",tmp,envir=devium)
 			}
+			
 	 
-		#target data
-		data.tab<-tmp<-gframe("Data",container=mainWin)
+		#target data and save as name
+		tmp<-ggroup(horizontal=TRUE,container=mainWin)
+		
+		#gradio for what to method to execute
+		assign("modify.options",gradio(c("transpose","split","remove","merge","subset"),container=tmp,horizontal=TRUE,
+				handler=function(h,...)
+					{
+						d.assign("devium.data.selected.cols",svalue(get("devium.data.selected.cols",envir=devium)),main.object="devium.modify.data.object")
+						d.assign("devium.data.selected.rows",svalue(get("devium.data.selected.rows",envir=devium)),main.object="devium.modify.data.object")
+					
+					}),envir=devium)
+					
+		midlevel<-ggroup(horizontal=TRUE,container=mainWin)
+		data.tab<-tmp<-gframe("Data",container=midlevel)
 		assign("devium.data",gedit("",container=tmp),envir=devium)
 		adddroptarget(get("devium.data",envir=devium),handler = function(h,...) 
 		{
-				svalue(h$obj)<-id(h$dropdata)
-				d.assign("devium.data",get(id(h$dropdata),main.object="devium.data.object"))
+				#svalue(h$obj)<-h$dropdata
+				svalue(h$obj)<-h$dropdata
+				d.assign("devium.data",svalue(h$obj),main.object="devium.modify.data.object")
+				#set values of combo boxes
+				main<-tryCatch(get(get("devium.modify.data.object",envir=devium)$devium.data),error=function(e){data.frame(NULL)})
+				obj<-tryCatch(get("devium.data.selected.cols",envir=devium),error=function(e){})
+				tryCatch(obj[]<-colnames(main),error=function(e){})
+				obj<-tryCatch(get("devium.data.selected.rows",envir=devium),error=function(e){})
+				tryCatch(obj[]<-rownames(main),error=function(e){})
 		})
 		
-		#notebook to hold options
-		.notebook<-gnotebook(tab.pos=2,container=mainWin,pageno=1,expand=TRUE)
+		save.as.tab<-tmp<-gframe("Save as",container=midlevel)
+		assign("save.as.name",gedit("new.data",container=tmp),envir=devium)
 		
-		##modify: split, merge, merge remove add
-		modify<-tmp<-glayout(container=.notebook,label="Modify")
 		
-		#transform: normalize, scale, center
-		tmp<-glayout(container=.notebook,label="Scale")
-		tmp[1,1]<-glabel("  scale",container=tmp)
-		tmp[1,2]<-assign("devium.data.scaling",gcombobox(c("none","pareto", "vector", "uv","range"),selected = 4,container=tmp),envir=devium)#,envir=devium
-		tmp[2,1]<-glabel("  center",container=tmp)
-		tmp[2,2]<-assign("devium.data.center",gcheckbox("",checked = TRUE,container=tmp),envir=devium)#, envir=devium
-		tmp<-glayout(container=.notebook,label="Transform")
-		tmp[1,1]<-glabel("  transformation",container=tmp)
-		tmp[1,2]<-assign("devium.normalize.transformation",gcombobox(c("none","log","BOX-COX"),container=tmp),envir=devium)#,envir=devium
-		tmp[2,1]<-glabel("  test normality",container=tmp)
-		tmp[2,2]<-assign("devium.normalize.test",gcombobox(c("Anderson-Darling","Shapiro-Wilk","Cramer-von Mises","Kolmogorov-Smirno","Shapiro-Francia"),container=tmp),envir=devium)#,envir=devium
+		#ggroup to hold options
+		midlevel<-gframe("Selections",horizontal=TRUE,container=mainWin)
+		tmp<-ggroup(container=midlevel)
+		
+		select.rows<-gexpandgroup("  Select: Rows",container=tmp)
+		tmp2<-ggroup(container=select.rows,horizontal=FALSE) # need to size correctly
+		add(tmp2,glabel("_____________________________________"))
+		assign("devium.data.selected.rows",gcheckboxgroup("         ",selected = 0,container=tmp2,use.table=TRUE),envir=devium)#,envir=devium
+		#add(tmp2,glabel("_____________________________________"))
+		
+		tmp<-ggroup(container=midlevel)			
+		select.cols<-gexpandgroup("  Select: Columns",container=tmp)
+		tmp2<-ggroup(container=select.cols,horizontal=FALSE) # need to size correctly
+		add(tmp2,glabel("_____________________________________"))
+		assign("devium.data.selected.cols",gcheckboxgroup("         ",selected = 0,container=tmp2,use.table=TRUE),envir=devium)#,envir=devium
+		#add(tmp2,glabel("_____________________________________"))
+		
+		#gtable to view results
+		gseparator(horizontal = TRUE, container = mainWin)
+		#check data first
+		
+		newdata<-tryCatch(get(get("devium.modify.data.object",envir=devium)$new.data),error=function(e){NULL})
+		if(is.null(newdata)){newdata<-tryCatch(get(get("devium.modify.data.object",envir=devium)$devium.data),error=function(e){data.frame(variables=character(0), stringsAsFactors=FALSE)})}
+		data.view.group<-ggroup(container=mainWin,horizontal=FALSE,expand=TRUE)
+		#add(data.view.group,glabel("________________________________________________________"))
+		data.view<-assign("data.view",gtable(newdata, container=data.view.group),envir=devium)
 		return(mainWin)
+}
+
+#data transformation gui
+devium.transform.data.gui<-function(container=NULL){
+	#results stored in get("devium.data.object",envir=devium)
+	#for debugging
+	#container= gwindow("test")
+	mainWin = ggroup(horizontal = FALSE, container = container,expand=TRUE)
+
+	#make tool bar on top
+	make.tool.bar<-function(container=NULL)
+	{
+
+			mainWin = ggroup(horizontal = FALSE, container = container)
+
+			#make tool bar on top
+			buttonBar = ggroup(spacing = 0,container=mainWin)
+			add(mainWin, buttonBar)
+
+			#setting options second tool bar
+			toolbar = list()
+
+			#toolbar$tmp2$separator = TRUE
+			toolbar$execute$icon = "execute"
+			toolbar$execute$handler = function(h, ...) {
+			check.get.obj(gui.objects,main.object="devium.data.object") #assign all objects in form to main.object
+			tmp<-get("devium.data.object",envir=devium)#get object
+			if(is.null(tmp$devium.data)|tmp$devium.data=="")
+				{ 
+						return()
+				} else {
+					#transformed obj
+						trans.obj<-transform.to.normal(data=get(tmp$devium.data),data.name=tmp$devium.data, test.method=tmp$devium.normalize.test, 
+							alpha = 0.05 , force.positive=TRUE, transformation=tmp$devium.normalize.transformation)
+					#scale and center
+					tmp.data<-scale.data(trans.obj[[1]])
+					trans.obj[[1]]<-tmp.data
+					#save output to global	
+					transform.to.normal.output(obj=trans.obj,name="transformed.data", envir=devium)
+				}
+			}
+
+			toolbar$help$icon = "help"
+			toolbar$help$handler = function(h, ...) 
+			{
+				done.info.GUI("to do--> write help file.")
+			}	
+
+			toolbar$plot$icon = "plot"
+			toolbar$plot$handler = function(h, ...) 
+			{
+				done.info.GUI("to do--> write help file.")
+			}	
+			tmp = gtoolbar(toolbar)
+			add(buttonBar, tmp, expand = TRUE)
+		}
+
+	#make top tool bar
+	make.tool.bar(container=mainWin)
+
+	#gui objects
+	gui.objects<-c("devium.data","devium.data.scaling","devium.data.center","devium.normalize.test","devium.normalize.transformation")
+
+	 #fxn to create the environment "devium" if it does not exist
+	 create.devium.env()	
+
+	 if(!exists("devium.data.obj",envir=devium)) # should be object not obj?
+		{
+			tmp<-list()
+			# some defaults
+			assign("devium.data.obj",tmp,envir=devium)
+
+		}
+
+	#target data
+	data.tab<-tmp<-gframe("Data",container=mainWin)
+	assign("devium.data",gedit("",container=tmp),envir=devium)
+	adddroptarget(get("devium.data",envir=devium),handler = function(h,...) 
+	{
+			svalue(h$obj)<-h$dropdata
+			d.assign("devium.data",get(id(h$dropdata),main.object="devium.data.object"))
+	})
+
+	#notebook to hold options
+	.notebook<-gnotebook(tab.pos=2,container=mainWin,pageno=1,expand=TRUE)
+
+	#transform: normalize, scale, center
+	tmp<-glayout(container=.notebook,label="Scale")
+	tmp[1,1]<-glabel("  scale",container=tmp)
+	tmp[1,2]<-assign("devium.data.scaling",gcombobox(c("none","pareto", "vector", "uv","range"),selected = 4,container=tmp),envir=devium)#,envir=devium
+	tmp[2,1]<-glabel("  center",container=tmp)
+	tmp[2,2]<-assign("devium.data.center",gcheckbox("",checked = TRUE,container=tmp),envir=devium)#, envir=devium
+	tmp<-glayout(container=.notebook,label="Transform")
+	tmp[1,1]<-glabel("  transformation",container=tmp)
+	tmp[1,2]<-assign("devium.normalize.transformation",gcombobox(c("none","log","BOX-COX"),container=tmp),envir=devium)#,envir=devium
+	tmp[2,1]<-glabel("  test normality",container=tmp)
+	tmp[2,2]<-assign("devium.normalize.test",gcombobox(c("Anderson-Darling","Shapiro-Wilk","Cramer-von Mises","Kolmogorov-Smirno","Shapiro-Francia"),container=tmp),envir=devium)#,envir=devium
+	return(mainWin)
 }
 	
 #generate data networks
@@ -1423,7 +1613,7 @@ devium.network.gui<-function(container=NULL)
 							return()
 					} else {
 						#function to execute based on arguments set in tmp
-						devium.network.execute(tmp)
+						devium.network.execute(tmp,filter=as.numeric(tmp$devium.network.edge.list.weight.cutoff))
 					}
 				}
 
@@ -1445,11 +1635,14 @@ devium.network.gui<-function(container=NULL)
 					object.name<-paste(.$devium.network.target.object,".network.edge.list",sep="")
 					if(!exists(object.name)){devium.network.execute(.)}							
 
+					#try to get labels
+					labs<-tryCatch(as.character(unlist(get(.$"devium.network.labels"))),error=function(e){NULL})
+					if(is.null(labs)){labs<-tryCatch(as.character(unlist(gget(.$"devium.network.labels"))),error=function(e){.$"devium.network.labels"})}
 				
 					#objects for visual properties
 					visual.par<-list(
 					layout = .$"devium.network.layout",  #have to get this later
-					vertex.label = tryCatch(as.character(unlist(get(.$"devium.network.labels"))),error=function(e){.$"devium.network.labels"}) #, #this it the graph object later 
+					vertex.label = labs # 
 					#vertex.color ="gray",
 					#vertex.size = 6,
 					#vertex.label.dist=-.3
@@ -1463,14 +1656,28 @@ devium.network.gui<-function(container=NULL)
 						
 					tmp<-visual.par[c(1:length(visual.par))[keep]]
 					names(tmp)<-names(visual.par)[c(1:length(visual.par))[keep]]
+					graph.par.obj<-tmp
+					#update/recalculate edge list based on edge weight selection (maybe should be done upon edge change)
+					tmp<-get("devium.network.object",envir=devium)#get object
+					if(is.null(tmp))
+					{ 
+							return()
+					} else {
+						#function to execute based on arguments set in tmp
+						#devium.network.execute(tmp,filter=as.numeric(tmp$devium.network.edge.list.weight.cutoff))
+						#get full object and refilter
+						tmp<-.$devium.network.edge.list.full
+						keep<-as.numeric(as.character(unlist(tmp[,3])))>=as.numeric(.$devium.network.edge.list.weight.cutoff)
+						#assign ass calculated object
+						d.assign("devium.network.edge.list.calculated",tmp[keep,],main.object=devium.network.object)
+					}
 					
 					#plot
 					devium.igraph.plot(edge.list=get("devium.network.object",envir=devium)$"devium.network.edge.list.calculated", 
 										plot.type=get("devium.network.object",envir=devium)$"devium.network.plot.type",
-										graph.par.obj=tmp)
+										graph.par.obj=graph.par.obj)
 										#
-					
-				}	
+							}	
 				tmp = gtoolbar(toolbar)
 				add(buttonBar, tmp, expand = TRUE)
 			}
@@ -1484,7 +1691,8 @@ devium.network.gui<-function(container=NULL)
 						"devium.network.edge.list.type", # calculation type
 						"devium.network.plot.type",# plot type
 						"devium.network.layout",#layout
-						"devium.network.labels" #labels
+						"devium.network.labels",#labels
+						"devium.network.edge.list.weight.cutoff" #cutt off to filter edge list
 						) 
 		
 		 #fxn to create the environment "devium" if it does not exist
@@ -1496,7 +1704,6 @@ devium.network.gui<-function(container=NULL)
 				tmp<-list()
 				# some defaults
 				assign("devium.network.object",tmp,envir=devium)
-				
 			}
 	 
 		#target data
@@ -1504,8 +1711,25 @@ devium.network.gui<-function(container=NULL)
 		assign("devium.network.target.object",gedit("",container=tmp),envir=devium)
 		adddroptarget(get("devium.network.target.object",envir=devium),handler = function(h,...) 
 		{
-				svalue(h$obj)<-id(h$dropdata)
-				d.assign("devium.network.target.object",get(id(h$dropdata),main.object="devium.network.object"))			
+				svalue(h$obj)<-h$dropdata
+				d.assign("devium.network.target.object",get(id(h$dropdata),main.object="devium.network.object"))
+				#change options for edge type
+				combo.box<-tryCatch(get("devium.network.edge.list.type",envir=devium), error=function(e){NULL})
+				filter.box<-tryCatch(get("devium.network.edge.list.weight.cutoff",envir=devium), error=function(e){NULL})
+				
+				#test for a data.frame
+				tmp<-tryCatch(get(svalue(get("devium.network.target.object",envir=devium))),error=function(e) {NULL})
+				if(class(tmp)=="data.frame"|class(tmp)=="matrix")
+					{
+						options<-c("pearson correlations","spearman correlations","biweight mid-correlation")
+						filter.value<-0.05
+					} else{ # should be character or 1 column data frame
+						options<-c("Tanimoto distances","KEGG reaction pairs")
+						filter.value<-0.7
+					}
+				combo.box[]<-options
+				svalue(combo.box, index=TRUE) <- 1
+				tryCatch(filter.box[]<-filter.value, error=function(e){NULL})	#one day I will stop fixing leaks like this
 		})
 		
 		tmp<-assign("devium.network.target.type",gcombobox(c("Data","CIDs"),selected = 1,container=tmp, 
@@ -1520,12 +1744,16 @@ devium.network.gui<-function(container=NULL)
 							tmp<-svalue(get("devium.network.target.type",envir=devium))
 							if(tmp=="Data")
 								{
-									options<-c("spearman correlations")
+									options<-c("pearson correlations","spearman correlations","biweight mid-correlation")
+									filter.value<-0.05
 								} else{
 									options<-c("Tanimoto distances","KEGG reaction pairs")
+									filter.value<-0.7
 								}
 							combo.box[]<-options
 							svalue(combo.box, index=TRUE) <- 1
+							filter.box<-tryCatch(get("devium.network.edge.list.weight.cutoff",envir=devium), error=function(e){NULL})
+							filter.box[]<-filter.value
 						}
 			} ),envir=devium)#,envir=devium
 			
@@ -1535,9 +1763,14 @@ devium.network.gui<-function(container=NULL)
 		##EDGES
 		tmp<-edges<-glayout(container=.notebook,label="Edges")
 		tmp[1,1]<-glabel("  edge list",container=tmp)
-		tmp[1,2]<-assign("devium.network.edge.list.type",gcombobox(c("spearman correlations"),selected = 1,container=tmp),envir=devium)# options should change based on "devium.network.target.type"
-		tmp[2,1]<-glabel("  options",container=tmp)
-		tmp[2,2]<-assign("devium.data.center",gcheckbox("",checked = TRUE,container=tmp),envir=devium) #should change based on "devium.network.edge.list.type"
+		tmp[1,2]<-assign("devium.network.edge.list.type",gcombobox(c("Input object and edge list type"),selected = 1,container=tmp),envir=devium)# options should change based on "devium.network.target.type"
+		tmp[1,3]<-glabel("  cutoff",container=tmp)
+		tmp[1,4]<-assign("devium.network.edge.list.weight.cutoff",gedit(" ",width = 10,container=tmp, #gspinbutton(from=0.01, to = .99, by=0.01,selected = 0.05, editable = TRUE
+				handler=function(h,...)
+					{
+					obj<-get("devium.network.edge.list.weight.cutoff",envir=devium)
+					d.assign("devium.network.edge.list.weight.cutoff",svalue(obj),main.object="devium.network.object")
+					}),envir=devium) #should change based on "devium.network.edge.list.type"
 		
 		#VERTICES
 		tmp<-glayout(container=.notebook,label="Vertices")
@@ -1545,18 +1778,18 @@ devium.network.gui<-function(container=NULL)
 		#plotting
 		tmp<-glayout(container=.notebook,label="Global")
 		tmp[1,1]<-glabel("  visualization",container=tmp)
-		tmp[1,2]<-assign("devium.network.plot.type",gcombobox(c("static","interactive", "3D-plot", "Cytoscape"),selected = 2,container=tmp),envir=devium)#,envir=devium#,envir=devium
+		tmp[1,2]<-assign("devium.network.plot.type",gcombobox(c("static","interactive", "3D-plot", "Cytoscape"),selected = 1,container=tmp),envir=devium)#,envir=devium#,envir=devium
 		tmp[2,1]<-glabel("  layout",container=tmp)
 		tmp[2,2]<-assign("devium.network.layout",
 						gcombobox(c("layout.random","layout.circle","layout.sphere","layout.fruchterman.reingold",
 							"layout.kamada.kawai","layout.spring","layout.reingold.tilford","layout.fruchterman.reingold.grid",
-							"layout.lgl","layout.graphopt","layout.mds","layout.svd","layout.norm","layout.drl"),
+							"layout.lgl","layout.graphopt","layout.mds","layout.svd","layout.drl"),
 						selected = 4,container=tmp),envir=devium)#,envir=devium#,envir=devium
 		tmp[3,1]<-glabel("  labels",container=tmp)
 		tmp[3,2]<-assign("devium.network.labels",gedit("",container=tmp),envir=devium)
 		adddroptarget(get("devium.network.labels",envir=devium),handler = function(h,...) 
 		{
-				svalue(h$obj)<-id(h$dropdata)
+				svalue(h$obj)<-h$dropdata
 				d.assign("devium.network.labels",get(id(h$dropdata),main.object="devium.network.object"))			
 		})
 		
@@ -1581,7 +1814,7 @@ devium.gui<-function (width = 850, height = .75 * width)
 
 	#load accesory packages
 	# fix this to download te package if not available
-	 check.get.packages(c("gWidgets","gWidgetsRGtk2","proto","cairoDevice","RGtk2"))
+	 check.get.packages(c("RGtk2","gWidgets","gWidgetsRGtk2","proto","cairoDevice"))
 	 
 	 #accesory functions from R package "pmg" 
 	 # avoid loading package due to non controllable GUI popup
@@ -1609,10 +1842,10 @@ devium.gui<-function (width = 850, height = .75 * width)
 	 # will need to change everything when namespace is implemented... 
 	 devium.closeALL<-function () 
 		{
-			for (i in c("devium.helpBrowser.window", "devium.plotnotebook.window", 
-				"devium.main.window")) 
+			close.these<-with(devium,objects())[grep("devium",with(devium,objects()))]
+			for (i in 1:length(close.these)) 
 				{
-				if(exists(i))
+				if(exists(close.these[i]))
 					{
 						window = get(i,envir = devium)
 						try(dispose(window), silent = TRUE)
@@ -1672,25 +1905,40 @@ devium.gui<-function (width = 850, height = .75 * width)
 
 		}
 		
-	devium.menu$Data$`Load Data`$handler<-function(h,...)
+	devium.menu$Data$`Load`$handler<-function(h,...)
 		{
-			add(get("devium.notebook",envir=devium),devium.data.import(), label = "Import Data") 
+			add(get("devium.notebook",envir=devium),devium.data.import(), label = "Data Import") 
 			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
 			svalue(tmp)<-.2
 		}
-	devium.menu$Data$`Load R Data`$handler<-function(h,...){devium.load.Rdataset() }
-	devium.menu$Data$`Modify Data`$handler<-function(h,...){add(get("devium.notebook",envir=devium),devium.data(), label = "Modify Data") }
+	devium.menu$Data$`R Dataset`$handler<-function(h,...){devium.load.Rdataset() }
+	devium.menu$Data$`Modify`$handler<-function(h,...){
+		add(get("devium.notebook",envir=devium),devium.modify.data.gui(), label = "Modify Data") 
+		tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
+		svalue(tmp)<-.2
+	}
 	
 	#METHODS
+	devium.menu$Methods$`Transform`$handler<-function(h,...)
+		{
+			add(get("devium.notebook",envir=devium),devium.transform.data.gui(), label = "Transform Data") 
+			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
+			svalue(tmp)<-.2
+		}
+		
 	devium.menu$Methods$`PCA`$handler<-function(h,...)
 		{
 			add(get("devium.notebook",envir=devium),devium.PCA.gui(), label = "PCA") 
+			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
+			svalue(tmp)<-.2
 		}
 		
 		devium.menu$Methods$`Network`$handler<-function(h,...)
 		{
 			#x11() # need to change this for non-windows machines
 			add(get("devium.notebook",envir=devium),devium.network.gui(), label = "Network") 
+			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
+			svalue(tmp)<-.2
 		}	
 		
 		
@@ -1707,6 +1955,8 @@ devium.gui<-function (width = 850, height = .75 * width)
 		{
 			#x11() # need to change this for non-windows machines
 			add(get("devium.notebook",envir=devium),devium.qplot(), label = "Plot Builder") 
+			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
+			svalue(tmp)<-.2
 		}	
 		
 	
