@@ -665,15 +665,17 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=TRUE){
 	#get fingerprint for calcs
 	data(pubchemFPencoding)
 	cid.objects<-unique(as.numeric(as.character(unlist(cids)))) # need
+	
 	#print to screen any duplictes which get removed 
-	cat(paste("Duplicates of", paste(as.character(unlist(cids))[duplicated(as.numeric(as.character(unlist(cids))))]), "were removed" ),"\n")
+	
+	if(length(duplicated(as.numeric(as.character(unlist(cids)))))>0){
+		cat(paste("Duplicates of", paste(as.character(unlist(cids))[duplicated(as.numeric(as.character(unlist(cids))))]), "were removed" ),"\n")
+		}
 	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint. This may take a moment.","\n")
 	compounds <- getIds(cid.objects)
 	# Convert base 64 encoded fingerprints to character vector, matrix or FPset object
 	fpset <- fp2bit(compounds, type=3)
 	
-
-	dupe<-
 	dimnames(fpset@fpma)[1]<-list(as.character(cid.objects))
 	
 	if(parallel==TRUE)
@@ -696,6 +698,7 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=TRUE){
 	obj<-as.matrix(elist)
 	pass<-!as.numeric(obj[,3])<=cut.off
 	
+	cat("Done","\n")
 	#return edgelist 
 	as.data.frame(obj[pass,1:3])
 	#rm(pubchemFPencoding) # optional
@@ -755,7 +758,7 @@ CID.to.tanimoto.CTS<-function(cid,lookup=get.CID.INCHIcode.pairs()){
 	}
 
 #functions for devium network GUI to calculate edge list
-devium.network.execute<-function(object,filter=as.numeric(object$devium.network.edge.list.weight.cutoff)){
+devium.network.execute<-function(object,filter=as.numeric(object$devium.network.edge.list.weight.cutoff),FDR=as.logical(object$devium.network.edge.list.weight.cutoff.use.FDR)){
 		check.get.packages(c("WGCNA","Hmisc"))
 		#stored in get("devium.network.object",envir=devium)
 		#switch for data  of CIDs
@@ -783,10 +786,22 @@ devium.network.execute<-function(object,filter=as.numeric(object$devium.network.
 
 													#make edge list from a square symmetric matrix	
 													edge.list<-gen.mat.to.edge.list(cor.mat$cor)
-				
+													
+													#FDR correct p-values
+													if(FDR==TRUE){
+															tmp<-cor.mat$p.value
+															tmp[is.na(tmp)]<-1
+															out<-FDR.adjust(tmp,type="pvalue",return.all=FALSE)
+															results<-matrix(out,nrow=nrow(tmp),ncol=ncol(tmp),byrow=TRUE)
+															dimnames(results)<-dimnames(tmp)
+															cor.mat$p.value<-results
+															#return to square symmetric matrix
+														}
+														
 													#add options for filter
 													weight.list<-gen.mat.to.edge.list(cor.mat$p.value)
 													
+																				
 													filtered.list<-edge.list[as.numeric(as.character(unlist(weight.list[,3])))<=filter,]
 													
 													#return edge list and value
@@ -799,7 +814,18 @@ devium.network.execute<-function(object,filter=as.numeric(object$devium.network.
 
 													#make edge list from a square symmetric matrix	
 													edge.list<-gen.mat.to.edge.list(cor.mat$cor)
-				
+					
+													#FDR correct p-values
+													if(FDR==TRUE){
+															tmp<-cor.mat$p.value
+															tmp[is.na(tmp)]<-1
+															out<-FDR.adjust(tmp,type="pvalue",return.all=FALSE)
+															results<-matrix(out,nrow=nrow(tmp),ncol=ncol(tmp),byrow=TRUE)
+															dimnames(results)<-dimnames(tmp)
+															cor.mat$p.value<-results
+															#return to square symmetric matrix
+														}
+														
 													#add options for filter
 													weight.list<-gen.mat.to.edge.list(cor.mat$p.value)
 													
@@ -815,7 +841,18 @@ devium.network.execute<-function(object,filter=as.numeric(object$devium.network.
 
 													#make edge list from a square symmetric matrix	
 													edge.list<-gen.mat.to.edge.list(cor.mat$cor)
-				
+													
+													#FDR correct p-values
+													if(FDR==TRUE){
+															tmp<-cor.mat$p.value
+															tmp[is.na(tmp)]<-1
+															out<-FDR.adjust(tmp,type="pvalue",return.all=FALSE)
+															results<-matrix(out,nrow=nrow(tmp),ncol=ncol(tmp),byrow=TRUE)
+															dimnames(results)<-dimnames(tmp)
+															cor.mat$p.value<-results
+															#return to square symmetric matrix
+														}
+														
 													#add options for filter
 													weight.list<-gen.mat.to.edge.list(cor.mat$p.value)
 													
@@ -915,4 +952,15 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 				interactive = do.call("tkplot",graph.par),
 				"3D-plot" 	= do.call("rglplot",graph.par))
 		
+	}
+
+#calculating qvalue and local FDR
+FDR.adjust<-function(obj,type="pvalue",return.all=FALSE){
+	check.get.packages("fdrtool")
+	#adjust p-values for multiple hypothese tested
+	#options for FDR for tests c("normal", "correlation", "pvalue", "studentt")\
+	#methods for FDR c("fndr", "pct0", "locfdr")
+	obj<-as.numeric(as.character(unlist(obj))) # just to be sure it is numeric
+	obj<-fdrtool(obj, statistic=type,plot=FALSE, color.figure=FALSE, verbose=TRUE,cutoff.method="fndr",pct0=0.75)
+	if(return.all==TRUE){return(obj)} else {return(as.numeric(as.character(unlist(obj$qval))))}
 	}

@@ -145,8 +145,8 @@ devium.PCA.gui<-function(container=NULL)
 	}
 	
 #2D scatter plot for 2 vectors or basic pairs plot for a data.frame 
-devium.scatter.plot<- function(container=NULL) 
- {
+devium.scatter.plot<- function(container=NULL)
+{
 	#access plot settings using: get("devium.scatter.plot.pars",envir=devium)	
 	#container= gwindow("test")
 	
@@ -785,7 +785,7 @@ devium.scatter.plot<- function(container=NULL)
 
 #2D scatter plot (using ggplot2) for 2 vectors or basic pairs plot for a data.frame 
 devium.qplot<- function(container=NULL) 
- {
+{
 	check.get.packages(c("ggplot2","gWidgets","gWidgetsRGtk2"))
 	options(device="gWidgetsRGtk2")
 	
@@ -986,7 +986,7 @@ devium.data.import<-function (container = NULL)
         csv = gexpandgroup(text="From: Clipboard",horizontal=FALSE, container=main, pos=2)
 		g = ggroup(horizontal = FALSE, cont = csv)
         tbl = glayout(cont = g)
-		tbl[2, 1:2]<-data.opts<-gradio(c("with row and column names", "with meta data"), container = tbl)
+		tbl[2, 1:2]<-data.opts<-gradio(c("no name","with name","with row and column names", "with meta data"), container = tbl)
         tbl[3, 1] <- "New Name          " # has to be a better way to align this below
         tbl[3, 2] <- clip.name<-gedit("clipboard")
 		
@@ -996,7 +996,8 @@ devium.data.import<-function (container = NULL)
 					{
 						name<-svalue(clip.name)
 						#read from excel and format based on type
-						type<-switch(svalue(data.opts),"with row and column names"="with.dimnames","with meta data"="with.meta.data")
+						type<-switch(svalue(data.opts),"with row and column names"="with.dimnames",
+										"with meta data"="with.meta.data","with name"="with.name","no name"="no.name")
 						tmp<-read.excel(type)#assign(name,tmp,envir=.GlobalEnv)
 						#assign objects to global environment
 						all<-c()
@@ -1025,26 +1026,30 @@ devium.data.import<-function (container = NULL)
         csv = gexpandgroup(text="From: CSV",horizontal=FALSE, container=main, pos=2)
 		g = ggroup(horizontal = FALSE, cont = csv)
         tbl = glayout(cont = g)
-        tbl[2, 1] <- "New Name          " # has to be a better way to align this below
-        tbl[2, 2] <- (gedit(""))
+        tbl[1, 1] <- "Select Workbook" # has to be a better way to align this below
+        tbl[1, 2] <- (filebrowse.excel.csv = gfilebrowse(text = "browse to select", action = invisible, container = tbl, filter = "*.csv", quote = FALSE))
+		
+		tbl[2, 1] <- "New Name          " # has to be a better way to align this below
+        tbl[2, 2] <-the.name<- (gedit("data"))
 										
 		#hitting apply button loads the CSV and 
 		tbl[2, 3] <- (gapply = gbutton(text = "Apply",container = tbl, 
 			handler = function(h,...)
 					{
 					#selected file
-					theFile = svalue(filebrowse)
+					theFile = svalue(filebrowse.excel.csv )
+					the.name<-svalue(the.name)
 					if (!theFile == "browse to select")
 						{
 							#name for file
-							tmp<-unlist(strsplit(basename(theFile), split = "\\."))[1]
+							tmp<-unlist(strsplit(basename(the.name), split = "\\."))[1]
 							tmp<-chartr("-","_",tmp)
 							file.name<-chartr(" ","_",tmp)
 						
 							#read as csv asume top row = header
 							tryCatch(tmp.obj<-read.csv(theFile,header=TRUE),error=function(e){stop("error occured, check file")})
 							assign(file.name,tmp.obj,envir=.GlobalEnv)#
-							done.info.GUI(file.name)
+							done.info.GUI(paste(file.name,"loaded"))
 						}
 				}))
 				
@@ -1219,6 +1224,44 @@ devium.data.import<-function (container = NULL)
 		return(main)
     }
 
+#export data gui
+#function to make gui to lad data from csv or google docs
+devium.data.export<-function (container = NULL) 
+{
+		#container=gwindow()
+		#for import of: CSVs (read.csv, assume header)
+		#for clipboard assume row and column names
+		#google spreadsheets (RGoogleDocs)
+		#Excel Worksheet (XLConnect)
+		
+		main = ggroup(horizontal = FALSE, container = container)
+		
+		#load from clipboard
+        clip = gexpandgroup(text="To: Clipboard",horizontal=FALSE, container=main, pos=2)
+		g = ggroup(horizontal = FALSE, cont = clip)
+        tbl = glayout(cont = g)
+		tbl[1, 1:2]<-data.opts<-gradio(c("no name","with name","with row and column names", "with meta data"), container = tbl)
+        tbl[2,1]<-glabel("  object")
+		tbl[2,2]<-tmp.obj<-gedit("drop name here")
+		
+		#load from clipboard
+		tbl[3, 2] <- (gapply = gbutton(text = "Apply",container = tbl, 
+			handler = function(h,...)
+					{
+						#read from excel and format based on type
+						type<-switch(svalue(data.opts),"with row and column names"="with.dimnames",
+										"with meta data"="with.meta.data","with name"="with.name","no name"="no.name")
+						object<-tryCatch(get(svalue(tmp.obj)),error=function(e){NULL})		
+						
+						write.to.clipboard(obj=object,type=type)#assign(name,tmp,envir=.GlobalEnv)
+		
+					}
+				))
+		
+		assign("devium.data.export.notebook",main,envir=devium) #optional
+		return(main)
+    }
+
 # function to load R data sets
 devium.load.Rdataset<-function (width = 550, height = 400) 
 {
@@ -1256,7 +1299,8 @@ devium.load.Rdataset<-function (width = 550, height = 400)
 			status = gstatusbar("Double click data set to load", container = group)
 			invisible(win)
 		}		
-	
+
+#based on pmg function (should import these!)		
 devium.summary<-function(obj,...)
 {
     objName = deparse(substitute(obj))
@@ -1324,7 +1368,8 @@ devium.summary<-function(obj,...)
 }
  
 #data modification gui
-devium.modify.data.gui<-function(container=NULL){
+devium.modify.data.gui<-function(container=NULL)
+{
 		#results stored in get("devium.modify.data.object",envir=devium)
 		#for debugging
 		#container= gwindow("test")
@@ -1485,7 +1530,8 @@ devium.modify.data.gui<-function(container=NULL){
 }
 
 #data transformation gui
-devium.transform.data.gui<-function(container=NULL){
+devium.transform.data.gui<-function(container=NULL)
+{
 	#results stored in get("devium.data.object",envir=devium)
 	#for debugging
 	#container= gwindow("test")
@@ -1638,7 +1684,8 @@ devium.network.gui<-function(container=NULL)
 					#try to get labels
 					labs<-tryCatch(as.character(unlist(get(.$"devium.network.labels"))),error=function(e){NULL})
 					if(is.null(labs)){labs<-tryCatch(as.character(unlist(gget(.$"devium.network.labels"))),error=function(e){.$"devium.network.labels"})}
-				
+					if(length(labs)==0){labs<-""}
+					
 					#objects for visual properties
 					visual.par<-list(
 					layout = .$"devium.network.layout",  #have to get this later
@@ -1692,7 +1739,8 @@ devium.network.gui<-function(container=NULL)
 						"devium.network.plot.type",# plot type
 						"devium.network.layout",#layout
 						"devium.network.labels",#labels
-						"devium.network.edge.list.weight.cutoff" #cutt off to filter edge list
+						"devium.network.edge.list.weight.cutoff",
+						"devium.network.edge.list.weight.cutoff.use.FDR"#cutt off to filter edge list
 						) 
 		
 		 #fxn to create the environment "devium" if it does not exist
@@ -1771,6 +1819,12 @@ devium.network.gui<-function(container=NULL)
 					obj<-get("devium.network.edge.list.weight.cutoff",envir=devium)
 					d.assign("devium.network.edge.list.weight.cutoff",svalue(obj),main.object="devium.network.object")
 					}),envir=devium) #should change based on "devium.network.edge.list.type"
+		tmp[2,4]<-assign("devium.network.edge.list.weight.cutoff.use.FDR",gcheckbox(text="use FDR", container=tmp,
+				handler=function(h,...)
+							{
+							obj<-get("devium.network.edge.list.weight.cutoff.use.FDR",envir=devium)
+							d.assign("devium.network.edge.list.weight.cutoff.use.FDR",svalue(obj),main.object="devium.network.object")
+							}),envir=devium)
 		
 		#VERTICES
 		tmp<-glayout(container=.notebook,label="Vertices")
@@ -1911,6 +1965,13 @@ devium.gui<-function (width = 850, height = .75 * width)
 			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
 			svalue(tmp)<-.2
 		}
+	devium.menu$Data$`Export`$handler<-function(h,...)
+		{
+			add(get("devium.notebook",envir=devium),devium.data.export(), label = "Data Export") 
+			#tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
+			#svalue(tmp)<-.2
+		}
+		
 	devium.menu$Data$`R Dataset`$handler<-function(h,...){devium.load.Rdataset() }
 	devium.menu$Data$`Modify`$handler<-function(h,...){
 		add(get("devium.notebook",envir=devium),devium.modify.data.gui(), label = "Modify Data") 

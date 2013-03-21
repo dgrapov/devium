@@ -5,16 +5,17 @@ read.excel <- function(type="with.dimnames") {
 						  devium.data.format(tmp, type)
 						}
 
-#format data objects: identify headers and meta data, and give sepearately 
-devium.data.format<-function(obj, type){
-	#type can be with.dimnames
-	# with.meta.data
+#write to clipboard 
+write.to.clipboard<-function(obj,type="no.name"){
+
+	#obj = to be written to clipboard
+	#type determines dimensions and their names
 	
 	switch(type,
-		with.dimnames = .local<-function(obj)
+	with.dimnames = .local<-function(obj)
 							{
-								obj.names<-list(rownames = as.character(unlist(obj[-1,1])), colnames = as.character(unlist(obj[1,-1])))
-								obj<-as.data.frame(matrix(as.numeric(as.character(unlist(obj[-1,-1]))),nrow=length(obj.names$rownames), ncol=length(obj.names$colnames)))
+								obj.names<-list(rownames = rownames(obj), colnames = colnames(obj))
+								obj<-obj
 								is.error<-NULL
 								is.error<-tryCatch(dimnames(obj)<-obj.names,
 								error=function(e)
@@ -24,9 +25,85 @@ devium.data.format<-function(obj, type){
 								if(is.null(is.error)){list(data=obj,rownames=obj.names$rownames,colnames=obj.names$colnames)} else {obj}
 							},
 							
+		with.name = .local<-function(obj)
+							{
+								obj.names<-list(1:((length(as.character(unlist(obj))))-1),as.character(unlist(obj)[1]))
+								obj<-as.data.frame(as.character(unlist(obj))[-1])
+								is.error<-NULL
+								is.error<-tryCatch(dimnames(obj)<-obj.names,
+								error=function(e)
+										{ 
+											NULL
+										})#need to set as protected 
+								if(is.null(is.error)){list(data=obj,rownames=obj.names$rownames,colnames=obj.names$colnames)} else {obj}
+							},
+		no.name = .local<-function(obj)
+		{
+			obj.names<-list(1:((length(as.character(unlist(obj))))),"NA")
+			obj<-as.data.frame(as.character(unlist(obj)))
+			is.error<-NULL
+			is.error<-tryCatch(dimnames(obj)<-obj.names,
+			error=function(e)
+					{ 
+						NULL
+					})#need to set as protected 
+			if(is.null(is.error)){list(data=obj,rownames=obj.names$rownames,colnames=obj.names$colnames)} else {obj}
+		})
+		
+	tmp<-.local(obj) 
+	#bind row names and col names with obj
+	tmp.obj<-cbind(c("",rownames(tmp)),rbind(colnames(tmp),tmp))
+	write.table(as.matrix(tmp.obj),"clipboard",sep="\t",row.names=FALSE,col.names=FALSE)
+}
+
+#format data objects: identify headers and meta data, and give sepearately 
+devium.data.format<-function(obj, type){
+	#type can be with.dimnames
+	# with.meta.data
+	
+	switch(type,
+		with.dimnames = .local<-function(obj)
+							{
+								obj.names<-list(rownames = as.character(unlist(obj[-1,1])), colnames = as.character(unlist(obj[1,-1])))
+								#obj<-as.data.frame(matrix(as.numeric(as.character(unlist(obj[-1,-1]))),nrow=length(obj.names$rownames), ncol=length(obj.names$colnames))) # as.numeric
+								obj<-as.data.frame(matrix(as.character(unlist(obj[-1,-1])),nrow=length(obj.names$rownames), ncol=length(obj.names$colnames)))
+								
+								is.error<-NULL
+								is.error<-tryCatch(dimnames(obj)<-obj.names,
+								error=function(e)
+										{ 
+											NULL
+										})#need to set as protected 
+								if(is.null(is.error)){list(data=obj,rownames=obj.names$rownames,colnames=obj.names$colnames)} else {obj}
+							},
+							
+		with.name = .local<-function(obj)
+							{
+								obj.names<-list(1:((length(as.character(unlist(obj))))-1),as.character(unlist(obj)[1]))
+								obj<-as.data.frame(as.character(unlist(obj))[-1])
+								is.error<-NULL
+								is.error<-tryCatch(dimnames(obj)<-obj.names,
+								error=function(e)
+										{ 
+											NULL
+										})#need to set as protected 
+								if(is.null(is.error)){list(data=obj,rownames=obj.names$rownames,colnames=obj.names$colnames)} else {obj}
+							},
+		no.name = .local<-function(obj)
+		{
+			obj.names<-list(1:((length(as.character(unlist(obj))))),"NA")
+			obj<-as.data.frame(as.character(unlist(obj)))
+			is.error<-NULL
+			is.error<-tryCatch(dimnames(obj)<-obj.names,
+			error=function(e)
+					{ 
+						NULL
+					})#need to set as protected 
+			if(is.null(is.error)){list(data=obj,rownames=obj.names$rownames,colnames=obj.names$colnames)} else {obj}
+		},
 		with.meta.data = .local<-function(obj)
 							{
-							#look for "" and set headers based on first non "" row and column
+							#look for "" and set headers based on first non "" row and column (add other patterns here)
 							object<-obj
 							
 							#identify boundaries of data the rest is meta data
