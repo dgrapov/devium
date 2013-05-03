@@ -31,7 +31,7 @@ Copy and paste the following code in to R to source the necessary files.</p>
 
  ```r
  #load package from github repo
-source("http://pastebin.com/raw.php?i=Y0YYEBia")
+source("http://pastebin.com/raw.php?i=JVyTrYRD")
 
 #check out some of the functions (accesory objects will be cleaned up)
 objects()
