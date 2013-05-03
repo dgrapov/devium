@@ -508,7 +508,7 @@ viewExcelObject<-function(obj.path)
 		all.named.ranges<-getDefinedNames(wb, validOnly=TRUE)
 		setwd(old.dir)
 		return(list(worksheets=all.worksheets,named.ranges=all.named.ranges))
-	}
+1	}
 
 #accesory functions based/from package pmg
 #----------------------------------------------------
@@ -643,8 +643,7 @@ check.get.envir<-function(main.object,envir)
     structure(as.list(match.call()[-1]), env = .env, class = "quoted")
 }
 	
-
-#load devium objects
+#load devium objects (outdated)
 source.dir<-function(type="file",dir=getwd(),
 	file.list=c("https://raw.github.com/dgrapov/devium/master/R/Devium%20GUI%20elements.r",
 				"https://raw.github.com/dgrapov/devium/master/R/Devium%20Plotting%20Functions.r",
@@ -677,5 +676,3 @@ source.dir<-function(type="file",dir=getwd(),
 				)
 			.local(file.list=file.list)
 	}
-
-	11
