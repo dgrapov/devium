@@ -30,6 +30,14 @@ For now it can be installed by using the source code in the devium/R directory.
 Copy and paste the following code in to R to source the necessary files.</p>
 
  ```r
+ #load package from github repo
 source("http://pastebin.com/raw.php?i=Y0YYEBia")
+
+#check out some of the functions (accesory objects will be cleaned up)
+objects()
+
+#launch GUI (watch R console for messages regarding the downloading of dependancies)
+devium.gui()
+
  ```
  Note if you don't yet have the GTK+ toolkit installed you need to specify to "Install GTK+" when prompted from the R command line.
