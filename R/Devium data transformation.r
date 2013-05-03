@@ -75,7 +75,8 @@ transform.to.normal.output<-function(obj,name="transformed.data", envir=devium)
 		assign(names(obj)[1],as.data.frame(data),envir=.GlobalEnv)
 		assign(names(obj)[2],data.frame(p.value=diagnostics[,1,drop=FALSE],transformation=as.factor(unlist(diagnostics[,2,drop=FALSE]))),envir=.GlobalEnv)
 		}
-	
+
+#data scaling functions		
 scale.data<-function(data, scale="uv", center=TRUE)
 	{
 		switch(scale,
@@ -95,3 +96,24 @@ scale.data<-function(data, scale="uv", center=TRUE)
 											})
 		.local()						
 	}
+	
+#missing values static imputation
+replace.missing<-function(data, replacement=apply(data,2,mean,na.rm=TRUE)){
+			#missing values in the data are replaced column-wise
+			#by th replacement values
+			out<-sapply(1:ncol(data),function(i)
+				{
+					fix<-c(1:nrow(data))[is.na(data[,i])]
+					if(length(fix)>0){
+							obj<-data[i,drop=FALSE]
+							obj[fix,]<-replacement[i]
+							obj
+						} else{
+							data[i,drop=FALSE]
+							}
+				})
+				
+			res<-do.call("cbind",out)	
+			dimnames(res)<-dimnames(data)
+			return(as.data.frame(res))	
+		}

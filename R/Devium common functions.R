@@ -1,7 +1,13 @@
+#list to character
+fixlc<-function(obj){as.character(unlist(obj))}
+
+#list to numeric
+fixln<-function(obj){as.numeric(as.character(unlist(obj)))}
+
 #import from clipboard
 read.excel <- function(type="with.dimnames") {
 						  #assume row and colnames are included but may not be unique
-						  tmp<-read.table("clipboard",sep="\t")
+						  tmp<-read.table("clipboard-128",sep="\t")
 						  devium.data.format(tmp, type)
 						}
 
@@ -53,7 +59,7 @@ write.to.clipboard<-function(obj,type="no.name"){
 	tmp<-.local(obj) 
 	#bind row names and col names with obj
 	tmp.obj<-cbind(c("",rownames(tmp)),rbind(colnames(tmp),tmp))
-	write.table(as.matrix(tmp.obj),"clipboard",sep="\t",row.names=FALSE,col.names=FALSE)
+	write.table(as.matrix(tmp.obj),"clipboard-128",sep="\t",row.names=FALSE,col.names=FALSE)
 }
 
 #format data objects: identify headers and meta data, and give sepearately 
@@ -308,14 +314,24 @@ check.get.packages<-function(pkg)
 	{
 		options(warn=-1)
 		
-		#make sure bio conductor is one of the repositories
-		#will need a mechanism to make sure this stays upto date
-		if(!all(names(getOption("repos"))%in%"BioCsoft"))
-			{
-				r<-getOption("repos")
-				r["BioCsoft"]<-"http://www.bioconductor.org/packages/2.10/bioc"
-				options(repos = r)
-			}	
+		# #make sure bio conductor is one of the repositories
+		# #will need a mechanism to make sure this stays upto date
+		# if(!all(names(getOption("repos"))%in%"BioCsoft"))
+			# {
+				# r<-getOption("repos")
+				# r["BioCsoft"]<-"http://www.bioconductor.org/packages/2.11/bioc" # needs to be specific version
+				# options(repos = r)
+				
+				# #add layer to call 
+				 # #source("http://bioconductor.org/biocLite.R")
+				 # #biocLite("package to install")
+				 
+				 # if install fails
+				# #r.version<-paste(sessionInfo()$R.version$major,sessionInfo()$R.version$minor, sep=".")
+				# #bioc.url<-paste("http://www.bioconductor.org/packages/",r.version,"/bioc", sep="")
+				# #r["BioCsoft"]<-bioc.url # needs to be specific to R version
+				# #options(repos = r)
+			# }	
 		
 		res<-character()
 		
@@ -327,11 +343,37 @@ check.get.packages<-function(pkg)
 					 res<-c(res,pkg[i])
 					}
 			}))
-		
-			if(!any(need=="NULL"))
+			
+			need<-as.character(unlist(need[!is.null(need)]))
+			if(length(need)>0)
 				{
-					x<-apply(need,1,install.packages)
-					tryCatch(apply(need,1,library, character.only= TRUE),error=function(e){paste("could not find package: ",paste(as.character(need),collapse=", "),sep="")})
+					
+					x<-sapply(need,install.packages)
+					lib.fun<-function(need){
+							sapply(1:length(need), function(i){
+							out<-tryCatch(library(need[i], character.only= TRUE), error=function(e){need[i]})
+							if(all(out==need[i])){need[i]}
+							})
+						}
+						
+					out<-as.character(unlist(lib.fun(need)))
+					
+					#try bioconductor
+					if(length(out)>0){
+					cat(paste("Package not found, trying Bioconductor..."),"\n")
+					source("http://bioconductor.org/biocLite.R")
+					lib.fun.bioc<-function(need){
+							sapply(1:length(need), function(i){
+							tryCatch( biocLite(need[i]), 
+								error=function(e){need[i]})
+							})
+						}
+						
+					tmp<-lib.fun.bioc(out)
+					final<-lib.fun(tmp)
+					if(length(final)>0){cat(paste("could not find package: ",paste(as.character(unlist(final)),collapse=", "),sep=""),"\n")}
+					}
+					
 				}
 
 	}
@@ -636,4 +678,4 @@ source.dir<-function(type="file",dir=getwd(),
 			.local(file.list=file.list)
 	}
 
-	
+	11

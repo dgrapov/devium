@@ -401,7 +401,7 @@ qpgraph.compare<-function(data,factor,threshold="auto",...){
 		
 #generate qpgraph
 make.ave.qpgraph<-function(data,tests=200,for.col=TRUE,...){
-		library(qpgraph)
+		check.get.packages("qpgraph")
 		.local<-function(data,tests=200,for.col=TRUE,...)
 		{
 			m<-data # some bug in qpgraph
@@ -414,13 +414,17 @@ make.ave.qpgraph<-function(data,tests=200,for.col=TRUE,...){
 	
 #plot graph edge/vertex number vs threshhold
 choose.qpgraph.threshold<-function(qpnetwork,.threshold=c(0,.6),choose=NULL){
+		
+		#choose = c("interactive", "auto")
+		
 		#choose elbow in vertex vs. edge plot
 		int<-c(seq(.threshold[1],.threshold[2],by=.01)[-1])
 		
 		xy<-do.call("rbind",lapply(1:length(int),function(i)
 				{
 					net <- qpGraph(qpnetwork, threshold=int[i], return.type="graphNEL")
-					data.frame(threshold=int[i],nodes=length(net@nodes),edges=length(unlist(net@edgeL))/2)
+					con.nodes<- unique(unlist(strsplit(names(net@edgeData@data),"\\|")))
+					data.frame(threshold=int[i],nodes=length(con.nodes),edges=length(unlist(net@edgeL))/2)
 				}))
 		#plot
 		plot(xy[,c(3,1)],type="l",lwd=2,col="orange",pch=21,bg="red",cex=1,xlab="number")
@@ -581,9 +585,9 @@ filter.edges<-function(edge.list,filter,cut.off=NULL){
 		return(out)
 	}
 
-#create edge list and network attributes file from meta.data wioth CID keys
+#create edge list and network attributes file from meta.data with CID keys
 #data<- bound with CIDS
-#filter object basd on cid index to remove duplicates
+#remove duplicates from object based on and index/identifier 
 unique.obj<-function(data, index){
 		#accesory function to return position of first instance of unique object 
 		id<-unique.id(index)
@@ -591,7 +595,8 @@ unique.obj<-function(data, index){
 	}
 
 #look up KEGG reactant pairs 
-get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964564/raw/aec1a5097a3265d22109c9b34edd99a28f4012a3/KEGG+reaction+pairs"){
+get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/5438735/raw/c4cc531a8b2a1570b8b3aa52e723d04caf09e987/KEGG+RPAIRS2.r"){ 
+		#older repo: "https://gist.github.com/dgrapov/4964564/raw/aec1a5097a3265d22109c9b34edd99a28f4012a3/KEGG+reaction+pairs"
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
 		tmp<-strsplit(text,"\\n")
@@ -601,7 +606,7 @@ get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964564/raw/aec1a5
 		matrix(unlist(tmp2),ncol=2, byrow=TRUE)
 	}
 
-	#look up CID to KEGG translation 	
+#look up CID to KEGG translation 	
 get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c84f8f209f961b23adbf7d7bd1f704ce7a1166ed/CID_KEGG+pairs"){
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
@@ -611,15 +616,16 @@ get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c8
 		matrix(unlist(tmp2),ncol=2, byrow=TRUE)
 	}
 
-	#making an edge list based on CIDs from KEGG reactant pairs
+#making an edge list based on CIDs from KEGG reactant pairs
 CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pairs()){
-		matched<-lookup[c(1:nrow(lookup))[lookup[,1]%in%cid],]
+		
+		matched<-lookup[c(1:nrow(lookup))[fixln(lookup[,1])%in%cid],]
 		ids<-sapply(1:nrow(matched),function(i)
 			{
 				#
 				c(which(as.character(matched[i,2])==as.character(database[,1])),which(as.character(matched[i,2])==as.character(database[,2])))				
 			})
-		names(ids)<-matched[,1]	# cid of all paired by cid
+		names(ids)<-fixln(matched[,1])	# cid of all paired by cid
 		
 		#construct symmetric matrix then extract unique edge list
 		mat<-do.call("rbind",lapply(1:length(ids),function(i)
@@ -633,12 +639,12 @@ CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pa
 			}))
 		dimnames(mat)<-list(names(ids),names(ids))
 		elist<-gen.mat.to.edge.list(mat)
-		as.data.frame(elist[elist[,3]==1,1:2])	#cid source to cid target based on kegg pairs	
+		as.data.frame(elist[fixln(elist[,3])>0,1:2])	#cid source to cid target based on kegg pairs	
 	}
 
 #calculate correlations and p-values
-devium.calculate.correlations<-function(data,type){
-		check.get.packages(c("WGCNA","Hmisc"))
+devium.calculate.correlations<-function(data,type="pearson"){
+		check.get.packages(c("impute","WGCNA","Hmisc"))
 		#data will be coerced to a matrix
 		# type includes pearson (WGCA), biweight(WGCA), spearman
 		switch(type,
@@ -648,7 +654,7 @@ devium.calculate.correlations<-function(data,type){
 							},		
 			biweight 	= .local<-function(data){
 							obj<-bicorAndPvalue(as.matrix(data),use = "pairwise.complete.obs", alternative = "two.sided")
-							list(cor=obj$cor,p.value=obj$p)
+							list(cor=obj$bicor,p.value=obj$p)
 							},
 			spearman    = .local<-function(data){
 							obj<-rcorr(as.matrix(data),type="spearman")
@@ -658,50 +664,51 @@ devium.calculate.correlations<-function(data,type){
 	}
 
 #get tanimoto distances from cids
-CID.to.tanimoto<-function(cids, cut.off = .7, parallel=TRUE){
+CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"){
 	#used cids = PUBCHEM CIDS to calculate tanimoto distances
-	check.get.packages(c("snow","doSNOW","foreach","ChemmineR")) # need to use others for mac
-	
+	need<-c("snow","doSNOW","foreach","ChemmineR") # need to use others for mac
+	for(i in 1:length(need)){check.get.packages(need[i])}
 	#get fingerprint for calcs
 	data(pubchemFPencoding)
 	cid.objects<-unique(as.numeric(as.character(unlist(cids)))) # need
 	
 	#print to screen any duplictes which get removed 
 	
-	if(length(duplicated(as.numeric(as.character(unlist(cids)))))>0){
+	if(sum(duplicated(as.numeric(as.character(unlist(cids)))))>0){
 		cat(paste("Duplicates of", paste(as.character(unlist(cids))[duplicated(as.numeric(as.character(unlist(cids))))]), "were removed" ),"\n")
 		}
 	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint. This may take a moment.","\n")
-	compounds <- getIds(cid.objects)
-	# Convert base 64 encoded fingerprints to character vector, matrix or FPset object
-	fpset <- fp2bit(compounds, type=3)
+	compounds <- getIds(cid.objects) # get sdfset
+	cid(compounds) <- sdfid(compounds)
 	
-	dimnames(fpset@fpma)[1]<-list(as.character(cid.objects))
+	# Convert base 64 encoded fingerprints to character vector, matrix or FPset object
+	fpset <- fp2bit(compounds, type=2)
 	
 	if(parallel==TRUE)
 		{
 				#change this later
 				cl.tmp = makeCluster(rep("localhost",Sys.getenv('NUMBER_OF_PROCESSORS')), type="SOCK") 
 				registerDoSNOW(cl.tmp) 
-				out<-foreach(j=c(1:length(cid(fpset))),.combine="cbind") %dopar% ChemmineR::fpSim(fpset[j], fpset, sorted=FALSE)#length(codes)
+				out<-foreach(j=c(1:length(rownames(fpset))),.combine="cbind") %dopar% ChemmineR::fpSim(fpset[j,], fpset)#length(codes)
 				stopCluster(cl.tmp)	
 		} else {
-		
-				out<-sapply(1:length(cid(fpset)),function(i){ChemmineR::fpSim(fpset[i], fpset, sorted=FALSE)})
+					out<-sapply(rownames(fpset), function(x) ChemmineR::fpSim(x=fpset[x,], fpset,sorted=FALSE)) 
 		}
 		
 	#edgelist
-	colnames(out)<-unlist(dimnames(out)[1])
-	elist<-gen.mat.to.edge.list(out)
+	#colnames(out)<-unlist(dimnames(out)[1])1
 	
 	#optionally filter based on score based on score
-	obj<-as.matrix(elist)
-	pass<-!as.numeric(obj[,3])<=cut.off
+	obj<-as.matrix(out)
 	
-	cat("Done","\n")
-	#return edgelist 
-	as.data.frame(obj[pass,1:3])
-	#rm(pubchemFPencoding) # optional
+	if(return=="edge list"){
+		e.list<-gen.mat.to.edge.list(obj)
+		final<-edge.list.trim(e.list,index=fixln(e.list[,3]),cut=cut.off,less.than=FALSE)
+	}else{
+		obj[obj<cut.off]<-0
+		final<-obj
+	}
+	return(final)
 }
 
 #querry chemical translation service (CTS) to get tanimoto from inchis (very slow)
@@ -889,7 +896,8 @@ devium.network.execute<-function(object,filter=as.numeric(object$devium.network.
 	}
 
 #function to add to existing igraph.plot
-devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add=FALSE){
+devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add=FALSE,not.dev=FALSE){
+		#plot.type = c("static","interactive","3D-plot")
 		check.get.packages(c("igraph","graph")) 
 		#create grapNEL object from edge list
 		graph.obj<-edge.list.to.graphNEL(edge.list)
@@ -916,10 +924,12 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 				j<-1
 				for(j in 1:length(names(graph.par.obj)))
 					{
-						if(as.character(names(defaults)[i])==as.character(names(graph.par.obj)[j]))
-							{
-									graph.par[[i]]<- graph.par.obj[[j]] #tryCatch(get(unlist(graph.par.obj[j])),error=function(e){graph.par.obj[j]})
-							} #else { 
+						if(!is.null(graph.par.obj)){
+							if(as.character(names(defaults)[i])==as.character(names(graph.par.obj)[j]))
+								{
+										graph.par[[i]]<- graph.par.obj[[j]] #tryCatch(get(unlist(graph.par.obj[j])),error=function(e){graph.par.obj[j]})
+								}
+						}								#else { 
 									# tmp<-graph.par[i]
 									# graph.par[i]<-tmp
 							# }
@@ -964,3 +974,86 @@ FDR.adjust<-function(obj,type="pvalue",return.all=FALSE){
 	obj<-fdrtool(obj, statistic=type,plot=FALSE, color.figure=FALSE, verbose=TRUE,cutoff.method="fndr",pct0=0.75)
 	if(return.all==TRUE){return(obj)} else {return(as.numeric(as.character(unlist(obj$qval))))}
 	}
+	
+#use chemical resolver to get inchi keys from smiles
+get.inchikey.from.smiles<-function(smiles,progress=TRUE){
+		# smiles are coerced to a 1 column data frame
+		obj<-data.frame(matrix(unlist(smiles),ncol=1))
+		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)} # need RCurl for web querry
+		if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = nrow(obj), style = 3)} # show progress bar
+	
+		start<-"http://cactus.nci.nih.gov/chemical/structure/"
+		end<-"/stdinchikey"
+		out<-sapply(1:nrow(obj),function(i)
+			{
+				if (progress == TRUE){setTxtProgressBar(pb, i)}
+			
+				close(pb)
+				url<-paste(start,as.character(unlist(obj[i,])),end,sep="")
+				url<-gsub("\\ ","%20",url) # fix spaces 
+				tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){"error"})
+					
+			})
+			
+			if (progress == TRUE){close(pb)}
+			
+		#format output to only return InchI
+		bad<-is.na(smiles)
+		out<-as.character(unlist(out))
+		out[bad]<-"InChIKey=error"
+		#results<-matrix(as.character(unlist(as.data.frame(strsplit(out,"="))[2,])),ncol=1)
+		results<-matrix(out,ncol=1)
+		colnames(results)<-"InchI Key"
+		return(results)
+		}
+
+#plot nodes vs edges for edge list and at some given threshold based on an index
+plot.nodes.and.edges<-function(edge.list,index=NULL,.threshold=c(0,0.05), levels=10, plot="seperate"){
+		
+		#choose = c("interactive", "auto")
+		#plot = c("seperate","ratio")
+		#choose elbow in vertex vs. edge plot
+		int<-c(seq(.threshold[1],.threshold[2],length.out=levels)[-1])
+		
+		xy<-do.call("rbind",lapply(1:length(int),function(i)
+				{
+					net <- edge.list[index<=int[i],]
+					nodes<- unique(as.character(unlist(net)))
+					data.frame(threshold=int[i],nodes=length(nodes),edges=nrow(net))
+				}))
+		#plot
+		if(plot=="ratio"){ 
+				plot(xy[,2]/xy[,3],xy[,1],type="l",lwd=2,col="orange",pch=21,bg="red",cex=1,xlab="nodes / edges")
+			} else {
+				plot(xy[,c(3,1)],type="l",lwd=2,col="orange",pch=21,bg="red",cex=1,xlab="number")
+				lines(xy[,c(2,1)],type="l",lwd=2,col="blue",pch=21,bg="red",cex=1)
+				legend("bottomright",c("Edges","Vertices"),fill=c("orange","blue"),bty="n")
+				#show threshold wher all nodes are connected
+				tmp<-which.min(abs(nrow(edge.list)-xy[,2]))
+				abline(h=xy[tmp,1],col="gray",lty=2,lwd=1)
+				abline(v=xy[tmp,2],col="gray",lty=2,lwd=1)
+				abline(v=xy[tmp,3],col="gray",lty=2,lwd=1)
+				title(paste(xy[tmp,2],"nodes and",xy[tmp,3],"edges at threshold =",xy[tmp,1]))
+		}
+		# if(choose=="auto") 
+			# {
+				# return(list(auto.threshold=xy[tmp,1],list=xy))
+			# }
+			
+		# if(choose=="interactive")
+			# {
+				# tmp<-locator(1)$y
+				# tmp<-which.min(abs(xy[,1]-tmp))
+				# plot(xy[,c(3,1)],type="l",lwd=2,col="orange",pch=21,bg="red",cex=1,xlab="number")
+				# lines(xy[,c(2,1)],type="l",lwd=2,col="blue",pch=21,bg="red",cex=1)
+				# legend("bottomright",c("Edges","Vertices"),fill=c("orange","blue"),bty="n")
+				# #show threshold wher all nodes are connected
+				# abline(h=xy[tmp,1],col="gray",lty=2,lwd=1)
+				# abline(v=xy[tmp,2],col="gray",lty=2,lwd=1)
+				# abline(v=xy[tmp,3],col="gray",lty=2,lwd=1)
+				# title(paste(xy[tmp,2],"nodes and",xy[tmp,3],"edges at threshold =",xy[tmp,1]))
+				# return(xy[tmp,1])
+			# }
+	}
+
+	

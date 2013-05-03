@@ -179,7 +179,8 @@ devium.scatter.plot<- function(container=NULL)
 					 assign("devium.plotnotebook.window", tmp, envir = devium)
 				}
 				else {
-					focus(get("devium.plotnotebook.window",envir=devium)) <- TRUE
+					tmp<-get("devium.plotnotebook.window",envir=devium)
+					focus(tmp) 
 				}
 			}
 
@@ -818,7 +819,8 @@ devium.qplot<- function(container=NULL)
 					 assign("devium.plotnotebook.window", tmp, envir = devium)
 				}
 				else {
-					focus(get("devium.plotnotebook.window",envir=devium)) <- TRUE
+					tmp<-get("devium.plotnotebook.window",envir=devium)
+					focus(tmp) 
 				}
 			}
 
@@ -2059,7 +2061,8 @@ devium.gui<-function (width = 850, height = .75 * width)
 			 assign("devium.plotnotebook.window", tmp, envir = devium)
         }
         else {
-            focus(get("devium.plotnotebook.window",envir=devium)) <- TRUE
+            tmp<-get("devium.plotnotebook.window",envir=devium)
+			focus(tmp)
         }
     }
 	
