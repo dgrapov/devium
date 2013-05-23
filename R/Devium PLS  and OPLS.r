@@ -41,7 +41,7 @@ OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",pro
 }
 
 #plot OSC results
-plot.OSC.results<-function(obj,plot="RMSEP",groups=NULL){
+plot.OSC.results<-function(obj,plot="RMSEP",groups="NULL"){
 	check.get.packages("ggplot2")
 	#plot = one of: c("RMSEP","scores","loadings","delta.weights")
 	#groups is a factor to show group visuyalization in scores plot
@@ -162,7 +162,7 @@ plot.OSC.results<-function(obj,plot="RMSEP",groups=NULL){
 
 #plot results for a single model
 #plot OSC results
-plot.PLS.results<-function(obj,plot="RMSEP",groups=NULL,comp1=1,comp2=2){
+plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(obj$data))),comp1=1,comp2=2){
 	require(ggplot2)
 	#plot = one of: c("RMSEP","scores","loadings")
 	#groups is a factor to show group visualization in scores plot

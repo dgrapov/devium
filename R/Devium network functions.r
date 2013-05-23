@@ -1,5 +1,51 @@
 
-# functions
+# get network edge list and layout from KEGG KGML file
+kgml.network<-function(file){
+  if(!require("XML")){install.packages("XML");library("XML")} else {library("XML")}
+  #file should be a kegg KGML file
+  fileName<-file
+  kgml<-xmlTreeParse(fileName) #,useInternal = TRUE
+  main<-kgml$doc$children$pathway
+  main<-xmlParse(fileName)
+  
+  #get node layout
+  #----------------------
+  node.id<-getNodeSet(main,"//entry/@id")
+  node.name<-getNodeSet(main,"//graphics/@name")
+  xpos<- getNodeSet(main, "//@x")
+  ypos<-getNodeSet(main, "//@y")
+  
+  map.layout<-as.matrix(data.frame(id=unlist(node.id), name=unlist(node.name),x=unlist(xpos), y=unlist(ypos)))
+  
+  #get edge list
+  #------------------------
+  #not easy to account for XML entries containing multiple edges
+  # so hack it for now
+  
+  main<-kgml$doc$children$pathway
+  nodes<-main[names(main)%in%"entry"]
+  reactions<-main[names(main)%in%"reaction"]
+  reaction.list<-do.call("rbind",lapply(1:length(reactions),function(i)
+  {
+    x<-reactions[[i]]
+    reaction.name<-gsub("\"","",as.character(strsplit(as.character(strsplit(as.character(x)," ")[[2]]),',')[[2]]))
+    sub<- t(unlist(x[names(x)%in%"substrate"]))
+    s.ids<- sub[,colnames(sub)%in%"substrate.attributes.id"]
+    s.names<-  sub[,colnames(sub)%in%"substrate.attributes.name"]
+    prod <- t(unlist(x[names(x)%in%"product"])) 
+    p.ids<- prod[,colnames(prod)%in%"product.attributes.id"]
+    p.names<- prod[,colnames(prod)%in%"product.attributes.name"]
+    data.frame(substrate.id=s.ids,product.id=p.ids,substrate.name=gsub("cpd:","",s.names),product.name=gsub("cpd:","",p.names),reaction.id=gsub("rn:","",reaction.name))  	
+  }))
+  
+  #edge list
+  edge.list<-data.frame(source=reaction.list$substrate.name,target=reaction.list$product.name)
+  
+  #return results
+  return(list(edge.list=edge.list,layout=data.frame(map.layout)))
+  
+}
+
 #-------------------------------------------------------------
 #create a network from a graphNeL object
 make.cynet<-function(graph,network.name,layout='jgraph-spring'){
@@ -595,7 +641,7 @@ unique.obj<-function(data, index){
 	}
 
 #look up KEGG reactant pairs 
-get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/5438735/raw/c4cc531a8b2a1570b8b3aa52e723d04caf09e987/KEGG+RPAIRS2.r"){ 
+get.KEGG.pairs<-function(type="main",url="https://gist.github.com/dgrapov/5548641/raw/3f38cc29508dfd31bf4195eed48fab6871341eb5/KEGG+RPairs"){ 
 		#older repo: "https://gist.github.com/dgrapov/4964564/raw/aec1a5097a3265d22109c9b34edd99a28f4012a3/KEGG+reaction+pairs"
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
@@ -603,10 +649,23 @@ get.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/5438735/raw/c4cc53
 		tmp2<-strsplit(as.character(unlist(tmp)), "\t")
 		#fix header errors
 		tmp2[[1]]<-strsplit(tmp2[[1]],"\\  ")
-		matrix(unlist(tmp2),ncol=2, byrow=TRUE)
+		full<-out<-matrix(unlist(tmp2),ncol=4, byrow=TRUE)
+		
+		if(type =="main"){
+				out<-full[full[,3]=="main",1:2]
+			} 
+			
+		if(type =="all"){
+				out<-full[,1:2]
+			}
+			
+		if(type =="full"){
+				out<-full
+			}	
+			return(out)
 	}
 
-#look up CID to KEGG translation 	
+#look up CID to KEGG translation 	this function is replaced with the more general get.Reaction.pairs
 get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c84f8f209f961b23adbf7d7bd1f704ce7a1166ed/CID_KEGG+pairs"){
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
@@ -615,6 +674,95 @@ get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c8
 		#fix header errors
 		matrix(unlist(tmp2),ncol=2, byrow=TRUE)
 	}
+
+#getting connections from an edge list based on an index, which is translated
+get.Reaction.pairs<-function(index,reaction.DB,index.translation.DB, parallel=FALSE){
+		
+		#index identifies analytes to query connection for
+		#reaction.DB is a an edge list for connections
+		#index.translation DB is a 2 column table to translate index (column 1) to reaction.DB index (column 2)
+		
+		#translate input index to reaction.DB index
+		matched<-index.translation.DB[index.translation.DB[,1]%in%index,] # c(1:nrow(index.translation.DB))[
+		#check if something could not be matched
+		unmatched<-index[which(!index%in%matched[,1])]
+		if(length(unmatched)>0){cat(paste("The following were not found in the index.translation.DB:",unmatched,"\n"))}
+		#check and remove pairs (due to duplicate KEGG id for differing InchIkeys)
+		dupes<-duplicated(apply(matched,1,paste,collapse="|"))| duplicated(apply(matched[,2:1],1,paste,collapse="|"))
+		matched<-matched[!dupes,]
+		
+		if(parallel==TRUE){ # add progress bar
+				cat("Setting up cluster...","\n")
+				library("snow");library("doSNOW");library("foreach")
+				cl.tmp = makeCluster(rep("localhost",Sys.getenv('NUMBER_OF_PROCESSORS')), type="SOCK")  # windows specific
+				registerDoSNOW(cl.tmp) 
+				
+				
+				#do work
+				cat("Conducting translations...","\n")
+				ids<-foreach(i=c(1:nrow(matched))) %dopar% c(which(as.character(matched[i,2])==as.character(reaction.DB[,1])),which(as.character(matched[i,2])==as.character(reaction.DB[,2])))				
+				
+				names(ids)<-matched[,1]	# index of all paired by index
+				# remove unpaired objects
+				empty<-sapply(ids,length)
+				search<-c(1:length(ids))[empty>0]
+				cat("Matching reaction table...","\n")
+				#construct symmetric matrix then extract unique edge list do.call("rbind"
+				mat<-do.call("rbind",foreach(i=c(1:length(search))) %dopar% sapply(c(1:length(search)), function(j){ sum(ids[[search[j]]]%in%ids[[search[i]]])}))
+					 
+				#stop parallel
+				stopCluster(cl.tmp)	
+			} else {
+				
+				cat("Conducting translations...","\n")
+				ids<-sapply(1:nrow(matched),function(i)
+					{
+						#
+						c(which(as.character(matched[i,2])==as.character(reaction.DB[,1])),which(as.character(matched[i,2])==as.character(reaction.DB[,2])))				
+					})
+					
+				names(ids)<-matched[,1]	# index of all paired by index
+				
+				# remove unpaired objects
+				empty<-sapply(ids,length)
+				search<-c(1:length(ids))[empty>0]
+				
+				cat("Matching reaction table...","\n")
+				#construct symmetric matrix then extract unique edge list
+				mat<-do.call("rbind",lapply(c(1:length(search)),function(i)
+					{
+						sapply(c(1:length(search)), function(j)
+							{
+								sum(ids[[search[j]]]%in%ids[[search[i]]])
+							})
+					}))
+			}
+			
+		dimnames(mat)<-list(names(ids)[search],names(ids)[search])
+		#need to make symmetric for edgelist extraction using top triangle
+		
+		cat("Converting to an edge list...","\n")
+		#add top and bottom triangles 
+		mat<-mat+t(mat)
+		elist<-gen.mat.to.edge.list(mat)
+		as.data.frame(elist[fixln(elist[,3])>0,1:2])	#index source to 
+	}
+
+#get various Database IDs and pathway information (from IDEOM)
+IDEOMgetR<-function(url="https://gist.github.com/dgrapov/5548790/raw/399f0958306c1018a6be846f58fd076ae83f1b78/IDEOM+small+list"){
+		options(warn=-1)
+		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
+		DB<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
+		tmp<-strsplit(DB,"\\n")
+		tmp2<-strsplit(as.character(unlist(tmp)), "\t")
+		#convert to matrix
+		obj<-t(do.call("cbind",sapply(tmp2,unlist)))
+		#try to fix colnames
+		names<-unlist(strsplit(obj[1,],"  "))[1:ncol(obj)]
+		tmp<-obj[-1,]
+		colnames(tmp)<-names
+		return(as.matrix(tmp))
+	}	
 
 #making an edge list based on CIDs from KEGG reactant pairs
 CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pairs()){
@@ -625,6 +773,7 @@ CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pa
 				#
 				c(which(as.character(matched[i,2])==as.character(database[,1])),which(as.character(matched[i,2])==as.character(database[,2])))				
 			})
+			
 		names(ids)<-fixln(matched[,1])	# cid of all paired by cid
 		
 		#construct symmetric matrix then extract unique edge list
@@ -901,14 +1050,15 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 		check.get.packages(c("igraph","graph")) 
 		#create grapNEL object from edge list
 		graph.obj<-edge.list.to.graphNEL(edge.list)
-		# could calculate tis directly but for now going through NEL because it is also used for Cytoscape graphs
+		# could calculate this directly but for now going through NEL because it is also used for Cytoscape graphs
 		igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
 	
 		
 		#default options for igraph.plot
 		defaults<-list(
 		x = igraph.obj,
-		mark.groups =  NULL,
+		mark.groups = NULL,
+		mark.col = NULL,		# needs to be "NULL" else skipped below
 		layout = "layout.fruchterman.reingold",  #have to get this later
 		vertex.label = unclass(igraph.obj)[[9]][[3]]$name, #this it the graph object later 
 		vertex.color ="gray",
@@ -945,7 +1095,11 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 		names(graph.par)<-names(defaults)
 		
 		#calculate layout to be shared by all plots
-		graph.par[names(graph.par)=="layout"][[1]]<-as.matrix(do.call(unlist(graph.par[names(graph.par)=="layout"]),list(graph.par[[1]])))
+		# test layout to see if it is matrix
+		if(ncol(as.data.frame(graph.par[names(graph.par)=="layout"]))==1)
+			{
+				graph.par[names(graph.par)=="layout"][[1]]<-as.matrix(do.call(unlist(graph.par[names(graph.par)=="layout"]),list(graph.par[[1]])))
+			}
 		
 		#try to get objects ... if error stay with default ( was in the loop above, but need mechanism to not get for layout)
 		

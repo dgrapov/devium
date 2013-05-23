@@ -272,30 +272,48 @@ join.columns<-function(obj,char="|",quote.last=FALSE)
         {
 		
 			if(class(obj)=="list"){obj<-as.matrix(obj[[1]])} else {obj<-as.matrix(obj)}
-			if(length(obj)==0)
+			#used to binf 2 columns try to generalize to more
+			.local<-function(obj,char,quote.last)
 				{
-					return(NULL)
-					}else{
-						if(ncol(as.matrix(obj))>=2)
-							{
-									n<-ncol(obj)
-									out<-data.frame()
-									sobj<-obj
-									i<-1
-									for(i in 1:(n-1))
-									{
-											if(quote.last==TRUE)
-											{
-														sobj[,i]<-paste(as.character(obj[,i]),paste("'",as.character(obj[,i+1]),"'",sep=""),sep=char)
-											} else {
-														sobj[,i]<-paste(as.character(obj[,i]),as.character(obj[,i+1]),sep=char)
-											}
-									}
-									sobj[,-n]
-							}else{
-									obj
-							}
+				
+				if(length(obj)==0)
+					{
+						return(NULL)
+						}else{
+							if(ncol(as.matrix(obj))>=2)
+								{
+										n<-ncol(obj)
+										out<-data.frame()
+										sobj<-obj
+										i<-1
+										for(i in 1:(n-1))
+										{
+												if(quote.last==TRUE)
+												{
+															sobj[,i]<-paste(as.character(obj[,i]),paste("'",as.character(obj[,i+1]),"'",sep=""),sep=char)
+												} else {
+															sobj[,i]<-paste(as.character(obj[,i]),as.character(obj[,i+1]),sep=char)
+												}
+										}
+										sobj[,-n]
+								}else{
+										obj
+								}
+					}
+			}
+		if (ncol(obj)>2)
+			{
+				tmp<-obj[,1:2]
+				for(i in 1:(ncol(obj)-1)) {
+					tmp2<-.local(tmp, char=char,quote.last=quote.last)
+					tmp<-cbind(tmp2,obj[,(i+2)])
 				}
+				tmp2
+				
+			} else {
+				.local(obj=obj,char=char,quote.last=quote.last)
+			}
+		
         }
 
 #accesory function to return position of first instance of unique object 
