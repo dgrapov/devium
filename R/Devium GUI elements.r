@@ -1982,8 +1982,8 @@ devium.gui<-function (width = 850, height = .75 * width)
 	}
 	
 	#METHODS
-	devium.menu$Methods$`Transform`$handler<-function(h,...)
-		{
+	devium.menu$Methods$`Transform`$handler<-function(h,...){
+		
 			add(get("devium.notebook",envir=devium),devium.transform.data.gui(), label = "Transform Data") 
 			tmp<-get("devium.bottom.panedgroup",envir=devium) # have to do this to make it work
 			svalue(tmp)<-.2

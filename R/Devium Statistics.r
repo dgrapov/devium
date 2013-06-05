@@ -224,7 +224,6 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.in
 	}
 	
 
-
 #random junk I will eventually delete	
 testing <-function(){
 #check for errors Nan or Inf

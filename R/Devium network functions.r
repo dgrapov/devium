@@ -1,3 +1,46 @@
+# translate index based on lookup table 
+translate.index<-function(id, lookup){
+	# lookup is a two column data.frame or matrix with 
+	# column 1 containing index matching id and
+	# column 2 containning translation
+	# slow due to looping, but avoids matching translated order to original query order 
+	do.call("rbind",lapply(1:nrow(id), function(i,pb = txtProgressBar(min = 0, max = nrow(id), style = 3))
+		{
+			setTxtProgressBar(pb, i)
+			tmp<-as.vector(unlist(id[i,,drop=T]))
+			matrix(sapply(1:length(tmp), function(j)
+				{
+					tmp<-lookup[lookup[,1]%in%tmp[j],2]
+					if(length(tmp)==0){tmp<-"no match"} # fill empty
+					tmp[1]
+				}),nrow=1)
+		}))
+}
+
+#get InchI Key based reaction pairs
+get.inchikey.RPAIRS<-function(type="main",url="https://gist.github.com/dgrapov/5674494/raw/9faff56b5f0fe89b554a508bd954605e26b492fc/InchI+Key+Reaction+Pairs"){ 
+  #more types should be added based on third column levels
+  if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
+  text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
+  tmp<-strsplit(text,"\\n")
+  tmp2<-strsplit(as.character(unlist(tmp)), "\t")
+  #fix header errors
+  tmp2[[1]]<-strsplit(tmp2[[1]],"\\  ")
+  full<-out<-matrix(unlist(tmp2),ncol=4, byrow=TRUE)
+  
+  if(type =="main"){
+    out<-full[full[,3]=="main",1:2]
+  } 
+  
+  if(type =="all"){
+    out<-full[,1:2]
+  }
+  
+  if(type =="full"){
+    out<-full
+  }	
+  return(out)
+}
 
 # get network edge list and layout from KEGG KGML file
 kgml.network<-function(file){
@@ -46,7 +89,6 @@ kgml.network<-function(file){
   
 }
 
-#-------------------------------------------------------------
 #create a network from a graphNeL object
 make.cynet<-function(graph,network.name,layout='jgraph-spring'){
 		check.get.packages("RCytoscape")
@@ -665,7 +707,7 @@ get.KEGG.pairs<-function(type="main",url="https://gist.github.com/dgrapov/554864
 			return(out)
 	}
 
-#look up CID to KEGG translation 	this function is replaced with the more general get.Reaction.pairs
+#look up CID to KEGG translation this function is replaced with the more general get.Reaction.pairs
 get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c84f8f209f961b23adbf7d7bd1f704ce7a1166ed/CID_KEGG+pairs"){
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
@@ -675,21 +717,43 @@ get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c8
 		matrix(unlist(tmp2),ncol=2, byrow=TRUE)
 	}
 
+#convert form pubchem CID to KEGG using web services
+convert.CID.to.KEGG<-function(query){
+
+	#this can be made parallel
+	# for now in series
+	sapply(1:length(query),function(i,pb = txtProgressBar(min = 0, max = length(query), style = 3))
+		{
+			setTxtProgressBar(pb, i)
+			url<-paste("http://biodb.jp/hfs_cco.cgi?type=CCO_C_ID&id=",query[i],"&db=KEGGCOMPOUND&lang=en&tax=cco",sep="")
+			tmp<-readLines(url)
+			if(length(tmp)>50){  # hack to catch no result returned
+				kegg.id<-"not found"
+			} else {
+				kegg.url<-unlist(strsplit(strsplit(tmp,"url=")[[9]][2],"\"; target=\"_top\">"))
+				kegg.id<-unlist(strsplit(kegg.url,"cpd:")[[1]][2])
+			}
+			kegg.id
+		})
+}
+
 #getting connections from an edge list based on an index, which is translated
-get.Reaction.pairs<-function(index,reaction.DB,index.translation.DB, parallel=FALSE){
+get.Reaction.pairs<-function(index,reaction.DB,index.translation.DB,translate=TRUE, parallel=FALSE){
 		
 		#index identifies analytes to query connection for
 		#reaction.DB is a an edge list for connections
 		#index.translation DB is a 2 column table to translate index (column 1) to reaction.DB index (column 2)
 		
-		#translate input index to reaction.DB index
-		matched<-index.translation.DB[index.translation.DB[,1]%in%index,] # c(1:nrow(index.translation.DB))[
-		#check if something could not be matched
-		unmatched<-index[which(!index%in%matched[,1])]
-		if(length(unmatched)>0){cat(paste("The following were not found in the index.translation.DB:",unmatched,"\n"))}
-		#check and remove pairs (due to duplicate KEGG id for differing InchIkeys)
-		dupes<-duplicated(apply(matched,1,paste,collapse="|"))| duplicated(apply(matched[,2:1],1,paste,collapse="|"))
-		matched<-matched[!dupes,]
+		if(translate==TRUE){
+			#translate input index to reaction.DB index
+			matched<-index.translation.DB[index.translation.DB[,1]%in%index,] # c(1:nrow(index.translation.DB))[
+			#check if something could not be matched
+			unmatched<-index[which(!index%in%matched[,1])]
+			if(length(unmatched)>0){cat(paste("The following were not found in the index.translation.DB:",unmatched,"\n"))}
+			#check and remove pairs (due to duplicate KEGG id for differing InchIkeys)
+			dupes<-duplicated(apply(matched,1,paste,collapse="|"))| duplicated(apply(matched[,2:1],1,paste,collapse="|"))
+			matched<-matched[!dupes,]
+		}
 		
 		if(parallel==TRUE){ # add progress bar
 				cat("Setting up cluster...","\n")
@@ -824,9 +888,10 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 	#print to screen any duplictes which get removed 
 	
 	if(sum(duplicated(as.numeric(as.character(unlist(cids)))))>0){
-		cat(paste("Duplicates of", paste(as.character(unlist(cids))[duplicated(as.numeric(as.character(unlist(cids))))]), "were removed" ),"\n")
+		cat(paste("The following duplicates were removed:","\n"))
+		cat(paste(as.character(unlist(cids))[duplicated(as.numeric(as.character(unlist(cids))))]),sep="\n")
 		}
-	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint. This may take a moment.","\n")
+	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n")
 	compounds <- getIds(cid.objects) # get sdfset
 	cid(compounds) <- sdfid(compounds)
 	
@@ -1048,11 +1113,14 @@ devium.network.execute<-function(object,filter=as.numeric(object$devium.network.
 devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add=FALSE,not.dev=FALSE){
 		#plot.type = c("static","interactive","3D-plot")
 		check.get.packages(c("igraph","graph")) 
-		#create grapNEL object from edge list
-		graph.obj<-edge.list.to.graphNEL(edge.list)
-		# could calculate this directly but for now going through NEL because it is also used for Cytoscape graphs
-		igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
-	
+		
+		#test if new graph needs to be created
+		if(is.null(graph.par.obj$x)){
+			#create grapNEL object from edge list
+			graph.obj<-edge.list.to.graphNEL(edge.list)
+			# could calculate this directly but for now going through NEL because it is also used for Cytoscape graphs
+			igraph.obj<-igraph.from.graphNEL(graph.obj, name = TRUE, weight = TRUE,unlist.attrs = TRUE)
+		} 
 		
 		#default options for igraph.plot
 		defaults<-list(
@@ -1095,7 +1163,10 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 		names(graph.par)<-names(defaults)
 		
 		#calculate layout to be shared by all plots
+		cat("Calculating layout","\n") 
+		
 		# test layout to see if it is matrix
+		# else calculate and replace
 		if(ncol(as.data.frame(graph.par[names(graph.par)=="layout"]))==1)
 			{
 				graph.par[names(graph.par)=="layout"][[1]]<-as.matrix(do.call(unlist(graph.par[names(graph.par)=="layout"]),list(graph.par[[1]])))
