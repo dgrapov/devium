@@ -788,11 +788,11 @@ devium.scatter.plot<- function(container=NULL)
 devium.qplot<- function(container=NULL) 
 {
 	check.get.packages(c("ggplot2","gWidgets","gWidgetsRGtk2"))
-	options(device="gWidgetsRGtk2")
+	options(device="gWidgetsRGtk2") # may not be nessesary
 	
 	#for debugging
-	#container= gwindow("test")
-	#gvarbrowser(container=container)
+	container= gwindow("test")
+	gvarbrowser(container=container)
 	
 	mainWin = ggroup(horizontal = FALSE, container = container)
 	
@@ -827,7 +827,7 @@ devium.qplot<- function(container=NULL)
 			#toolbar$tmp2$separator = TRUE
 			toolbar$plotnotebook$icon = "plot"
 			toolbar$plotnotebook$handler = function(h, ...) {
-			done.info.GUI("to do--> write refresh plot file")
+				update.qplot(form.names=c(plot.opts,group.opts))
 			}
 
 			toolbar$help$icon = "help"
@@ -855,9 +855,9 @@ devium.qplot<- function(container=NULL)
 	asthetic<-glayout(container=.notebook,label="Asthetics")
 	
 	#options for plot asthetics
-	plot.opts<-c("x","y","color","size","shape","alpha") # form refrence
-	plot.opts.labels<-c("  X-axis","  Y-Axis","  color","  size","  shape/style","  transparency")
-	plot.names<-c("x","y","color","size","shape","alpha") # fxn input possibilities
+	plot.opts<-c("x","y","fill","color","size","shape","alpha") # form refrence
+	plot.opts.labels<-c("  X-axis","  Y-Axis","  color","  border","  size","  shape/style","  transparency")
+	plot.names<-c("x","y","fill","color","size","shape","alpha") # fxn input possibilities
 	
 	# to left align (has to be an easier way!)
 	#check length and add white space to make all the same length
@@ -868,7 +868,29 @@ devium.qplot<- function(container=NULL)
 			tmp[i,1]<-glabel(plot.opts.labels[i],container=tmp)
 			tmp[i,2]<-assign(plot.opts[i],gedit("", container=tmp,width=20))
 		}
+	
+	#options for group visualizations	
+	groups<-glayout(container=.notebook,label="Groups")
+	group.opts<-c("x.group","y.group") # form reference
+	group.opts.labels<-c("x-axis group","y-axis group")
+	group.names<-c("x.group","y.group") # fxn input possibilities
+	# to left align (has to be an easier way!)
+	#check length and add white space to make all the same length
+	tmp<-groups
+	for(i in 1:length(group.opts))
+		{	
+			tmp[i,1]<-glabel(group.opts.labels[i],container=tmp)
+			tmp[i,2]<-assign(group.opts[i],gedit("", container=tmp,width=20))
+		}
 		
+	#add options for groups visualizations
+	tmp<-groups
+	start<-length(group.opts)+1
+	tmp[start,1]<-glabel("group visualization",container=tmp)
+	tmp[start,2]<-assign("group.vis",gcombobox(c("point","line","bin2d","dotplot","freqpoly","hex","rect","bar","contour","crossbar","density","histogram","density2d","path","polygon","ellipse", "boxplot","'boxplot','jitter'"),value="point"))
+	
+	#bind with group.opts
+	group.opts<-c(group.opts,"group.vis")
 	
 	#add handlers for drag and drop objects
 	#should minimaly change name dislayed and call a fxn
@@ -904,18 +926,69 @@ devium.qplot<- function(container=NULL)
 	#function to convert output to character for call
 	make.text<-function(arg.list)
 		{
+			#format facet object
+			if(!arg.list$x.group==""){
+				x.group<-strsplit(fixlc(arg.list$x.group),"\\$")
+				data<-fixlc(x.group[[1]][1])
+				x.group<-fixlc(x.group[[1]][2])
+			} else{ 
+				x.group<-"."
+			}
+			
+			if(!arg.list$y.group=="")
+				{
+					y.group<-strsplit(fixlc(arg.list$y.group),"\\$")
+					data<-fixlc(y.group[[1]][1])
+					y.group<-fixlc(y.group[[1]][2])
+				} else{ 
+					y.group<-"."
+				}
+				
+			if(y.group=="."&x.group=="."){
+					facet.args<-""
+				} else {
+					facet.args<-paste("data=",data,",","facets=",y.group,"~", x.group)
+				}
+			#format geom object
+			if(!arg.list$group.vis=="")
+				{
+					group.vis<-arg.list$group.vis
+					group.vis.args<-paste("geom = ","'",group.vis,"'",sep="")
+				} else{ 
+					group.vis.args<-""
+				}
+				
+				
+			ignore<-c("group.vis","x.group","y.group")
 			out<-as.character(sapply(1:length(arg.list),function(i)
 				{
-					if(!arg.list[i]=="")
+					if(!arg.list[i]==""){
+					#use exact value id not being mapped from a data frame
+					 if(length(unlist(strsplit(fixlc(arg.list[[i]]),"\\$")))==1){arg.list[i]<-paste("I(",arg.list[i],")", sep="")}
 						#make shape a factor
-						if(names(arg.list)[i]=="shape")
+						if(names(arg.list)[i]=="shape") #
 							{
 								paste(names(arg.list)[i],"=","as.factor(",arg.list[i],")")
-							}else{
+							}
+							
+						if(names(arg.list)[i]=="alpha") #
+							{
+								paste(names(arg.list)[i],"=","as.factor(",arg.list[i],")")
+							}
+							
+							if(names(arg.list)[i]=="group.vis"){ # for geome
+								paste("geom =(",arg.list[i],")")
+							}
+							
+							if(!names(arg.list)[i]%in%ignore){
 								paste(names(arg.list)[i],"=",arg.list[i])
 							}
+						}
+							
 				}))
-			return(out[!out=="NULL"])
+				
+			return(c(out[!out=="NULL"],facet.args,group.vis.args))
+			print(c(out[!out=="NULL"],facet.args,group.vis.args)) # debugging
 		}
 	#generate fxn input from form output
 	get.inputs<-function(form.names=plot.opts)
@@ -967,8 +1040,15 @@ devium.qplot<- function(container=NULL)
 					adddroptarget(get(as.character(handler.list[i,1])),handler=get(as.character(handler.list[i,2])))
 				}
 		}
+	
+		#update plot
+		update.qplot<-function(form.names){
+			tmp<-get.inputs(form.name=form.names)
+			new.qplot(tmp)			
+		}
+	
 		
-	make.plot.handler(form.names=plot.opts)
+	make.plot.handler(form.names=c(plot.opts,group.opts))
 	#assign("devium.scatter.plot.notebook", mainWin,envir = devium)
 	return(mainWin)
 	}

@@ -11,6 +11,7 @@
                 return(test)    
         }
 
+#transform to normal
 transform.to.normal<-function(data,data.name="",test.method= "Anderson-Darling", alpha = 0.05 , force.positive=TRUE, transformation="none")
 	{	
 		check.get.packages(c("plyr","nortest","car"))
@@ -96,24 +97,38 @@ scale.data<-function(data, scale="uv", center=TRUE)
 											})
 		.local()						
 	}
-	
-#missing values static imputation
-replace.missing<-function(data, replacement=apply(data,2,mean,na.rm=TRUE)){
-			#missing values in the data are replaced column-wise
-			#by th replacement values
-			out<-sapply(1:ncol(data),function(i)
-				{
-					fix<-c(1:nrow(data))[is.na(data[,i])]
-					if(length(fix)>0){
-							obj<-data[i,drop=FALSE]
-							obj[fix,]<-replacement[i]
-							obj
-						} else{
-							data[i,drop=FALSE]
-							}
-				})
-				
-			res<-do.call("cbind",out)	
-			dimnames(res)<-dimnames(data)
-			return(as.data.frame(res))	
-		}
+		
+#missing values static imputation 
+impute.missing<-function(data, method="min", scalar=1, report=TRUE){
+		# data should be a matrix or data frame (samples as rows)
+		# methods can be any function
+		# scalar will be used to multiply imputed value and can be length one or longer 
+		# for example a random normal distribution can be used to generate a scalar to slightly randomize imputed value
+		# report = TRUE will return the imputed data in a list and give a report of the number of missing values for each sample and variable as seprate list items
+		
+		na.id<-is.na(data)
+		fill<-apply(data,2,method,na.rm=TRUE)*scalar
+		
+		#impute
+		fixed<-do.call("cbind",lapply(1:ncol(data), function(i)
+		{
+			#what is being replaced
+			obj<-data[,i]
+			#id where replacements should go 
+			obj[na.id[,i]]<-fill[i]
+			obj
+		}))
+		
+		colnames(fixed)<-colnames(data)
+		
+		if(report == TRUE) {
+			row.missing <- matrix(round(apply(na.id,1,sum)/ncol(data)*100,0), ncol=1)
+			col.missing <- matrix(round(apply(na.id,2,sum)/nrow(data)*100,0), nrow =1 )
+			colnames(row.missing)<-colnames(col.missing) <- "percent missing"
+			out<-cbind(c(NA,row.missing),rbind(col.missing,fixed))
+			rownames(out)[1]<-colnames(out)[1]<-"percent missing"
+			return(list(imputed.data =out))
+			} else {
+				return(fixed)
+			}
+	}		

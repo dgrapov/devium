@@ -511,7 +511,7 @@ choose.qpgraph.threshold<-function(qpnetwork,.threshold=c(0,.6),choose=NULL){
 		xy<-do.call("rbind",lapply(1:length(int),function(i)
 				{
 					net <- qpGraph(qpnetwork, threshold=int[i], return.type="graphNEL")
-					con.nodes<- unique(unlist(strsplit(names(net@edgeData@data),"\\|")))
+					con.nodes<- tryCatch(unique(unlist(strsplit(names(net@edgeData@data),"\\|"))), error=function(e) {NULL}) # when nothing is connected
 					data.frame(threshold=int[i],nodes=length(con.nodes),edges=length(unlist(net@edgeL))/2)
 				}))
 		#plot
@@ -672,6 +672,59 @@ filter.edges<-function(edge.list,filter,cut.off=NULL){
 			}
 		return(out)
 	}
+
+#limit to X top edges per node 
+edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreasing=TRUE){
+	# edge list a two column data frame defining connections
+	# value vector of values to select from 
+	# max.edges maximum number of allowed edges
+	# separate  should positive and negative values be tested to gether
+	# top select top edges values based on magnitude of value
+	# result is a row index for edges meeting criteria
+	
+	
+	nodes<-unique(matrix(unlist(edge.list), ncol=1))
+	id<-c(1:nrow(edge.list))
+	
+	if(separate){
+		tmp<-split(as.data.frame(cbind(edge.list, value)), as.factor(value>0))
+		#max.edges<-floor(max.edges/2) # allow equal influence of both positive an negative edges
+		
+		out<-lapply(1:length(tmp), function(j){
+		
+				edge.list<-tmp[[j]][,-3]
+				value<-tmp[[j]][,3]
+				sapply(1:length(nodes), function(i){
+					index<-id[edge.list[,1]%in%nodes[i]|edge.list[,2]%in%nodes[i]]
+					values<-value[index]
+					vals<-na.omit(index[order(values, decreasing=decreasing)][1:max.edges])
+					if(length(vals)==0){vals<-max(id)+1 } # dummy index to avoid empty
+					vals
+				})
+		})
+		
+		#combine separated results 
+		tmp<-join.columns(data.frame(do.call("rbind",out[[1]]),do.call("rbind",out[[2]])),",")
+		tmp2<-sapply(1:length(tmp), function(i){
+				as.numeric(unique(unlist(strsplit(tmp[i],","))))
+			})
+		edge.id<-unique(unlist(tmp2))
+		
+		
+	} else {
+	
+		out<-sapply(1:length(nodes), function(i){
+			index<-id[edge.list[,1]%in%nodes[i]|edge.list[,2]%in%nodes[i]]
+			values<-value[index]
+			vals<-na.omit(index[order(values, decreasing=decreasing)][1:max.edges])
+			if(length(vals)==0){vals<-max(id)+1 } # dummy index to avoid empty
+			vals
+		})
+		
+		edge.id<-unique(unlist(out))
+	}
+	return(edge.id)
+}
 
 #create edge list and network attributes file from meta.data with CID keys
 #data<- bound with CIDS
@@ -1281,51 +1334,22 @@ plot.nodes.and.edges<-function(edge.list,index=NULL,.threshold=c(0,0.05), levels
 			# }
 	}
 
-# see py version: https://github.com/mcs07/CIRpy/blob/master/README.md
-#use chemical resolver to get inchi keys from smiles
-CIRgetR<-function(id,to=c("pubchem_sid"),return.all=TRUE,progress=TRUE){
-		#id needs to be  one of the folowing types of structural ids "inchi","inchiKey" or "smiles"
-		#to can be:	smiles, names, iupac_name, cas, inchi, 
-		#			stdinchi, inchikey, stdinchikey,
-		#			ficts, ficus, uuuuu, image, file, 
-		#			mw, monoisotopic_mass,
-		#			chemspider_id
-		#			pubchem_sid, chemnavigator_sid, formula, chemnavigator_sid
-
-
-		# smiles are coerced to a 1 column data frame
-		obj<-data.frame(matrix(unlist(id),ncol=1))
-		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)} # need RCurl for web querry
-		if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = nrow(obj), style = 3)} # show progress bar
-	
-		start<-"http://cactus.nci.nih.gov/chemical/structure/"
-		end<-paste("/",to,sep="")
-		out<-sapply(1:nrow(obj),function(i)
-			{
-				if (progress == TRUE){setTxtProgressBar(pb, i)}
-				url<-paste(start,as.character(unlist(obj[i,])),end,sep="")
-				url<-gsub("\\ ","%20",url) # fix spaces 
-				tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){"error"})
-					
-			})
-			
-			if (progress == TRUE){close(pb)}
-			
-		#format output to only return InchI
-		bad<-is.na(out)
-		out<-as.character(unlist(out))
-		out[bad]<-"error"
-		if(return.all==FALSE){ # only return first result
-				obj<-strsplit(out,"\n")
-				out<-sapply(1:length(obj),function(i)
-					{
-						obj[[i]][1]
-					})
-			} 
-		
-		results<-matrix(out,ncol=1)
-		colnames(results)<-to
-		return(results)
-		}
-
-	
+#convert mass spectra input as m/z:intensity string to matrix
+spectra.string.to.matrix<-function(spectra){
+		#get m/z intensity pairs 
+		tmp<-lapply(1:length(spectra),function(i){
+			strsplit(fixlc(strsplit(fixlc(spectra[i])," ")),":")
+		})
+		#result in list form
+		mat<-lapply(1:length(tmp),function(i){ data.frame(analyte=i,do.call("rbind",tmp[[i]]))})
+		#melted object
+		mat2<-do.call("rbind",mat)
+		colnames(mat2)<-c("analyte","m_z","intensity")
+		#cast into a matrix, change NA to zeros
+		spec.mat<-dcast(mat2,m_z ~ analyte,value.var="intensity")
+		spec.mat[is.na(spec.mat)]<-0
+		#format into matrix with m_z as rows
+		tmp<-matrix(fixln(spec.mat[,-1]),ncol=ncol(spec.mat)-1)
+		dimnames(tmp)<-list(fixlc(spec.mat[,1]),c(1:ncol(tmp)))
+		return(tmp)
+}

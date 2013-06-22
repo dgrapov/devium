@@ -233,12 +233,12 @@ get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name
 							setwd(wd)
 							loadWorkbook(basename(workbook.path))
 						}
-						
+					cat("Loading workbook/n")	
 					workbook<-tryCatch(get.workbook(workbook.path), error=function(e) {NULL})	
 					
 					if (is.null(workbook) )
 						{
-							return(cat("file doesn't exist where you are looking", "\n"))
+							return(cat("Could not load workbook\n"))
 						} else {
 								#check if named range exists
 								obj<-tryCatch(readNamedRegion(workbook, name =  get.obj.name , header = FALSE),error= function(e) {NULL})
@@ -662,36 +662,3 @@ check.get.envir<-function(main.object,envir)
     structure(as.list(match.call()[-1]), env = .env, class = "quoted")
 }
 	
-#load devium objects (outdated)
-source.dir<-function(type="file",dir=getwd(),
-	file.list=c("https://raw.github.com/dgrapov/devium/master/R/Devium%20GUI%20elements.r",
-				"https://raw.github.com/dgrapov/devium/master/R/Devium%20Plotting%20Functions.r",
-				"https://raw.github.com/dgrapov/devium/master/R/Devium%20common%20functions.R",
-				"https://raw.github.com/dgrapov/devium/master/R/Devium%20network%20functions.r"))
-	{
-		#check to see the type of source
-		switch(type,
-		"file" = .local<-function(file.list)
-					{
-						o.dir<-getwd()
-						setwd(dir)
-						obj<-dir()
-						sapply(1:length(obj),function(i)
-							{
-								tryCatch(source(obj[i]),error=function(e){print(paste("can't load:",obj[i]))})
-							})
-						setwd(o.dir)	
-					},
-		"https" = .local<-function(file.list)	
-					{
-						if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
-						if(is.null(file.list)){return()}else{obj<-file.list}
-						sapply(1:length(obj),function(i)
-						{
-							tryCatch( eval( expr = parse( text = getURL(obj[i],
-							   ssl.verifypeer=FALSE) ),envir=.GlobalEnv),error=function(e){print(paste("can't load:",obj[i]))})
-						})
-					}
-				)
-			.local(file.list=file.list)
-	}

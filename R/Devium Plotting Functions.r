@@ -363,3 +363,83 @@ multiplot <- function(..., plotlist=NULL, cols) {
     }
 
 }
+
+
+#~time series line plot for multiple groups
+time.series.plot<-function(variable,group,time,xlab="Time",size=3,text=20,legend="right",background=element_blank(),save=FALSE){
+	
+	
+	tmp.data<-data.frame(variable=variable,group=group,time=time)
+	dfc<-summarySE (data=tmp.data, measurevar=colnames(tmp.data)[1], groupvars=colnames(tmp.data)[2:3], na.rm=TRUE, conf.interval=.95, .drop=TRUE)
+	
+	.theme2<- theme(
+			axis.line = element_line(colour = 'gray', size = 1), 
+			axis.text.x =       element_text(size = text*.8 , lineheight = 0.9, colour = "grey50", vjust = 1),
+			axis.text.y =       element_text(size = text*.8, lineheight = 0.9, colour = "grey50", hjust = 1),
+			axis.ticks =        element_line(colour = "grey50"),
+			axis.title.x =      element_text(size = text, vjust = 0.5),
+			axis.title.y =      element_text(size = text, angle = 90, vjust = 0.5),
+			panel.background = background, 
+			plot.background = element_blank(),
+			legend.position= legend
+		 )	
+		 
+	
+	#plot	
+	# factors for aesthetics
+	x2<-as.numeric(as.character(dfc[,2]))
+	y2<-as.numeric(as.character(dfc[,4]))
+	group<-factor(dfc[,1], levels=levels(group))
+	breaks<-as.numeric(levels(dfc[,2]))
+
+	# plot
+	p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group)) + 
+				geom_errorbar(aes(ymin=as.numeric(as.character(mean))-se, ymax=as.numeric(as.character(mean))+se), width = size+1,size=size,alpha=.75) +
+				geom_line(size=size,alpha=.75) +
+				scale_x_continuous(breaks = breaks) +
+				.theme2 +
+				ylab(colnames(variable)) +
+				xlab(xlab)
+			
+	if(save){
+			filename<-paste(colnames(variable),".png",sep="")
+			ggsave(filename,p)
+		} else {
+			print(p)
+		}
+
+}
+
+#calculate mean, sd, ci int 
+summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=TRUE,
+                      conf.interval=.95, .drop=TRUE) {
+    require(plyr)
+
+    # New version of length which can handle NA's: if na.rm==T, don't count them
+    length2 <- function (x, na.rm=FALSE) {
+        if (na.rm) sum(!is.na(x))
+        else       length(x)
+    }
+
+    # This is does the summary; it's not easy to understand...
+    datac <- ddply(data, groupvars, .drop=.drop,
+                   .fun= function(xx, col, na.rm) {
+                           c( N    = length2(xx[,col], na.rm=na.rm),
+                              mean = mean   (as.numeric(as.matrix(xx[,col])), na.rm=na.rm),
+                              sd   = sd     (xx[,col], na.rm=na.rm)
+                              )
+                          },
+                    measurevar,
+                    na.rm
+             )
+
+    # Rename the "mean" column    
+    datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
+
+    # Confidence interval multiplier for standard error
+    # Calculate t-statistic for confidence interval: 
+    # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
+    ciMult <- qt(conf.interval/2 + .5, datac$N-1)
+    datac$ci <- datac$se * ciMult
+    return(datac)
+}
