@@ -1,5 +1,5 @@
 
-devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),args.list=TRUE,return=NULL)
+devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),args.list=TRUE,return=NULL, plot=TRUE)
 	{
 		#port of imDEV source code optimized for GUI use
 		#accepts list with the following arguments
@@ -32,22 +32,24 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 		diagnostics<-tryCatch(data.frame(leverage=lev,DmodX=dmodx),error=function(e){data.frame(Error="not applicable")})
 
 		#scree plot
-		make.scree.plot(eigenvalues)
+		if(plot==TRUE){ make.scree.plot(eigenvalues) }
+	
 		
 		#Determine placement of output for EXCEL
-		data.list<-list(eigenvalues,scores,diagnostics,loadings)
-		list.names<-matrix(c("eigenvalues","scores","diagnostics","loadings"))
-		start.row<-1;spacer<-1;start.col<-1
-		direction<-"horizontal"
-
-		#assign complete object to envir = devium
 		if(!return=="list"){
+			data.list<-list(eigenvalues,scores,diagnostics,loadings)
+			list.names<-matrix(c("eigenvalues","scores","diagnostics","loadings"))
+			start.row<-1;spacer<-1;start.col<-1
+			direction<-"horizontal"
+
+			#assign complete object to envir = devium
 			assign("devium.pca.results",list(eigenvalues=eigenvalues, scores=scores, loadings=loadings, diagnostics=diagnostics,
 			placement=list.placement.full(data.list,list.names,direction="horizontal",start.col,start.row,spacer)),envir=devium)
 		}
+		
 		#get the name of the data
 		if(return=="list"){
-				return(list(pca.scores = scores, pca.loadings =  loadings, pca.diagnostics = diagnostics))
+				return(list(pca.scores = scores, pca.loadings =  loadings,pca.eigenvalues = eigenvalues, pca.diagnostics = diagnostics))
 			} else {
 				name<-tmp$pca.data
 				assign(paste(name,"pca.scores",sep="."),scores,envir=.GlobalEnv)
@@ -94,6 +96,6 @@ tmp$pca.scaling<-"uv"
 tmp$pca.data<-"mtcars"
 pca.inputs<-tmp
 
-output$PCA.results<-devium.pca.calculate(pca.inputs,return="list")
+output$PCA.results<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
 }
