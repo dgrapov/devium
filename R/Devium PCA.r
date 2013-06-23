@@ -26,8 +26,8 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 
 		#add leverage and dmodX
 		#bind between scores and loadings
-		lev<-tryCatch(as.matrix(leverage(result)),error=function(e){"can not calculate"})
-		dmodx<-tryCatch(as.matrix(DModX(result)),error=function(e){"can not calculate"})
+		lev<-tryCatch(as.matrix(leverage(pca.results)),error=function(e){"can not calculate"})
+		dmodx<-tryCatch(as.matrix(DModX(pca.results)),error=function(e){"can not calculate"})
 		diagnostics<-tryCatch(data.frame(leverage=lev,DmodX=dmodx),error=function(e){data.frame(Error="not applicable")})
 
 		#scree plot
