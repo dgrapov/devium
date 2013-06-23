@@ -12,17 +12,20 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 		tmp<-pca.inputs
 		data.obj<-get(tmp$pca.data)
 		data.obj<-data.obj[sapply(1:ncol(data.obj), function(i) {class(data.obj[,i])=="numeric"})]
-		
+		if(is.null(tmp$pca.cv)){pca.cv="none"} else {pca.cv<-tmp$pca.cv} #avoid issues elsewhere
 		
 		#adjust PCS if > than data
 		PCs<-tmp$pca.components
 		if(PCs> min(dim(data.obj))){PCs<-min(dim(data.obj))} # this should be done internally in the PCa fxn
-		pca.results<-pcaMethods::pca(as.matrix(data.obj), method=tmp$pca.algorithm, nPcs=PCs, center=tmp$pca.center,scale=tmp$pca.scaling, seed=123)
+		pca.results<-pcaMethods::pca(as.matrix(data.obj), method=tmp$pca.algorithm, 
+			nPcs=PCs, center=tmp$pca.center,scale=tmp$pca.scaling, cv = pca.cv, seed=123)
 		
 		#results
 		scores<-as.data.frame(pca.results@scores)
 		loadings<-as.data.frame(pca.results@loadings)
 		eigenvalues<-data.frame(eigenvalues=pca.results@R2)
+		
+		if(tmp$pca.cv=="q2"){eigenvalues<-data.frame(eigenvalues,Q2=Q2(pca.results))}
 
 		#add leverage and dmodX
 		#bind between scores and loadings
@@ -58,11 +61,11 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 	}
 
 
-# generate a scree plot 
+# generate a scree plot base
 make.scree.plot<-function(eigenvalues)
 	{
 		pcaeigen<-eigenvalues
-		#x11()
+		# x11()
 		par(mar=c(4,4,4,4.25))
 		total<-sum(matrix(unlist(pcaeigen))*100)
 		plot(c(1:nrow(pcaeigen)),matrix(unlist(pcaeigen))*100,type="l",main=paste("PCA Screeplot showing",round(total,0), "% explained variance"),
@@ -83,6 +86,30 @@ make.scree.plot<-function(eigenvalues)
 		#---------------------------------------------------------------
 	}
 
+make.scree.plot.bar<-function(eigenvalues){
+	.theme<- theme(
+					axis.line = element_line(colour = 'gray', size = .75), 
+					panel.background = element_blank(),  
+					plot.background = element_blank()
+				 )	
+	
+	tmp<-data.frame(melt(eigenvalues$eigenvalue),PCs=rep(1:nrow(eigenvalues)))
+	tmp$value<-tmp$value*100
+	p1<-ggplot(tmp, aes(y=value, x = as.factor(PCs)))+geom_bar( fill="gray",stat="identity",position=position_dodge())+
+	 .theme + geom_hline(yintercept=1,linetype=2) + ylab("% variance explained") +xlab("")
+	
+	#cumulative	
+	eigenvalues$eigenvalues<-cumsum(eigenvalues$eigenvalues)
+	tmp<-data.frame(melt(eigenvalues),PCs=rep(1:nrow(eigenvalues)))
+	p2<-ggplot(tmp, aes(y=value, x = as.factor(PCs), fill=variable))+geom_bar( stat="identity",position=position_dodge())+
+	xlab("Principal Component") + .theme + geom_hline(yintercept=.8,linetype=2)
+	
+	#multiple plot out put
+	grid.arrange(p1, p2, ncol=1)
+	
+}
+
+	
 	test<-function(){
 tmp<-list()
 data(mtcars)
@@ -96,27 +123,4 @@ pca.inputs<-tmp
 
 output$PCA.results<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
-}
-
-make.scree.plot.bar<-function(eigenvalues){
-	.theme<- theme(
-					axis.line = element_line(colour = 'gray', size = .75), 
-					panel.background = element_blank(),  
-					plot.background = element_blank()
-				 )	
-	
-	tmp<-data.frame(melt(eigenvalues$eigenvalue),PCs=rep(1:nrow(eigenvalues)))
-	tmp$value<-tmp$value*100
-	p1<-ggplot(tmp, aes(y=value, x = as.factor(PCs)))+geom_bar( fill="gray",stat="identity",position=position_dodge())+
-	 .theme + geom_hline(yintercept=1,linetype=2) + ylab("% variance explained")
-	
-	#cumulative	
-	eigenvalues$eigenvalues<-cumsum(eigenvalues$eigenvalues)
-	tmp<-data.frame(melt(eigenvalues),PCs=rep(1:nrow(eigenvalues)))
-	p2<-ggplot(tmp, aes(y=value, x = as.factor(PCs), fill=variable))+geom_bar( stat="identity",position=position_dodge())+
-	xlab("Principal Component") + .theme + geom_hline(yintercept=.8,linetype=2)
-	
-	#multiple plot out put
-	grid.arrange(p1, p2, ncol=1)
-	
 }
