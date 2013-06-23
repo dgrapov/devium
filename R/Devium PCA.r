@@ -25,7 +25,12 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 		loadings<-as.data.frame(pca.results@loadings)
 		eigenvalues<-data.frame(eigenvalues=pca.results@R2)
 		
-		if(tmp$pca.cv=="q2"){eigenvalues<-data.frame(eigenvalues,Q2=Q2(pca.results))}
+		if(tmp$pca.cv=="q2"){
+				# account for unequal r2 and q2 lengths 
+				q2<-Q2(pca.results)
+				q2<-c(q2,rep(q2[length(q2)],nrow(eigenvalues)-length(q2)))
+				eigenvalues<-data.frame(eigenvalues,q2=q2)
+			}
 
 		#add leverage and dmodX
 		#bind between scores and loadings
