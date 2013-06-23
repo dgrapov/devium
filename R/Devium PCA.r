@@ -98,17 +98,25 @@ output$PCA.results<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
 }
 
-#bar plot of eigen values and Q2
 make.scree.plot.bar<-function(eigenvalues){
 	.theme<- theme(
 					axis.line = element_line(colour = 'gray', size = .75), 
 					panel.background = element_blank(),  
 					plot.background = element_blank()
 				 )	
-				 
+	
+	tmp<-data.frame(melt(eigenvalues$eigenvalue),PCs=rep(1:nrow(eigenvalues)))
+	tmp$value<-tmp$value*100
+	p1<-ggplot(tmp, aes(y=value, x = as.factor(PCs)))+geom_bar( fill="gray",stat="identity",position=position_dodge())+
+	 .theme + geom_hline(yintercept=1,linetype=2) + ylab("% variance explained")
+	
+	#cumulative	
 	eigenvalues$eigenvalues<-cumsum(eigenvalues$eigenvalues)
 	tmp<-data.frame(melt(eigenvalues),PCs=rep(1:nrow(eigenvalues)))
-	p<-ggplot(tmp, aes(y=value, x = as.factor(PCs), fill=variable))+geom_bar( stat="identity",position=position_dodge())+
-	xlab("Principal Component") + .theme
-	print(p)
+	p2<-ggplot(tmp, aes(y=value, x = as.factor(PCs), fill=variable))+geom_bar( stat="identity",position=position_dodge())+
+	xlab("Principal Component") + .theme + geom_hline(yintercept=.8,linetype=2)
+	
+	#multiple plot out put
+	grid.arrange(p1, p2, ncol=1)
+	
 }
