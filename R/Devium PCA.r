@@ -1,4 +1,3 @@
-
 devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),args.list=TRUE,return=NULL, plot=TRUE)
 	{
 		#port of imDEV source code optimized for GUI use
