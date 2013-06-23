@@ -1,4 +1,3 @@
-
 devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),args.list=TRUE,return=NULL, plot=TRUE)
 	{
 		#port of imDEV source code optimized for GUI use
@@ -63,7 +62,7 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 make.scree.plot<-function(eigenvalues)
 	{
 		pcaeigen<-eigenvalues
-		x11()
+		#x11()
 		par(mar=c(4,4,4,4.25))
 		total<-sum(matrix(unlist(pcaeigen))*100)
 		plot(c(1:nrow(pcaeigen)),matrix(unlist(pcaeigen))*100,type="l",main=paste("PCA Screeplot showing",round(total,0), "% explained variance"),
