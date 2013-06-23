@@ -83,7 +83,6 @@ make.scree.plot<-function(eigenvalues)
 		#---------------------------------------------------------------
 	}
 
-	
 	test<-function(){
 tmp<-list()
 data(mtcars)
@@ -97,4 +96,19 @@ pca.inputs<-tmp
 
 output$PCA.results<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
+}
+
+#bar plot of eigen values and Q2
+make.scree.plot.bar<-function(eigenvalues){
+	.theme<- theme(
+					axis.line = element_line(colour = 'gray', size = .75), 
+					panel.background = element_blank(),  
+					plot.background = element_blank()
+				 )	
+				 
+	eigenvalues$eigenvalues<-cumsum(eigenvalues$eigenvalues)
+	tmp<-data.frame(melt(eigenvalues),PCs=rep(1:nrow(eigenvalues)))
+	p<-ggplot(tmp, aes(y=value, x = as.factor(PCs), fill=variable))+geom_bar( stat="identity",position=position_dodge())+
+	xlab("Principal Component") + .theme
+	print(p)
 }
