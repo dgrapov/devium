@@ -10,9 +10,9 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 		
 		#check for text or factor and add to subset
 		tmp<-pca.inputs
-		data.obj<-get(tmp$pca.data)
+		data.obj<-as.data.frame(get(tmp$pca.data))
 		data.obj<-data.obj[sapply(1:ncol(data.obj), function(i) {class(data.obj[,i])=="numeric"})]
-		if(is.null(tmp$pca.cv)){pca.cv="none"} else {pca.cv<-tmp$pca.cv} #avoid issues elsewhere
+		if(is.null(tmp$pca.cv)){tmp$pca.cv="none"} else {pca.cv<-tmp$pca.cv} #avoid issues elsewhere
 		
 		#adjust PCS if > than data
 		PCs<-tmp$pca.components
@@ -25,9 +25,10 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 		loadings<-as.data.frame(pca.results@loadings)
 		eigenvalues<-data.frame(eigenvalues=pca.results@R2)
 		
+		
 		if(tmp$pca.cv=="q2"){
 				# account for unequal r2 and q2 lengths 
-				q2<-Q2(pca.results)
+				q2<-tryCatch(Q2(pca.results), error=function(e) {0} )#some versions of pcaMEthods don't have this?
 				q2<-c(q2,rep(q2[length(q2)],nrow(eigenvalues)-length(q2)))
 				eigenvalues<-data.frame(eigenvalues,q2=q2)
 			}
@@ -64,7 +65,6 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 				assign(paste(name,"pca.loadings",sep="."),loadings,envir=.GlobalEnv)
 		}
 	}
-
 
 # generate a scree plot base
 make.scree.plot<-function(eigenvalues)
@@ -115,17 +115,16 @@ make.scree.plot.bar<-function(eigenvalues){
 }
 
 	
-	test<-function(){
+test<-function(){
 tmp<-list()
-data(mtcars)
 
 tmp$pca.algorithm<-"svd"
 tmp$pca.components<-2
 tmp$pca.center<-TRUE
 tmp$pca.scaling<-"uv"
-tmp$pca.data<-"mtcars"
+tmp$pca.data<-"data"
 pca.inputs<-tmp
 
-output$PCA.results<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
+res<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
 }

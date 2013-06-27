@@ -493,7 +493,7 @@ make.ave.qpgraph<-function(data,tests=200,for.col=TRUE,...){
 		.local<-function(data,tests=200,for.col=TRUE,...)
 		{
 			m<-data # some bug in qpgraph
-			average.net<-qpAvgNrr(data,nTests=tests,...) 
+			average.net<-qpAvgNrr(m,nTests=tests,...) 
 			return(average.net)
 		}
 		if(dim(data)[2]<=dim(data)[1]&for.col==TRUE)long.dim.are.variables<-FALSE else long.dim.are.variables<-TRUE

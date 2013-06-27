@@ -35,7 +35,7 @@ calc.stat<-function(data,factor,stat)
 			return(as.data.frame(output))
 	}
 
-# break string and get object into colummns by potision in original string position 
+# break string and get object into colummns by position in original string position 
 str.get<- function(obj, sep="±",get=1)
 	{
 		do.call("cbind",lapply(1:ncol(obj),function(i)
@@ -159,11 +159,11 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE)
 #-------------------------
 covar.adjustment<-function(data,formula)
 	{
-	#set up thta formula objects need to exists in the global environment --- fix this
+	#set up that formula objects need to exists in the global environment --- fix this
 	#data--> subjects as rows, measurements as columns
 	#formula	<- ~ character vector
 	#lm will be iteratively fit on each variable 
-	#model residuals will be returned
+	#model residuals + preadjusted column median will be returned
 	data<-as.data.frame(data)
 	names(data)<-colnames(data)
 	output<-list()

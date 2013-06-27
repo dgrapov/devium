@@ -364,49 +364,90 @@ multiplot <- function(..., plotlist=NULL, cols) {
 
 }
 
-
 #~time series line plot for multiple groups
-time.series.plot<-function(variable,group,time,xlab="Time",size=3,text=20,legend="right",background=element_blank(),save=FALSE){
+time.series.plot<-function(variable,group,time,xlab="Time",color=NULL,alpha=0.9,size=3,text=20,legend="right",background=element_blank(),save=FALSE){
 	
 	
 	tmp.data<-data.frame(variable=variable,group=group,time=time)
 	dfc<-summarySE (data=tmp.data, measurevar=colnames(tmp.data)[1], groupvars=colnames(tmp.data)[2:3], na.rm=TRUE, conf.interval=.95, .drop=TRUE)
 	
-	.theme2<- theme(
-			axis.line = element_line(colour = 'gray', size = 1), 
-			axis.text.x =       element_text(size = text*.8 , lineheight = 0.9, colour = "grey50", vjust = 1),
-			axis.text.y =       element_text(size = text*.8, lineheight = 0.9, colour = "grey50", hjust = 1),
-			axis.ticks =        element_line(colour = "grey50"),
-			axis.title.x =      element_text(size = text, vjust = 0.5),
-			axis.title.y =      element_text(size = text, angle = 90, vjust = 0.5),
-			panel.background = background, 
-			plot.background = element_blank(),
-			legend.position= legend
-		 )	
-		 
+	if(save=="network"){
+			#theme for line graphs for network node visualizations
+			.theme <- theme(
+				#axis.line = element_line(colour = 'black', size = 2), 
+				axis.line = element_blank(),
+				axis.text.y = element_blank(),
+				axis.ticks = element_blank(), 
+				#axis.text.x = element_text(size = 80,vjust=20),
+				axis.text.x = element_blank(),
+				axis.title.x = element_blank(),	
+				axis.title.y = element_blank(), 
+				axis.ticks.length = unit(1, "lines"), 
+				axis.ticks.margin = unit(.1, "lines"), 
+				legend.position = "none", 
+				panel.background = background, 
+				panel.border = element_blank(), 
+				panel.grid.major = element_blank(), 
+				panel.grid.minor = element_blank(), 
+				panel.margin = unit(c(1,.25,.25,.25), "lines"), 
+				plot.background = element_blank(), 
+				plot.margin = unit(c(.5,.25,.25,.25), "lines")
+			)
+		 } else {
+		 #theme for line graphs for network node visualizations
+		.theme<- theme(
+				axis.line = element_line(colour = 'gray', size = 1), 
+				axis.text.x =       element_text(size = text*.8 , lineheight = 0.9, colour = "grey50", vjust = 1),
+				axis.text.y =       element_text(size = text*.8, lineheight = 0.9, colour = "grey50", hjust = 1),
+				axis.ticks =        element_line(colour = "grey50"),
+				axis.title.x =      element_text(size = text, vjust = 0.5),
+				axis.title.y =      element_text(size = text, angle = 90, vjust = 0.5),
+				panel.background = background, 
+				plot.background = element_blank(),
+				legend.position= legend
+			 )	
+		 }
 	
-	#plot	
+	if (!is.null(color)) {other<-scale_colour_manual(values = color)} else { other <-NULL}
+	
 	# factors for aesthetics
-	x2<-as.numeric(as.character(dfc[,2]))
-	y2<-as.numeric(as.character(dfc[,4]))
 	group<-factor(dfc[,1], levels=levels(group))
-	breaks<-as.numeric(levels(dfc[,2]))
+	breaks<-as.numeric(levels(as.factor(dfc[,2])))
 
 	# plot
-	p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group)) + 
-				geom_errorbar(aes(ymin=as.numeric(as.character(mean))-se, ymax=as.numeric(as.character(mean))+se), width = size+1,size=size,alpha=.75) +
-				geom_line(size=size,alpha=.75) +
-				scale_x_continuous(breaks = breaks) +
-				.theme2 +
-				ylab(colnames(variable)) +
-				xlab(xlab)
+	if(save=="network"){ # hard coded polygon breaks fix later
+		p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group)) + 
+		geom_rect(aes(xmin=breaks[1], xmax=breaks[2], ymin=-Inf, ymax=Inf), fill='gray80', alpha=.1,linetype=0) +
+		geom_rect(aes(xmin=breaks[3], xmax=breaks[4], ymin=-Inf, ymax=Inf), fill='gray80', alpha=.1,linetype=0) + # need to make dynamic
+		geom_errorbar(aes(ymin=as.numeric(as.character(mean))-se, ymax=as.numeric(as.character(mean))+se), width = 0,size=1,alpha=alpha) +
+		geom_line(size=1.5,alpha=alpha) +
+		scale_x_continuous(breaks =breaks) + .theme + other
+	
+	} else {
+		p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group)) + 
+					geom_errorbar(aes(ymin=as.numeric(as.character(mean))-se, ymax=as.numeric(as.character(mean))+se), width = size+1,size=size,alpha=alpha) +
+					geom_line(size=size,alpha=alpha) +
+					scale_x_continuous(breaks = breaks) +
+					ylab(colnames(variable)) +
+					xlab(xlab) + .theme + other
+	}
 			
-	if(save){
-			filename<-paste(colnames(variable),".png",sep="")
+	if(save==TRUE){
+			filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
 			ggsave(filename,p)
-		} else {
-			print(p)
-		}
+		} 
+		
+	#optimize setting for insertion in cytoscape networks
+	if(save=="network"){
+		filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
+		png(file = filename,pointsize=1,width=60,height=60) # or 60 X 60 and 1 pt 
+		print(p)
+		dev.off()
+		# ggsave(file.name, plot = p,scale = 1,height=.1, width=.1, dpi = 300) # hard to get high quality small graphs
+	} 
+	
+	if(save==FALSE){ print(p)}
+
 
 }
 

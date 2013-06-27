@@ -151,23 +151,33 @@ format.binbase.output<-function(data)
 		#data = name as string
 		object<-get(data)
 		#format data object
-		sample.start<-which(colnames(object)=="file.id")+1
-		variable.start<-which(object[,1]=="BinBase name")+1
+		#use row 1 and column 1 to figure out meta data space
+		row.id<-max(c(1:ncol(object))[is.na(object[1,])])
+		col.id<-max(c(1:nrow(object))[is.na(object[,1])])
+		
+		# sample.start<-which(colnames(object)=="file.id")+1
+		# variable.start<-which(object[,1]=="BinBase name")+1
+	
+		sample.start<-row.id+2
+		variable.start<-col.id+2
 
 		#data
 		drows<-nrow(object)
 		dcols<-max(c(1:ncol(object))[!sapply(1:ncol(object),function(i){sum(is.na(object[,i]))==drows})])
 		tmp.data<-as.data.frame(t(as.matrix(object[c(variable.start:drows),c(sample.start:dcols)])))
-		.names<-dimnames(tmp.data)
-		#make sure all factors aconverted to numeric 
+		row.names<-rownames(tmp.data)
+		#make sure all factors are converted to numeric 
 		tmp.data<-as.data.frame(matrix(as.numeric(as.character(unlist(tmp.data))),nrow=nrow(tmp.data), ncol=ncol(tmp.data)))
-		dimnames(tmp.data)<-.names
+		tmp.data<-do.call("cbind",unclass(tmp.data)) 
+		dimnames(tmp.data)<-list(1:nrow(tmp.data),1:ncol(tmp.data))
 		
 		#get variable and sample meta data
 		row.meta<-as.data.frame(t(as.matrix(object[c(1:(variable.start-2)),c(sample.start:dcols)])))
-		col.meta<-as.data.frame(as.matrix(object[c(variable.start:drows),c(1:(sample.start-2))]))
+		colnames(row.meta)<-object[1:row.id,col.id+1]
+		col.meta<-as.data.frame(as.matrix(object[c(variable.start:drows),c(1:(sample.start-1))]))
+		colnames(col.meta)<-object[row.id+1,1:(col.id+1)] # uglyness
 		#convert data to all numeric prior to return
-		data<-do.call("cbind",unclass(tmp.data));dimnames(tmp.data)<-.names # need to break factors
+		# need to break factors
 
 		#return results as a list
 		list(data=tmp.data,row.metadata=row.meta,col.metadata=col.meta)
@@ -220,7 +230,7 @@ return.to.Excel<-function(workbook.path="new",return.obj.list,return.name=names(
 			saveWorkbook(wb)
 	}
 
-#get object from EXCEL	1
+#get object from EXCEL	
 get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name=NULL,a,return=TRUE,environment=.GlobalEnv)
 				{
 					check.get.packages(c("XLConnect"))
@@ -233,12 +243,12 @@ get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name
 							setwd(wd)
 							loadWorkbook(basename(workbook.path))
 						}
-					cat("Loading workbook/n")	
+					cat("Loading workbook","\n")	
 					workbook<-tryCatch(get.workbook(workbook.path), error=function(e) {NULL})	
 					
 					if (is.null(workbook) )
 						{
-							return(cat("Could not load workbook\n"))
+							return(cat("Could not load workbook","\n"))
 						} else {
 								#check if named range exists
 								obj<-tryCatch(readNamedRegion(workbook, name =  get.obj.name , header = FALSE),error= function(e) {NULL})
