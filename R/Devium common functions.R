@@ -174,6 +174,7 @@ format.binbase.output<-function(data)
 		#get variable and sample meta data
 		row.meta<-as.data.frame(t(as.matrix(object[c(1:(variable.start-2)),c(sample.start:dcols)])))
 		colnames(row.meta)<-object[1:row.id,col.id+1]
+		row.meta<-cbind(rownames(row.meta),row.meta) # not sure why 1st column is missed
 		col.meta<-as.data.frame(as.matrix(object[c(variable.start:drows),c(1:(sample.start-1))]))
 		colnames(col.meta)<-object[row.id+1,1:(col.id+1)] # uglyness
 		#convert data to all numeric prior to return
@@ -671,4 +672,22 @@ check.get.envir<-function(main.object,envir)
 {
     structure(as.list(match.call()[-1]), env = .env, class = "quoted")
 }
-	
+
+#fix character symbols
+check.fix.names<-function(names,ok.chars=c(".","_",",","(",")",":"," "),replace.with="."){
+				obj<-as.list(names)
+				fixlc(lapply(1:length(obj), function(i)
+				{
+				#check and replace bad (not allowed as range names in Excel) characters
+					tmp<-unlist(strsplit(as.character(obj[i]),""))
+					check.index<-c(1:length(tmp))
+					OK.char<-c(LETTERS,letters,ok.chars)
+					replace.index<-check.index[!tmp%in%OK.char]
+					is.number<-(check.index)[!is.na(tmp==fixln(tmp))]
+					if(length(is.number)==0){is.number<-0}
+					replace<-replace.index[!replace.index%in%is.number]
+					tmp[replace]<-replace.with
+					tmp<-paste(tmp,collapse="")
+					obj<-paste(fixlc(strsplit(tmp," ")),collapse=replace.with)
+				}))
+			}

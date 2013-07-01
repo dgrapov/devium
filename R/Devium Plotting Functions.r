@@ -334,8 +334,6 @@ set.plot.legend<-function(obj,name="scatter.plot.legend",env=devium)
 			}
 	}
 						
-#make a box plot colored on factor themed for node inset in networks
-
 #combine multiple ggplots (no ref)
 multiplot <- function(..., plotlist=NULL, cols) {
     require(grid)
@@ -422,6 +420,12 @@ time.series.plot<-function(variable,group,time,xlab="Time",color=NULL,alpha=0.9,
 		geom_errorbar(aes(ymin=as.numeric(as.character(mean))-se, ymax=as.numeric(as.character(mean))+se), width = 0,size=1,alpha=alpha) +
 		geom_line(size=1.5,alpha=alpha) +
 		scale_x_continuous(breaks =breaks) + .theme + other
+		
+		#save to file to use as node images in network visualizations
+		filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
+		png(file = filename,pointsize=1,width=60,height=60) # or 60 X 60 and 1 pt 
+		print(p)
+		dev.off()
 	
 	} else {
 		p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group)) + 
@@ -436,22 +440,13 @@ time.series.plot<-function(variable,group,time,xlab="Time",color=NULL,alpha=0.9,
 			filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
 			ggsave(filename,p)
 		} 
-		
-	#optimize setting for insertion in cytoscape networks
-	if(save=="network"){
-		filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
-		png(file = filename,pointsize=1,width=60,height=60) # or 60 X 60 and 1 pt 
-		print(p)
-		dev.off()
-		# ggsave(file.name, plot = p,scale = 1,height=.1, width=.1, dpi = 300) # hard to get high quality small graphs
-	} 
 	
 	if(save==FALSE){ print(p)}
 
 
 }
 
-#calculate mean, sd, ci int 
+#calculate mean, sd, ci int should go in stats lost ref adaptaion from someone else 
 summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=TRUE,
                       conf.interval=.95, .drop=TRUE) {
     require(plyr)
@@ -484,3 +479,74 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=TRUE,
     datac$ci <- datac$se * ciMult
     return(datac)
 }
+
+#get ellipse boundaries
+get.ellipse.coords<-function(obj,group=NULL, ellipse.level=.95){
+		check.get.packages(c("ellipse","splancs"))
+		
+		fct<-if(is.null(group)) as.factor(rep(1,nrow(obj))) else as.factor(group)
+		.obj<-split(as.data.frame(obj),fct)
+		
+		#calculate points for ellipse
+		#for level of group
+		ellipse.var<-lapply(1:nlevels(fct),function(i)
+			{
+
+				pts<-.obj[[i]]
+				m<-colMeans(pts)
+				cbind(tryCatch(ellipse(as.matrix(cov(pts)),centre=c(m[1],m[2]),level=ellipse.level),
+					error=function(e){NA}),rep(nlevels(fct)[i],nrow(pts)))
+			})
+			
+		#format for ggplot 2
+		tmp<-do.call("rbind",ellipse.var)
+		colnames(tmp)<-c("x","y","group")
+		
+		# get area for plotting order
+		ellipse.size<-sapply(1:length(ellipse.var),function(i)
+			{
+				tryCatch(areapl(ellipse.var[[i]]),error=function(e){NA})
+			})
+		return(list(coords=data.frame(tmp), area=ellipse.size))	
+	}		
+	
+#get polygon coordinates for each group
+get.polygon.coords<-function(){ 			
+		comps<-obj$total.LVs
+		plot.obj<-tryCatch(obj$scores[[1]][,c(comp1,comp2)],error=function(e){obj$scores[,c(comp1,comp2)]}) # not sure how to simply unclass and coerce to data.frame
+		
+		#format data
+		out<-as.data.frame(cbind(plot.obj[,c(comp1,comp2)],join.columns(as.matrix(groups))))
+		colnames(out)<-c("LV1","LV2","groups")
+			
+		out[,1:2]<-as.numeric(as.matrix(out[,1:2]))	
+		
+		#calculate convex hull for polygons for each group
+		data.obj <- split(out, as.factor(unlist(groups)))
+		tmp.obj <- lapply(1:length(data.obj), function(i){
+			obj<-data.obj[[i]]
+			s2<-split(obj,obj[,3])
+			do.call(rbind,lapply(1:length(s2),function(j){
+				tmp<-s2[[j]]
+				tmp[chull(tmp[,1:2]),] 
+				}))
+		})
+		chull.boundaries <- do.call("rbind", tmp.obj)
+	
+		#custom theme
+		.theme<- theme(
+							axis.line = element_line(colour = 'gray', size = .75), 
+							panel.background = element_blank(), 
+							panel.border = element_rect(colour="gray",fill=NA),
+							plot.background = element_blank()
+						 )
+						 
+		#make plot
+		p<-ggplot(data=out, aes(x=LV1, y=LV2, group=groups,color=groups)) + 
+		geom_hline(aes(yintercept=0),color="gray60",linetype="dashed")+ 
+		geom_vline(aes(xintercept=0),color=I("gray60"),linetype=2) 
+		p<-p+geom_polygon(data=chull.boundaries,aes(x=LV1,y=LV2,fill=groups),alpha=.5) +geom_point(size=2)+.theme
+		print(p)
+}
+
+#scatter plot matrix in ggplot2
