@@ -495,13 +495,14 @@ get.ellipse.coords<-function(obj,group=NULL, ellipse.level=.95){
 				pts<-.obj[[i]]
 				m<-colMeans(pts)
 				cbind(tryCatch(ellipse(as.matrix(cov(pts)),centre=c(m[1],m[2]),level=ellipse.level),
-					error=function(e){NA}),rep(nlevels(fct)[i],nrow(pts)))
+					error=function(e){NA}),rep(levels(fct)[i],nrow(pts)))
 			})
 			
 		#format for ggplot 2
 		tmp<-do.call("rbind",ellipse.var)
 		colnames(tmp)<-c("x","y","group")
-		
+		tmp[,1]<-as.numeric(tmp[,1])
+		tmp[,2]<-as.numeric(tmp[,2])
 		# get area for plotting order
 		ellipse.size<-sapply(1:length(ellipse.var),function(i)
 			{
