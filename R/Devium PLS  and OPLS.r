@@ -1,5 +1,5 @@
-1#function to carry out PLS or orthogonal signal correction PLS (OSC-PLS)
-OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,...){ 
+#function to carry out PLS or orthogonal signal correction PLS (OSC-PLS)
+OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,cv.scale=F,...){ 
 	
 	check.get.packages("pls")
 	
@@ -7,14 +7,13 @@ OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",pro
 	OSC.results<-list()
 	OSC.results$data[[1]]<-pls.data
 	OSC.results$y[[1]]<-pls.y # also add a place to store plsr options for record keeping
-	#  add a place to store plsr options for record keeping
 	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = (OSC.comp+1), style = 3)}
 	
 	#need to iteratively fit models for each OSC
 	for(i in 1:(OSC.comp+1)){ 
 		
 		data<-OSC.results$data[[i]]
-		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,...)#
+		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,CV.scale=cv.scale,...)#
 		ww<-tmp.model$loading.weights[,1]
 		pp<-tmp.model$loadings[,1]
 		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
@@ -38,6 +37,92 @@ OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",pro
 	
 	if (progress == TRUE){close(pb)}	
 	return(OSC.results)	
+}
+
+#choose optimal model LV and OLV component number
+choose.opt.OPLS.comp<-function(OSC.obj,tolerance=0.01){
+	#  choose optimal number of model components 
+	RMSEP<-do.call("cbind",OSC.obj$RMSEP)
+	factor<-as.data.frame(OSC.obj$y) # pls Y
+	
+	if(ncol(factor)==1){
+	
+		as.numeric(as.factor(join.columns(factor))) # model combined
+
+		even<-1:ncol(RMSEP)%%2==0 # CV RMSEP currently assuming this was used in modeling
+		tmp<-RMSEP[,even]# CV RMSEP
+		is.min<-which.min(tmp)
+		best.comp<-data.frame(	LV 		= c(rep(0:(comp), (comp+1)))[is.min],
+								OLV		= c(rep(0:(ocomp), each=(comp+1)))[is.min],
+								RMSEP 	= tmp[is.min])
+								
+		#set criteria for accepting smaller model	
+		# not worse than this, accept smaller				
+		delta<-tmp-tmp[best.comp$LV+1,best.comp$OLV+1]
+		tmp.min<-which(delta<=tolerance)
+		deltas<-do.call("rbind",lapply(1:length(tmp.min), function(j){
+			is.min<-tmp.min[j]
+			data.frame(	LV 		= c(rep(0:(comp), (comp+1)))[is.min],
+								OLV			= c(rep(0:(ocomp), each=(comp+1)))[is.min],
+								RMSEP 		= tmp[is.min])
+				}))
+		accepted<-arrange(deltas, LV, OLV)
+		rownames(accepted)<-paste("Y",1:ncol(factor), sep=".")
+	}
+
+	#code for multi-column factor
+	if(ncol(factor)>1){
+
+		even<-1:ncol(RMSEP)%%2==0 # CV RMSEP
+		ystart<-c(1:(ncol(factor)*(comp+1)))[1:(ncol(factor)*(comp+1))%% (comp+1)==1] # starts
+		yend<-c(1:(ncol(factor)*(comp+1)))[1:(ncol(factor)*(comp+1))%% (comp+1)==0]# ends
+		ids<-rbind(ystart,yend)
+		#Each Ys optimal LV and OLV number within the tolearance from the true min as set by acc
+		tmp.RMSEP<-lapply(1:ncol(ids), function(i){
+			tmp<-RMSEP[ids[1,i]:ids[2,i],even]# CV RMSEP
+			is.min<-which.min(tmp)[1]
+			best.comp<-data.frame(	LV 		= c(rep(0:(comp), (comp+1)))[is.min],
+									OLV			= c(rep(0:(ocomp), each=(comp+1)))[is.min],
+									RMSEP 		= tmp[is.min])
+									
+			#set criteria for accepting smaller model	
+			# not worse than this, accept smaller	
+			delta<-tmp-tmp[best.comp$LV+1,best.comp$OLV+1]
+			tmp.min<-which(delta<=tolerance)
+			deltas<-do.call("rbind",lapply(1:length(tmp.min), function(j){
+				is.min<-tmp.min[j]
+				data.frame(	LV 		= c(rep(0:(comp), (comp+1)))[is.min],
+									OLV			= c(rep(0:(ocomp), each=(comp+1)))[is.min],
+									RMSEP 		= tmp[is.min])
+					}))
+			arrange(deltas, LV, OLV)
+			})
+		
+		#identify intersection for LV-OLV
+		split.on<-factor(do.call("cbind",lapply(seq(length(tmp.RMSEP)),function(i) rep(i, nrow(tmp.RMSEP[[i]])))))
+		x <- split(data.frame(join.columns(do.call("rbind",tmp.RMSEP)[-3])), split.on)
+		maxlen <- max(sapply(x,length))
+		intersect<-lapply(seq(maxlen),function(i) Reduce(intersect,lapply(x,"[[",i)))
+		if (is.null(intersect)) { #no overlap have to choose min overall
+			list<-t(sapply(seq(tmp.RMSEP), function(i) tmp.RMSEP[[i]][which.min(tmp.RMSEP[[i]][,3]),]))
+			tmp.comp<-data.frame(list[which.min(list[,3]),1:2])
+			accepted<-do.call("rbind",lapply(1:ncol(ids), function(i){
+			tmp<-RMSEP[ids[1,i]:ids[2,i],even]# CV RMSEP
+				data.frame(	LV 		= tmp.comp$LV,
+							OLV 	= tmp.comp$OLV,
+							RMSEP 	= tmp[tmp.comp$LV+1,tmp.comp$OLV+1])
+			}))
+			rownames(accepted)<-paste("Y",1:ncol(factor), sep=".")
+		} else {
+			tmp<-as.numeric(unlist(strsplit(unlist(intersect)[1],"\\|")))
+			accepted<-t(sapply(1:length(tmp.RMSEP), function(i){
+				obj<-tmp.RMSEP[[i]]
+				obj[obj[,1]==tmp[1]&obj[,2]==tmp[2], ,drop=F]
+			}))
+			rownames(accepted)<-paste("Y",1:ncol(factor), sep=".")
+		}
+	}
+	return(data.frame(do.call("cbind",accepted)))
 }
 
 #plot OSC results
@@ -166,7 +251,8 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 	require(ggplot2)
 	#plot = one of: c("RMSEP","scores","loadings")
 	#groups is a factor to show group visualization in scores plot
-	switch(plot,
+	
+	switch(plot, # only looks right for single Y models!
 		RMSEP 			=  .local<-function(obj,comp1,comp2){
 								#bind info and RMSEP
 								comps<-1:obj$total.LVs
@@ -185,6 +271,25 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 								geom_line(size=1,alpha=.5) + geom_point(size=2)+.theme +
 								scale_x_continuous(breaks = c(min(comps):max(comps)))
 								print(p)
+								
+								# #return suggested number of components
+								# comp <-
+								# ocomp <-
+								# RMSEP<-do.call("cbind",obj$RMSEP) # CV RMSEP
+								# even<-1:ncol(RMSEP)%%2==0
+								# tmp<-RMSEP[,even]# CV RMSEP
+								# best.comp<-data.frame(	OLV 		= matrix(rep(0:(comp), (comp)), nrow(tmp), ncol(tmp))[which.min(tmp)],
+														# LV		= matrix(rep(0:(ocomp), each=(comp+1)), nrow(tmp), ncol(tmp))[which.min(tmp)],
+														# RMSEP 	= tmp[which.min(tmp)])
+														
+								# #set criteria for accepting smaller model	
+								# accept<-0.05 # not worse than this, accept smaller				
+								# delta<-tmp[best.comp$LV,]-tmp[best.comp$LV,best.comp$OLV+1]		
+								# accepted<-which(delta<=accept)[1] # smallest	
+								# accepted.comp<-data.frame(OLV = accepted-1, LV = best.comp$LV, RMSEP = tmp[best.comp$LV,accepted])		
+								# OPLS.LV.results<-rbind(best.comp,accepted.comp)
+								# rownames(OPLS.LV.results)<-c("minimum","chosen") # save this for later
+								
 							},
 		scores 			=	.local<-function(obj,comp1,comp2){
 								comps<-obj$total.LVs
@@ -630,7 +735,8 @@ PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TR
 		#return results
 		return(as.data.frame(combo.cut))
 	}	
-	
+
+
 testing<-function(){ 
 #testing
 library(pls)

@@ -8,7 +8,7 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 		#pca.center logical, mean center the data
 		#pca.scaling character describing scaling method, see pcaMethods::prep for options
 		
-		#check for text or factor and add to subset
+		#check for text or factor and remove (add to subset) 
 		tmp<-pca.inputs
 		data.obj<-as.data.frame(get(tmp$pca.data))
 		data.obj<-data.obj[sapply(1:ncol(data.obj), function(i) {class(data.obj[,i])=="numeric"|class(data.obj[,i])=="integer"})] # has to be better way to avoid factors
