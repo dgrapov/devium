@@ -3,10 +3,10 @@
 #--------------------------------------
 
 #create heatmap optionally using HCA
-devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.color = NULL, match.dim=2, type=c("none", "spearman", "pearson","biweight"),
+devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.color = NULL, border.color=NULL, match.dim=2, type=c("none", "spearman", "pearson","biweight"),
 						cluster.method = c("none","ward", "single", "complete", "average", "mcquitty", "median" , "centroid"),
 						distance.method = c("none","euclidean", "maximum", "manhattan", "canberra", "binary" ,"minkowski"),
-						alpha = NULL,font.size = 7,show.names=F, focus.vars=NULL, ncolors = 100){
+						alpha = NULL,font.size = 12,show.names=F, ncolors = 100){
 		check.get.packages("pheatmap")
 		
 		type<-match.arg(type)
@@ -26,7 +26,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 				tmp.data[tmp.data>0]<-1
 				tmp.data[tmp.data<0]<--1
 				tmp.data[tmp.data.pvalue>alpha]<-0
-				ncolors<-3
+				ncolors<-3 # limit heat map to 3 colors
 			}
 		}
 		
@@ -55,7 +55,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 		# set colors for top of the heatmap annotation
 		if(!is.null(class.factor)){
 			annotation<- data.frame(sapply(class.factor,as.factor))
-			rownames(annotation)<-colnames(tmp.data)
+			tryCatch(rownames(annotation)<-colnames(tmp.data), error=function(e){cat("The supplied class.factor doesn't match the number of columns","\n")})
 		} else {
 			annotation<-NA
 		}
@@ -65,9 +65,21 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 		} else {
 			if(is.null(class.color)){
 				choices<-colors()[-agrep(c("gray","grey"),colors())]
+				#test if factor is continuous or discrete
+				fct.type<-sapply(1:ncol(annotation),function(i){
+					obj<-as.factor(annotation[,i])
+					nlevels(obj)>10
+				})
+				
 				annotation.color<-lapply(1:ncol(class.factor), function(i){
-					tmp<-choices[sample(11:length(choices),nlevels(annotation[,i]))]
-					names(tmp)<-levels(annotation[,i])
+					if(fct.type[i]){
+						tmp<-choices[sample(1:length(choices),1)]
+						tmp<-colorRampPalette(c("white",tmp))(nlevels(annotation[,i]))
+						names(tmp)<-levels(annotation[,i])
+					} else {
+						tmp<-choices[sample(1:length(choices),nlevels(annotation[,i]))]
+						names(tmp)<-levels(annotation[,i])
+					}
 					tmp
 				})
 				names(annotation.color)<-colnames(annotation)
@@ -121,7 +133,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 		clustering_method=cluster.method,
 		clustering_distance_rows = clustering_distance_rows,
 		clustering_distance_cols = clustering_distance_cols,
-		border_color="grey60",
+		border_color = border.color,
 		annotation = annotation, # annotation factor
 		annotation_colors = annotation.color, # colors for each column of annotation factor
 		annotation_legend= TRUE,
