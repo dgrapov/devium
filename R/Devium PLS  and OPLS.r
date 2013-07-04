@@ -122,7 +122,11 @@ choose.opt.OPLS.comp<-function(OSC.obj,tolerance=0.01){
 			rownames(accepted)<-paste("Y",1:ncol(factor), sep=".")
 		}
 	}
+<<<<<<< HEAD
 	return(as.matrix(accepted))
+=======
+	return(data.frame(do.call("cbind",accepted)))
+>>>>>>> 6c5b7d1a7356d38fafa0ab7e95e92aac1a4e75ff
 }
 
 #plot OSC results
