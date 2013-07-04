@@ -13,7 +13,6 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 		cluster.method<-match.arg(cluster.method)
 		distance.method<-match.arg(distance.method)
 
-	
 		#prepare data object
 		if(match.dim==1){tmp.data<-data.frame(t(data.frame(data)))} else { tmp.data<-data.frame(data)}
 		
@@ -139,4 +138,195 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 		annotation_colors = annotation.color, # colors for each column of annotation factor
 		annotation_legend= TRUE,
 		fontsize = font.size)
+}
+
+# based on"http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R"
+devium.dendrogram<-function( 
+  x ,             # an hclust object to draw
+  k        = 2,   # the number of groups
+  col.up   = "black",
+  col.down = rainbow(k),
+  lty.up   = 2,
+  lty.down = 1,
+  lwd.up   = 1,
+  lwd.down = 2,
+  type     = c("rectangle","triangle"),
+  knot.pos = c("mean","bary","left","right","random"),
+  criteria,
+  fact.sup,
+  show.labels=TRUE,
+  only.tree=FALSE,
+  main     = paste("Colored Dendrogram (",k," groups)"),
+  boxes    = TRUE,
+  members,
+  ...
+){
+
+  if(missing(members)) members <- NULL
+  opar <- par(no.readonly=TRUE)
+  knot.pos <- match.arg(knot.pos)
+  type     <- match.arg(type)
+  # tests
+  if(k<2) 
+    stop("k must be at least 2")  
+    
+  ._a2r_counter    <<- 0
+  ._a2r_hclu       <<- x
+
+  ._a2r_envir      <<- environment()
+  nn <- length(x$order) - 1
+
+  ._a2r_height_cut <<- mean(x$height[nn-k+1:2])
+  ._a2r_group      <<- 0
+  
+  n.indiv   <- length(x$order)
+  groups.o  <- cutree.order(x, k=k)[x$order]
+  
+  bottom <- if(is.null(members)) 0 else x$height[nn] * -.2 
+  
+  if(only.tree){
+    if(is.null(members)) plot(0,type="n",xlim=c(0.5,n.indiv+.5), ylim=c(bottom,x$height[nn]), xaxs="i", axes=FALSE, xlab="",ylab="") 
+    else                 plot(0,type="n",xlim=c(0.5,sum(members)+.5), ylim=c(bottom,x$height[nn]), xaxs="i", axes=FALSE, xlab="",ylab="")
+    #call to the ** recursive function ** .rec.hclust
+    .rec.hclust(nn, col=col.up, lty=lty.up, lwd=lwd.up)
+    
+    if(boxes){
+      axis(2)
+      box()
+    }
+    return(NULL)
+  }
+  
+  # prepare the layout
+  matlayout <- matrix(c(2,4,6,1,3,5), nc=2, nr=3)
+  widths    <- c(1,9)
+  heights   <- c(8,1,1)
+  if(!show.labels){
+      matlayout <- matrix(c(2,4,1,3), nc=2, nr=2)
+      widths    <- c(1,9)
+      heights   <- c(9,1)
+  }
+  if(!missing(fact.sup) ) {
+    heights   <- c(8,1,1)
+  }
+  if(missing(criteria) & missing(fact.sup)){
+    matlayout <- matrix(c(2,4,1,3), nc=2, nr=2)
+      widths    <- c(1,9)
+      heights   <- c(9,1)
+    
+  }
+  layout(matlayout, width=widths, height=heights)
+  
+  
+  
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ The tree (1)
+  par(mar=c(0,0,3,4))
+  if(is.null(members)) plot(0,type="n",xlim=c(0.5,n.indiv+.5), ylim=c(bottom,x$height[nn]), xaxs="i", axes=FALSE, xlab="",ylab="") 
+  else plot(0,type="n",xlim=c(0.5,sum(members)+.5), ylim=c(bottom,x$height[nn]), xaxs="i", axes=FALSE, xlab="",ylab="") 
+  #call to the ** recursive function ** .rec.hclust
+  .rec.hclust(nn, col=col.up, lty=lty.up, lwd=lwd.up)
+  title(main)
+  if(boxes){
+    box()
+    axis(4)
+  }
+  
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Criteria (2)
+  if(!missing(criteria)){
+    par(mar=c(0,0,3,0))
+    plot(0,
+         type="n",
+         xlim=range(criteria), 
+         ylim=c(0,x$height[nn]), 
+         axes=FALSE, 
+         xlab="",
+         ylab="")
+    par(las=2)
+    n.crit <- length(criteria)
+    heights.cut <- ( tail(x$height,n.crit) + 
+                     tail(x$height,n.crit+1)[-(n.crit+1)] ) / 2
+    heights.cut <- rev(heights.cut)
+                   
+    points(criteria   , heights.cut   , pch=21, bg="red", type="o")
+    points(criteria[k-1], heights.cut[k-1], pch=21, cex=2, bg="blue", xpd=NA)
+    if(boxes){
+      axis(3)
+      box()
+    }
+  }
+  else{
+    par(mar=c(0,0,3,0))
+    plot(0,
+         type="n",
+         xlim=c(0,1), 
+         ylim=c(0,1), 
+         axes=FALSE, 
+         xlab="",
+         ylab="")
+  }
+
+  if(show.labels){
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Name of the observations (3)
+    par(mar=c(0,0,0,4))
+    par(srt=90)
+    obs.labels <- toupper(substr(x$labels[x$order],1,6))
+    if(is.null(members)) {
+      plot(0,type="n",xlim=c(0.5,n.indiv+.5), ylim=c(0,1), xaxs="i", axes=FALSE, xlab="",ylab="") 
+      text(1:n.indiv    , 0, obs.labels, pos=4, col=col.down[groups.o])
+    }
+    else{
+      plot(0,type="n",xlim=c(0.5,sum(members)+.5), ylim=c(0,1), xaxs="i", axes=FALSE, xlab="",ylab="") 
+      xo <-   members[x$order]
+      text(cumsum(xo)-xo/2, 0, obs.labels, pos=4, col=col.down[groups.o])
+    }
+    par(srt=0)
+    if(boxes){
+      box()
+    }
+  
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Labels (4)
+    par(mar=c(0,0,0,0))
+    plot(0,type="n",xlim=c(0,1), ylim=c(0,1), xaxs="i", axes=FALSE, xlab="",ylab="") 
+    text(.5,.5,"Labels")
+    if(boxes){
+      box()
+    }
+      
+  }
+  
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Quali (5,6)
+  if(!missing(fact.sup)){
+    quali  <- as.factor(fact.sup)[x$order]
+    quanti <- as.numeric(quali)
+
+    par(mar=c(1,0,0,4))
+    n.levels <- length(levels(quali))
+    plot(0,type="n",
+         xlim=c(0.5,n.indiv+.5), 
+         ylim=c(0,n.levels), 
+         xaxs="i", yaxs="i",axes=FALSE, xlab="",ylab="") 
+        
+    rect(xleft    = (1:n.indiv)-.5,
+         xright   = (1:n.indiv)+.5,
+         ybottom  = quanti-1, 
+         ytop     = quanti,
+         col      = col.down[groups.o])
+    par(las=1)
+    axis(4, (1:n.levels)-.5,levels(quali), tick=FALSE)
+      
+    if(boxes){
+      box()
+    }
+    
+    
+    par(mar=c(1,0,0,0))
+    plot(0,type="n",xlim=c(0,1), ylim=c(0,1), xaxs="i", axes=FALSE, xlab="",ylab="") 
+    text(.5,.5,deparse(substitute(fact.sup)))
+    if(boxes){
+      box()
+    }
+  }
+  
+  
+  par(opar) # reset parameter
 }
