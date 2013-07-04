@@ -17,6 +17,11 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 		#prepare data object
 		if(match.dim==1){tmp.data<-data.frame(t(data.frame(data)))} else { tmp.data<-data.frame(data)}
 		
+		#convert everything to numeric
+		.names<-dimnames(tmp.data)
+		tmp.data<-sapply(seq(tmp.data),function(i) {fixln(tmp.data[,i])})
+		dimnames(tmp.data)<-.names
+		
 		# calculate correlations
 		if(!type=="none"){
 			 tmp<-devium.calculate.correlations(tmp.data,type=type)
