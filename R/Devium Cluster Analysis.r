@@ -13,8 +13,9 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 		cluster.method<-match.arg(cluster.method)
 		distance.method<-match.arg(distance.method)
 
+	
 		#prepare data object
-		if(match.dim==1){tmp.data<-t(data.frame(data))} else { tmp.data<-data.frame(data)}
+		if(match.dim==1){tmp.data<-data.frame(t(data.frame(data)))} else { tmp.data<-data.frame(data)}
 		
 		# calculate correlations
 		if(!type=="none"){
