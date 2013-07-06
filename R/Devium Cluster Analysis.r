@@ -35,14 +35,14 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 			# calculate distances
 			if(!distance.method=="none"){
 				if(type=="none"){
-					if(match.dim==2){
-						clustering_distance_cols<-dist(tmp.data, method= distance.method)
-						clustering_distance_rows<-dist(data.frame(t(tmp.data)), method= distance.method)
-					} else {
+					# if(match.dim==2){
+						# clustering_distance_cols<-dist(tmp.data, method= distance.method)
+						# clustering_distance_rows<-dist(data.frame(t(tmp.data)), method= distance.method)
+					# } else {
 						clustering_distance_rows<-dist(tmp.data, method= distance.method)
 						clustering_distance_cols<-dist(data.frame(t(tmp.data)), method= distance.method)
-					}
-				} else {
+					# }
+				} else {					
 					tmp.data.dist<-dist(tmp.data, method= distance.method) # for correlations ignore sign focus on magnitude
 					clustering_distance_cols<-clustering_distance_rows<-tmp.data.dist
 				}
@@ -55,7 +55,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 		# set colors for top of the heatmap annotation
 		if(!is.null(class.factor)){
 			annotation<- data.frame(sapply(class.factor,as.factor))
-			tryCatch(rownames(annotation)<-colnames(tmp.data), error=function(e){cat("The supplied class.factor doesn't match the number of columns","\n")})
+			#tryCatch(rownames(annotation)<-colnames(tmp.data), error=function(e){cat("The supplied class.factor doesn't match the number of columns","\n")})
 		} else {
 			annotation<-NA
 		}
@@ -141,6 +141,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 }
 
 # based on"http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R"
+# need to fix the case where labels are numeric? getting zero labels length
 devium.dendrogram<-function( 
   x ,             # an hclust object to draw
   k        = 2,   # the number of groups
