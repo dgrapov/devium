@@ -31,7 +31,8 @@ lsp <- function (package, all.names = FALSE, pattern) {
 }
 
 # limit datasets to class == data.frame
-data.options<-function()
+
+data.options<-function(){
 	set<-lsp(datasets)
 	set.class<-sapply(seq(set), function(i){ class(get(set[i]))})
 	set[set.class=="data.frame"] #|set.class=="matrix"
@@ -39,6 +40,8 @@ data.options<-function()
 
 #select colors for heatmap options
 color.opts<-function(){c("red","orange","yellow","green","blue","violet","purple","white","black","gray")}
+
+
 
 
 
