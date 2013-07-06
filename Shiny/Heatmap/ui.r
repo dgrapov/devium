@@ -9,11 +9,8 @@ shinyUI(pageWithSidebar(
 	(
 		h3("Data Input"),
 		selectInput("data","Data Set", 
-<<<<<<< HEAD
-						data.options()),	
-=======
-						data.options),	
->>>>>>> bde7aff798febeb8e622cd0e0c898b8ec24d3231
+						data.options()),data.options),	
+
 		radioButtons("dimention","Dimension", 
 						c("rows","columns"), selected = "rows"),				
 		selectInput("type","Transform", 
@@ -30,15 +27,9 @@ shinyUI(pageWithSidebar(
 		checkboxInput("names","Names",TRUE),
 		checkboxInput("border","Border",TRUE)	,
 		h3("Heatmap Colors"),
-<<<<<<< HEAD
-		selectInput("low.col","low", color.opts(), selected = "green" ),
-		selectInput("mid.col","mid", color.opts(), selected = "black"),
-		selectInput("high.col","high:", color.opts(),selected = "red"),
-=======
 		selectInput("low.col","low", color.opts, selected = "green" ),
 		selectInput("mid.col","mid", color.opts, selected = "black"),
 		selectInput("high.col","high:", color.opts,selected = "red"),
->>>>>>> bde7aff798febeb8e622cd0e0c898b8ec24d3231
 		h3("Dendrogram groups"),
 		uiOutput("HCA.groups"), 
 		helpText(

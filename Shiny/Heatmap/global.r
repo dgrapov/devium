@@ -31,7 +31,6 @@ lsp <- function (package, all.names = FALSE, pattern) {
 }
 
 # limit datasets to class == data.frame
-
 data.options<-function(){
 	set<-lsp(datasets)
 	set.class<-sapply(seq(set), function(i){ class(get(set[i]))})
