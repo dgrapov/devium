@@ -9,7 +9,7 @@ shinyUI(pageWithSidebar(
 	(
 		h3("Data Input"),
 		selectInput("data","Data Set", 
-						data.options()),data.options),	
+						data.options()),	
 
 		radioButtons("dimention","Dimension", 
 						c("rows","columns"), selected = "rows"),				
@@ -27,9 +27,9 @@ shinyUI(pageWithSidebar(
 		checkboxInput("names","Names",TRUE),
 		checkboxInput("border","Border",TRUE)	,
 		h3("Heatmap Colors"),
-		selectInput("low.col","low", color.opts, selected = "green" ),
-		selectInput("mid.col","mid", color.opts, selected = "black"),
-		selectInput("high.col","high:", color.opts,selected = "red"),
+		selectInput("low.col","low", color.opts(), selected = "green" ),
+		selectInput("mid.col","mid", color.opts(), selected = "black"),
+		selectInput("high.col","high:", color.opts(),selected = "red"),
 		h3("Dendrogram groups"),
 		uiOutput("HCA.groups"), 
 		helpText(
