@@ -12,7 +12,7 @@ shinyUI(pageWithSidebar(
 						data.options()),	
 
 		radioButtons("dimention","Dimension", 
-						c("rows","columns"), selected = "rows"),				
+						c("rows","columns"), selected = "rows"),
 		selectInput("type","Transform", 
 						list("Z-scale" = "none", "Spearmans correlation" = "spearman", "Pearsons correlation" = "pearson","Biweight correlation" = "biweight")),	
 		h3("Clustering Options"),				

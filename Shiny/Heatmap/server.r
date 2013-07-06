@@ -42,6 +42,7 @@ shinyServer(function(input, output, session) {
 				if(match.dim==1){
 					class.factor<-as.data.frame(tmp.data[,colnames(tmp.data)%in%input$groups,drop=F])
 				} else {
+					names<-colnames(tmp.data)
 					# if rownames are numeric will be appended with an X
 					tmp<-data.frame(t(data.frame(tmp.data)))
 					if(match.dim==1){
