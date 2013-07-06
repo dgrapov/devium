@@ -1,4 +1,3 @@
-
 #create heatmap optionally using HCA
 devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.color = NULL, border.color=NULL, match.dim=2, type=c("none", "spearman", "pearson","biweight"),
                          cluster.method = c("none","ward", "single", "complete", "average", "mcquitty", "median" , "centroid"),
@@ -39,7 +38,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
         clustering_distance_rows<-dist(tmp.data, method= distance.method)
         clustering_distance_cols<-dist(data.frame(t(tmp.data)), method= distance.method)
         # }
-      } else {  				
+      } else {                         				
         tmp.data.dist<-dist(tmp.data, method= distance.method) # for correlations ignore sign focus on magnitude
         clustering_distance_cols<-clustering_distance_rows<-tmp.data.dist
       }
