@@ -511,7 +511,8 @@ choose.qpgraph.threshold<-function(qpnetwork,.threshold=c(0,.6),choose=NULL){
 		xy<-do.call("rbind",lapply(1:length(int),function(i)
 				{
 					net <- qpGraph(qpnetwork, threshold=int[i], return.type="graphNEL")
-					con.nodes<- tryCatch(unique(unlist(strsplit(names(net@edgeData@data),"\\|"))), error=function(e) {NULL}) # when nothing is connected
+					con.nodes<-tryCatch(net@nodes, error= function(e) {NUL})
+					# con.nodes<- tryCatch(unique(unlist(strsplit(names(net@edgeData@data),"\\|"))), error=function(e) {NULL}) # when nothing is connected
 					data.frame(threshold=int[i],nodes=length(con.nodes),edges=length(unlist(net@edgeL))/2)
 				}))
 		#plot
@@ -1164,7 +1165,7 @@ devium.network.execute<-function(object,filter=as.numeric(object$devium.network.
 
 #function to add to existing igraph.plot
 devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add=FALSE,not.dev=FALSE){
-		#plot.type = c("static","interactive","3D-plot")
+		#p1lot.type = c("static","interactive","3D-plot")
 		check.get.packages(c("igraph","graph")) 
 		
 		#test if new graph needs to be created

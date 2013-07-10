@@ -1,4 +1,10 @@
 
+
+install.packages("shiny")
+library(shiny)
+runGitHub("Devium", username = "dgrapov",
+    ref = "master", subdir = "Shiny/Heatmap", port = 8100)
+
 start.data<-rdy.t(mtcars)
 input<-list()
 

@@ -52,6 +52,8 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
   if(!is.null(class.factor)){
     annotation<- data.frame(sapply(class.factor,as.factor))
     dimnames(annotation)<-dimnames(class.factor)
+	#rownames need to match data colnames (which depend on match dim)
+	#tryCatch(row.names(annotation)<-colnames(tmp.data), error=function(e){row.names(annotation)<-rownames(tmp.data)}) # hack
     #tryCatch(rownames(annotation)<-colnames(tmp.data), error=function(e){cat("The supplied class.factor doesn't match the number of columns","\n")})
   } else {
     annotation<-NA
