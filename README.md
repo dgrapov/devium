@@ -41,3 +41,11 @@ devium.gui()
 
  ```
  Note if you don't yet have the GTK+ toolkit installed you need to specify to "Install GTK+" when prompted from the R command line.
+ 
+Demos
+======
+Prototypes for some of the analyses implemented in ```Devium``` can be viewed in the browser using the ```Shiny``` frame work. Check out some of the examples below.
+- [Heirarchical Cluster Analysis](http://spark.rstudio.com/dgrapov/Heatmap/)
+- [Basic Plotting] (http://spark.rstudio.com/dgrapov/1Dplots/)
+- [Principal Components Analysis Diagnostics] (http://spark.rstudio.com/dgrapov/PCA/)
+ 
