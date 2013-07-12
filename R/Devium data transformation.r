@@ -123,11 +123,13 @@ impute.missing<-function(data, method="min", scalar=1, report=TRUE){
 		
 		if(report == TRUE) {
 			row.missing <- matrix(round(apply(na.id,1,sum)/ncol(data)*100,0), ncol=1)
-			col.missing <- matrix(round(apply(na.id,2,sum)/nrow(data)*100,0), nrow =1 )
+			col.missing <- t(matrix(round(apply(na.id,2,sum)/nrow(data)*100,0), nrow =1 ))
 			colnames(row.missing)<-colnames(col.missing) <- "percent missing"
-			out<-cbind(c(NA,row.missing),rbind(col.missing,fixed))
-			rownames(out)[1]<-colnames(out)[1]<-"percent missing"
-			return(list(imputed.data =out))
+			rownames(row.missing)<-rownames(data)
+			rownames(col.missing)<-colnames(data)
+			# out<-cbind(c(NA,row.missing),rbind(col.missing,fixed))
+			#rownames(out)[1]<-colnames(out)[1]<-"percent missing"
+			return(list(imputed.data =fixed, prct.missing.in.row=row.missing, prct.missing.in.column=col.missing))
 			} else {
 				return(fixed)
 			}

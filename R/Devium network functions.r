@@ -2,8 +2,8 @@
 translate.index<-function(id, lookup){
 	# lookup is a two column data.frame or matrix with 
 	# column 1 containing index matching id and
-	# column 2 containning translation
-	# slow due to looping, but avoids matching translated order to original query order 
+	# column 2 containing translation
+	# slow due to looping, but avoids having to match translated order to original query order 
 	do.call("rbind",lapply(1:nrow(id), function(i,pb = txtProgressBar(min = 0, max = nrow(id), style = 3))
 		{
 			setTxtProgressBar(pb, i)
@@ -807,7 +807,10 @@ get.Reaction.pairs<-function(index,reaction.DB,index.translation.DB,translate=TR
 			#check and remove pairs (due to duplicate KEGG id for differing InchIkeys)
 			dupes<-duplicated(apply(matched,1,paste,collapse="|"))| duplicated(apply(matched[,2:1],1,paste,collapse="|"))
 			matched<-matched[!dupes,]
-		}
+		} else { 
+				tmp<-data.frame(unique(index))
+				index.translation.DB<-matched<-as.matrix(data.frame(tmp,tmp))
+				}
 		
 		if(parallel==TRUE){ # add progress bar
 				cat("Setting up cluster...","\n")

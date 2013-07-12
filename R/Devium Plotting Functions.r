@@ -484,7 +484,7 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=TRUE,
 get.ellipse.coords<-function(obj,group=NULL, ellipse.level=.95){
 		check.get.packages(c("ellipse","splancs"))
 		
-		fct<-if(is.null(group)) as.factor(rep(1,nrow(obj))) else as.factor(group)
+		fct<-if(is.null(group)) as.factor(rep(1,nrow(obj))) else factor(unlist(group))
 		.obj<-split(as.data.frame(obj),fct)
 		
 		#calculate points for ellipse
@@ -494,21 +494,24 @@ get.ellipse.coords<-function(obj,group=NULL, ellipse.level=.95){
 
 				pts<-.obj[[i]]
 				m<-colMeans(pts)
-				cbind(tryCatch(ellipse(as.matrix(cov(pts)),centre=c(m[1],m[2]),level=ellipse.level),
-					error=function(e){NA}),rep(levels(fct)[i],nrow(pts)))
+				cbind(tryCatch(ellipse::ellipse(as.matrix(cov(pts)),centre=c(m[1],m[2]),level=ellipse.level),
+					error=function(e){data.frame(NA,NA)}),rep(levels(fct)[i],nrow(pts)))
 			})
 			
 		#format for ggplot 2
 		tmp<-do.call("rbind",ellipse.var)
-		colnames(tmp)<-c("x","y","group")
-		tmp[,1]<-as.numeric(tmp[,1])
-		tmp[,2]<-as.numeric(tmp[,2])
+		# colnames(tmp)<-c("x","y","group")
+		# tmp[,1]<-as.numeric(tmp[,1])
+		# tmp[,2]<-as.numeric(tmp[,2])
 		# get area for plotting order
 		ellipse.size<-sapply(1:length(ellipse.var),function(i)
 			{
 				tryCatch(areapl(ellipse.var[[i]]),error=function(e){NA})
 			})
-		return(list(coords=data.frame(tmp), area=ellipse.size))	
+		#avoiding issues with x/y as factors
+		obj<-data.frame(matrix(as.numeric(as.matrix(tmp[,1:2])),ncol=2),tmp[,3])
+		colnames(obj)<-c("x","y","group")
+		return(list(coords=data.frame(obj), area=ellipse.size))	
 	}		
 	
 #get polygon coordinates for each group
