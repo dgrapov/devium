@@ -1357,3 +1357,18 @@ spectra.string.to.matrix<-function(spectra){
 		dimnames(tmp)<-list(fixlc(spec.mat[,1]),c(1:ncol(tmp)))
 		return(tmp)
 }
+
+#extract spectra from .mgf files (then use spectra.string.to.matrix to convert to a more usable form)
+mgf.to.spectra.string<-function(file){
+	data<-as.matrix(read.delim(file))
+	start<-grep("RTINSECONDS",data)
+	end<-grep("END IONS",data)
+	parent<-gsub("PEPMASS=","",gsub(" ","",data[grep("PEPMASS",data),]))
+	retention<-gsub("RTINSECONDS=","",gsub(" ","",data[grep("RTINSECONDS=",data),]))
+	#extract MS/MS spectra as m/z:intensity with separate values separated by " "
+	spectra<-sapply(1:length(start), function(i){
+		tmp<-data[(start[i]+1):(end[i]-1),]
+		paste(join.columns(t(matrix(tmp,nrow=2)),":"), collapse=" ")
+	})
+	data.frame(parent=parent, retention.time=retention, spectra=spectra)
+}

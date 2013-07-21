@@ -53,7 +53,7 @@ transform.to.normal<-function(data,data.name="",test.method= "Anderson-Darling",
 	
 #function to store or return transformed object
 transform.to.normal.output<-function(obj,name="transformed.data", envir=devium)
-		{
+	{
 		#object stored: get("devium.data.transformation.results",envir)
 		#diagnostics
 		tmp<-obj[[2]]

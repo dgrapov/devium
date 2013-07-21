@@ -2,33 +2,18 @@
 
 install.packages("shiny")
 library(shiny)
-runGitHub("Devium", username = "dgrapov",
-    ref = "master", subdir = "Shiny/Heatmap", port = 8100)
-
-start.data<-rdy.t(mtcars)
-input<-list()
+setwd("C:\\Users\\D\\Dropbox\\Devium\\devium\\Shiny\\Combo")
 
 
-input$data<-"start.data"
-input$type<-"none"
-input$linkage <- "ward"
-input$distance <-"euclidean"
-input$names<-T
-input$border<-T
-heatmap.color<-c( "red","yellow","green")
+app.dir<-getwd() # filepath for app
+runApp(app.dir) # yehaw
 
 
-start.data<-rdy.t(iris)
-input$groups<-"Species" 
-input$dimention<-"rows"
+#1D
+setwd("C:\\Users\\D\\Dropbox\\Devium\\devium\\Shiny\\shiny 1D plot")
+# filepath for app
+runApp(getwd()) # yehaw
 
-input$groups<-"X1" 
-input$dimention<-"columns"
-
-start.data<-rdy.t(mtcars)
-
-input$groups<-"Volvo.142E" 
-input$dimention<-"columns"
-
-input$groups<-"mpg" 
-input$dimention<-"rows"
+#
+library(shiny)
+runGist("")
