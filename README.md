@@ -3,18 +3,18 @@ DEVIUM
 
 <b>D</b>ynamic multivariat<b>E</b> data analysis And <b>VI</b>s<b>U</b>alization Platfor<b>M</b>
 
-A GUI for interactive plotting and analysis of multivariate data.
+Interactive plotting and analysis of multivariate data using Shiny or GTK
 
-Demos
+Shiny
 ======
 Prototypes for some of the analyses implemented in ```Devium``` can be viewed in the browser using the ```Shiny``` frame work. Check out some of the examples below.
 - [Heirarchical Cluster Analysis](http://spark.rstudio.com/dgrapov/Heatmap/)
 - [Basic Plotting] (http://spark.rstudio.com/dgrapov/Plotting/)
 - [Principal Components Analysis Diagnostics] (http://spark.rstudio.com/dgrapov/PCA/)
 
- 
- Including: 
- 
+
+GTK 
+======
   - GUI using RGtk2 toolkit implemented with gWidgests 
  
   - Dynamic plotting - base and ggplot2 
@@ -31,7 +31,8 @@ Prototypes for some of the analyses implemented in ```Devium``` can be viewed in
   
   - Successor to <a href="https://sourceforge.net/projects/imdev/">imDEV</a>, including improved interface and capabilities
 
-Installation
+
+Installation of GTK GUI
 ======
 <p>Eventually devium will be installed from R as a package and from alternative repositories where it can be bundled with GTK+ components.
 For now it can be installed by using the source code in the devium/R directory.
@@ -50,6 +51,5 @@ devium.gui()
  ```
  Note if you don't yet have the GTK+ toolkit installed you need to specify to "Install GTK+" when prompted from the R command line.
  
- Notes
- ======
- What started as an attempt to write GUIs using gwidgets has turned into an effort using Shiny.
+
+
