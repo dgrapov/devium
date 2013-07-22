@@ -5,15 +5,15 @@ DEVIUM
 
 Interactive plotting and analysis of multivariate data using Shiny or GTK based GUIs.
 
-Shiny
+[Shiny] (http://www.rstudio.com/shiny/)
 ======
-Prototypes for some of the analyses implemented in ```Devium``` can be viewed in the browser using the ```Shiny``` frame work. Check out some of the examples below.
+Prototypes for some of the analyses implemented in ```Devium``` can be viewed in the browser using the ```Shiny``` framework. 
 - [Heirarchical Cluster Analysis](http://spark.rstudio.com/dgrapov/Heatmap/)
 - [Basic Plotting] (http://spark.rstudio.com/dgrapov/Plotting/)
 - [Principal Components Analysis Diagnostics] (http://spark.rstudio.com/dgrapov/PCA/)
 
 
-GTK 
+[GTK] (http://www.gtk.org/)
 ======
   - GUI using RGtk2 toolkit implemented with gWidgests 
  
