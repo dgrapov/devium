@@ -3,7 +3,7 @@ DEVIUM
 
 <b>D</b>ynamic multivariat<b>E</b> data analysis And <b>VI</b>s<b>U</b>alization Platfor<b>M</b>
 
-Interactive plotting and analysis of multivariate data using Shiny or GTK
+Interactive plotting and analysis of multivariate data using Shiny or GTK based GUIs.
 
 Shiny
 ======
