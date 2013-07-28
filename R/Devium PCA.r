@@ -92,6 +92,7 @@ make.scree.plot<-function(eigenvalues)
 	}
 
 make.scree.plot.bar<-function(eigenvalues){
+	check.get.packages("gridExtra")
 	.theme<- theme(
 					axis.line = element_line(colour = 'gray', size = .75), 
 					panel.background = element_blank(),  

@@ -44,7 +44,7 @@ optimize.OPLS<-function(max.LV=4,tolerance =0.01,pls.y,pls.data,validation = "LO
 
 	#iterate and fit OSC models for each possible LV > 1
 	out<-lapply(1:max.LV, function(i){
-		mod<-OSC.correction(pls.y=pls.y,pls.data=pls.data,comp=i,OSC.comp=i,validation = validation,progress=TRUE,cv.scale=cv.scale,...)
+		mod<-OSC.correction(pls.y=pls.y,pls.data=pls.data,comp=i,OSC.comp=i,validation = validation,cv.scale=cv.scale,...)
 		tmp<-data.frame(RMSEP=do.call("rbind",mod$RMSEP))
 		tmp$LV<-i
 		tmp$OLV<-rep(mod$OSC.LVs,each=(ncol(pls.y)*(i+1)))

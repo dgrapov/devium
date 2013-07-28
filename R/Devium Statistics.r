@@ -103,32 +103,32 @@ anova.formula.list<-function(data,formula,meta.data)
 }
 
 #get summary statistics
-stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE)
+stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1)
 	{
 		#summarise and make ANOVA from data based on formula 
 		#check.get.packages(c("qvalue"))  using fdrtools instead to avoid random erros with initialization
 		
 		test.obj<-join.columns(comp.obj)
 		#get summary by splitting data by each column of meta.data
-		data.summary<-function(data,test.obj,log,sigfigs)
+		data.summary<-function(data,test.obj,log,sigfigs,...)
 				{
 					#split data
 					tmp<-sub.data(data,test.obj)
-					fct<-factor(as.character(unlist(tmp[1])))
+					fct<-factor(as.character(unlist(tmp[1]))) # breaks ordered factors
 					tmp.data<-data.frame(tmp[[2]])
 						
 					# get means ± sd, fold change
 					means<-calc.stat(tmp.data,factor=fct,stat=c("mean"))
 					sds<-calc.stat(tmp.data,factor=fct,stat=c("sd"))
-					fc<-fold.change(means,log=log)
-					colnames(fc)<-paste(colnames(fc),rep(colnames(fc)[1],ncol(fc)), sep="/")
+					fc<-fold.change(means,log=log,rel)
+					colnames(fc)<-paste(colnames(fc),rep(colnames(fc)[rel],ncol(fc)), sep="/")
 
 					#format output from means and sd
 					names<-paste(unlist(as.data.frame(strsplit(colnames(means),"-"))[2,])," mean ± std dev" , sep="")
 					mean.sd<-matrix(paste(unlist(signif(means,sigfigs)), " ± ", unlist(signif(sds,sigfigs-1)),sep=""), ncol=ncol(means))
 					colnames(mean.sd)<-names
 					#bind with fold change
-					cbind(mean.sd,round(fc[,-1,drop=FALSE],2))
+					cbind(mean.sd,round(fc[,-rel,drop=FALSE],2))
 				}
 		cat("Generating data summary...","\n")
 		stats.summary<-data.summary(data,test.obj,sigfigs=sigfigs,log=log)		

@@ -15,8 +15,9 @@ shinyServer(function(input, output, session) {
 									get(input$demo.data)
 								},
 					"load" = .local<-function(){
-									if(is.null(input$files) ) { return() } else { 
-										read.csv(input$load.data$datapath, header=T, stringsAsFactors = T)	
+									if(is.null(input$load.data) ) { return() } else {
+										# assume column and rownames are supplied									
+										read.csv(input$load.data$datapath, header=T, stringsAsFactors = T, row.names=1)	
 									}			
 								}
 				)

@@ -21,7 +21,7 @@ shinyUI(pageWithSidebar(
 	
 	conditionalPanel(
 		condition = "input.input_type == 'load'",		
-		fileInput("load.data", "Choose .csv File", multiple=FALSE)
+		fileInput("load.data", "Choose .csv File", multiple=TRUE)
 	),
 	
 	# # # Plot types (make dynamic to analysis type, not sure why this can't be sourced from elsewhere)
