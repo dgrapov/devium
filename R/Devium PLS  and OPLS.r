@@ -218,8 +218,7 @@ plot.OSC.results<-function(obj,plot="RMSEP",groups="NULL"){
 	.local(obj)
 	}
 
-#plot results for a single model
-#plot OSC results
+#plot results for a single model , for pls output..need to merge with opls
 plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(obj$data))),comp1=1,comp2=2){
 	require(ggplot2)
 	#plot = one of: c("RMSEP","scores","loadings")

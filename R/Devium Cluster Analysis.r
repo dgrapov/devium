@@ -1,5 +1,5 @@
 #create heatmap optionally using HCA
-devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.color = NULL, border.color=NULL, match.dim=2, type=c("none", "spearman", "pearson","biweight"),
+devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.color = NULL, border.color=NULL, match.dim=2, type=c("none","z.scale", "spearman", "pearson","biweight"),
                          cluster.method = c("none","ward", "single", "complete", "average", "mcquitty", "median" , "centroid"),
                          distance.method = c("none","euclidean", "maximum", "manhattan", "canberra", "binary" ,"minkowski"),
                          alpha = NULL,font.size = 12,show.names=F, ncolors = 100){
@@ -11,9 +11,11 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
   
   #prepare data object
   if(match.dim==1){tmp.data<-data.frame(t(data.frame(data)))} else { tmp.data<-data.frame(data)}
+	
+  if(type == "z.scale") {tmp.data<-scale(tmp.data, center=TRUE, scale = TRUE)}		
   
   # calculate correlations
-  if(!type=="none"){
+  if(!type=="none"& !type == "z.scale" ){
     tmp<-devium.calculate.correlations(tmp.data,type=type)
     tmp.data<-tmp$cor
     tmp.data.pvalue<-tmp$p.value
@@ -30,7 +32,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
     cluster_rows<-cluster_cols<-T
     # calculate distances
     if(!distance.method=="none"){
-      if(type=="none"){
+      if(type=="none"|type == "z.scale" ){
         # if(match.dim==2){
         # clustering_distance_cols<-dist(tmp.data, method= distance.method)
         # clustering_distance_rows<-dist(data.frame(t(tmp.data)), method= distance.method)
