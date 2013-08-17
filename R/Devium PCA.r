@@ -115,6 +115,109 @@ make.scree.plot.bar<-function(eigenvalues){
 	
 }
 
+#wrapper to plot PCA results 
+plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE){
+	# what<-match.arg(results)
+	switch(results[1],
+		"screeplot" 	= local<-function(pca,...){make.scree.plot.bar(pca$pca.eigenvalues)},
+		"scores"		= local<-function(pca,...){
+								obj<-pca$pca.scores[,]	
+								points<-if(is.null(color)) { geom_point(color="gray",size=size,alpha=.5,legend=FALSE) } else { geom_point(aes(color=color),size=size,alpha=.5)  } 	
+								labels<-if(label==TRUE){geom_text(size=3,aes(x=PC1, y=(PC2 -.5),color=color,label=id),legend = F)} else { NULL }
+								tmp<-data.frame(obj,id = rownames(obj),color=color)
+								
+								#plot 
+								.theme2<- theme(
+											axis.line = element_line(colour = 'gray', size = .75), 
+											panel.background = element_blank(), 
+											plot.background = element_blank()
+										 )
+								#Hoettellings T2 ellipse	 
+								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
+								 
+								p<-ggplot(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2])) + geom_vline(xintercept = 0,linetype=2, size=.5, alpha=.5) + 
+								geom_hline(yintercept = 0,linetype=2, size=.5, alpha=.5) +
+								points +
+								.theme2 + 
+								labels +
+								geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y,fill=group, color=group),linetype=2,alpha=.1, legend=FALSE) +
+								scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
+								scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100))+
+								print(p)
+							},
+							
+		"loadings"		= local<-function(pca,...){
+								obj<-pca$pca.loadings[,]	
+								points<-if(is.null(color)) { geom_point(color="gray",size=size,alpha=.5,legend=FALSE) } else { geom_point(aes(color=color),size=size,alpha=.5)  } 	
+								labels<-if(label==TRUE){geom_text(size=3,aes(x=PC1, y=(PC2 -.5),color=color,label=id),legend = F)} else {NULL}
+								tmp<-data.frame(obj,id = rownames(obj),color=color)
+								
+								#plot 
+								.theme2<- theme(
+											axis.line = element_line(colour = 'gray', size = .75), 
+											panel.background = element_blank(), 
+											plot.background = element_blank()
+										 )
+								
+								 
+								p<-ggplot(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2])) + geom_vline(xintercept = 0,linetype=2, size=.5, alpha=.5) + 
+								geom_hline(yintercept = 0,linetype=2, size=.5, alpha=.5) +
+								points +
+								.theme2 + 
+								labels+
+								geom_text(size=3,aes(x=PC1, y=(PC2 -.5),color=color,label=id),legend = F) +
+								scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
+								scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100))+
+								print(p)
+							},
+							
+		"biplot"		= local<-function(pca,...){
+								#rescaling based on: http://cran.r-project.org/doc/contrib/Lemon-kickstart/rescale.R
+								 rescale<-function(x,newrange) {
+								 if(nargs() > 1 && is.numeric(x) && is.numeric(newrange)) {
+								  # if newrange has max first, reverse it
+								  if(newrange[1] > newrange[2]) {
+								   newmin<-newrange[2]
+								   newrange[2]<-newrange[1]
+								   newrange[1]<-newmin
+								  }
+								  xrange<-range(x)
+								  if(xrange[1] == xrange[2]) stop("can't rescale a constant vector!")
+								  mfac<-(newrange[2]-newrange[1])/(xrange[2]-xrange[1])
+								  invisible(newrange[1]+(x-xrange[1])*mfac)
+								 }
+								 else {
+								  cat("Usage: rescale(x,newrange)\n")
+								  cat("\twhere x is a numeric object and newrange is the min and max of the new range\n")
+								 }
+								}
+								.theme2<- theme(
+												axis.line = element_line(colour = 'gray', size = .75), 
+												panel.background = element_blank(), 
+												plot.background = element_blank()
+											 )
+								#based on https://groups.google.com/forum/#!topic/ggplot2/X-o2VXjDkQ8
+								scores<-pca$pca.scores[,]
+								loadings<-tmp.loadings<-pca$pca.loadings[,]
+								tmp.loadings[,1]<-rescale(loadings[,1], range(scores[,1]))
+								tmp.loadings[,2]<-rescale(loadings[,2], range(scores[,2]))
+								tmp.loadings<-data.frame(tmp.loadings,label=rownames(loadings))
+								 p<-ggplot()+
+								 geom_point(data=scores, aes_string(x=colnames(data)[1], y=colnames(data)[2]))+
+								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(data)[1], yend=colnames(data)[2]), arrow=arrow(length=unit(0.2,"cm")), alpha=0.25)+
+								 geom_text(data=tmp.loadings, aes_string(x=colnames(data)[1], y=colnames(data)[2], label="label"), alpha=0.5, size=3)+
+								 scale_colour_discrete("Variety")+
+								 scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
+								 scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100))+
+								 .theme2
+
+							}
+	)
+	
+	local(pca,color,size)
+
+}
+
 	
 test<-function(){
 tmp<-list()

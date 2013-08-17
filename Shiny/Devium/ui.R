@@ -1,3 +1,16 @@
+
+getTool2 <- function(inputId) {
+  tagList(
+    singleton(tags$head(tags$script(src = "https://raw.github.com/dgrapov/devium/master/Shiny/Devium/www/js/navbar.js"))),
+    tags$html(includeHTML(getURL("https://raw.github.com/dgrapov/devium/master/Shiny/Devium/www/navbar.html", ssl.verifypeer = FALSE)))
+  )
+}
+
+  # # online version	
+	  # includeHTML(gsub("\\'\'","",RCurl::getURL("https://raw.github.com/dgrapov/devium/master/Shiny/Devium/www/js/tools.js", ssl.verifypeer = FALSE))),
+      # includeHTML(RCurl::getURL("https://raw.github.com/dgrapov/devium/master/Shiny/Devium/www/js/lr.js", ssl.verifypeer = FALSE)), 
+	  # getTool2("tool"),
+
 getTool <- function(inputId) {
   tagList(
     singleton(tags$head(tags$script(src = "js/navbar.js"))),
