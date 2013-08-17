@@ -7,7 +7,9 @@ runApp("C:\\Users\\D\\Dropbox\\Devium\\devium\\Shiny\\Combo")
 shiny::runGitHub('radyant','dgrapov', subdir = 'inst/marketing')
 
 # from local
-runApp("C:/Users/D/Dropbox/Devium/radyant/inst/marketing")
+runApp("C:/Users/D/Dropbox/Devium/devium/Shiny/Devium")
+runApp("C:\\Users\\D\\Dropbox\\Devium\\radyant\\inst\\marketing")
+runApp("C:\\Users\\dgrapov\\Dropbox\\Devium\\radyant\\inst\\marketing")
 # shiny::runGitHub('radyant','dgrapov', subdir = 'inst/marketing') # from repo
 
 #gist

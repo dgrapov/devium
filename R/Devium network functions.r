@@ -940,15 +940,29 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 	for(i in 1:length(need)){check.get.packages(need[i])}
 	#get fingerprint for calcs
 	data(pubchemFPencoding)
-	cid.objects<-unique(as.numeric(as.character(unlist(cids)))) # need
+	# cid.objects<-na.omit(unique(as.numeric(as.character(unlist(cids))))) # need to report excluded NA
 	
-	#print to screen any duplictes which get removed 
-	
+	#remove and print to screen error vars
 	if(sum(duplicated(as.numeric(as.character(unlist(cids)))))>0){
-		cat(paste("The following duplicates were removed:","\n"))
-		cat(paste(as.character(unlist(cids))[duplicated(as.numeric(as.character(unlist(cids))))]),sep="\n")
+			
+			objc<-as.character(unlist(cids))
+			objn<-as.numeric(unlist(cids))
+			
+			#removal ids
+			dup.id<-duplicated(objn)
+			na.id<-is.na(objn)
+			
+			#remove duplicated
+			cat(paste("The following duplicates were removed:","\n"))
+			cat(paste(objc[dup.id]),sep="\n")
+			# remove NA
+			cat(paste("Bad inputs were removed:","\n"))
+			cat(paste(objc[na.id]),sep="\n")
+			
+			cid.objects<-objn[!(na.id | dup.id)]
 		}
 	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n")
+	
 	compounds <- getIds(cid.objects) # get sdfset
 	cid(compounds) <- sdfid(compounds)
 	
@@ -1371,4 +1385,28 @@ mgf.to.spectra.string<-function(file){
 		paste(join.columns(t(matrix(tmp,nrow=2)),":"), collapse=" ")
 	})
 	data.frame(parent=parent, retention.time=retention, spectra=spectra)
+}
+
+# convert KEGG kgml to edgelist
+kgml.to.edgelist<-function(kgml){
+	doc<-xmlParse(kgml)	
+	x<-xmlToList(doc)
+	id<-names(x)=="reaction"
+	tmp<-x[id]
+	do.call("rbind",lapply(1:sum(id), function(i){
+
+		obj<-tmp[[i]]
+		sub<-names(obj)=="substrate"
+		prod<-names(obj)=="product"
+		type<-names(obj)==".attrs"
+		
+		#construct edge list
+		#expand relationships for multi-component reactions
+		source<-gsub("cpd:","",matrix(unlist(obj[sub]),ncol=2, byrow=TRUE)[,2])
+		target<-gsub("cpd:","",matrix(unlist(obj[prod]),ncol=2, byrow=TRUE)[,2])
+		rtype<-gsub("rn:","",matrix(unlist(obj[type]),ncol=3, byrow=TRUE)[,-1])
+		
+		cbind(data.frame(source = rep(source,length(target)), target=rep(target,each=length(source)) ), data.frame(reaction=rtype[1],direction=rtype[2]))
+
+	}))
 }
