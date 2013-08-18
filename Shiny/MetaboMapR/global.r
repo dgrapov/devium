@@ -7,6 +7,14 @@ options(width = 150, shiny.trace=TRUE)
 # source("http://pastebin.com/raw.php?i=JVyTrYRD")
 #
 
+#accesory fxn helpful for adding defaults (none = NULL) to sring options
+#convert vector to named list
+# namel<-function (vec){
+		# tmp<-as.list(vec)
+		# names(tmp)<-as.character(unlist(vec))
+		# tmp
+	# }
+
 #all fails above if pastebin is down
 #source directly git repo
 sourceGitDirectory<-function(url="https://github.com/dgrapov/devium/tree/master/Shiny/Devium/tools/analysis", user="dgrapov"){
@@ -58,7 +66,13 @@ values[["Citric Acid Cycle"]] <-data.frame(KEGG = TCA.kegg, CID = TCA.CID )
 datasets<-"Citric Acid Cycle"
 values$clipboard<-""
 
-#test data
-# setwd("C:/Users/D/Desktop")
-metabolomics.data<-x<-read.csv("metabol data.csv")
-spectra <- x$mass.spec
+# #test data for spectra and correlation
+# # setwd("C:/Users/D/Desktop")
+# metabolomics.data<-x<-read.csv("example data.csv")
+# spectra <- x$mass.spec
+# CID.id <-x$PubChem.id
+# input<-list()
+# input$network_spec_primary_nodes<-known<-x$known
+# get.spectral.edge.list(spectra, known = c(1,2), cutoff = 0.7, edge.limit = max(1:length(spectra)))
+# data<-x[,10:12]
+# type<-input$network_index_type_cor <- "spearman"
