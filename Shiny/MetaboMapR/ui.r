@@ -22,6 +22,7 @@ shinyUI(pageWithSidebar(
 		),
 		wellPanel(				
 					h3('Network Options'),
+<<<<<<< HEAD
 					# tags$details(
 						uiOutput("network_index_info_bio"),
 						uiOutput("network_index_info_chem"),
@@ -29,6 +30,12 @@ shinyUI(pageWithSidebar(
 						uiOutput("network_index_info_cor"),
 					# ),
 					tags$details(checkboxInput(inputId = "unique_edges", label = "Unique edges?",value=FALSE))
+=======
+					uiOutput("network_index_info_bio"),
+					uiOutput("network_index_info_chem"),
+					uiOutput("network_index_info_spec"),
+					uiOutput("network_index_info_cor")
+>>>>>>> 74c6c01ea88a220eae0ec6b2a235ed7acf0bd111
 					# selectInput(inputId = "edge_type", label = "Edge Type:", choices = 
 					# # list( "Biochemical" = "kegg", "Chemical" = "tanimoto", "Spectral" = "ms") , selected = "Biochemical", multiple = TRUE),
 					# conditionalPanel(condition = "input.edge_type != 'kegg'",
@@ -50,7 +57,10 @@ shinyUI(pageWithSidebar(
 		tabPanel("Edge List", list(actionButton("create_edgelist", "Calculate"),
 		br(),
 		tableOutput("edge_list"))),
+<<<<<<< HEAD
 		tabPanel("Node Attributes",tableOutput("node.attributes")),
+=======
+>>>>>>> 74c6c01ea88a220eae0ec6b2a235ed7acf0bd111
 		tabPanel("Network", plotOutput("network",width = 850, height = 650)),#height = "100%"
 		tabPanel("Debug", verbatimTextOutput("debug"))),
 		conditionalPanel("updateBusy() || $('html').hasClass('shiny-busy')",

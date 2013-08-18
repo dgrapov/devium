@@ -5,6 +5,7 @@ options(width = 150, shiny.trace=TRUE)
 
 # #get Devium R-scripts for analysis functions
 # source("http://pastebin.com/raw.php?i=JVyTrYRD")
+#
 
 #all fails above if pastebin is down
 #source directly git repo
