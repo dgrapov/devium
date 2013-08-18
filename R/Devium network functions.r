@@ -943,14 +943,15 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 	# cid.objects<-na.omit(unique(as.numeric(as.character(unlist(cids))))) # need to report excluded NA
 	
 	#remove and print to screen error vars
-	if(sum(duplicated(as.numeric(as.character(unlist(cids)))))>0){
+	#removal ids
+	objc<-as.character(unlist(cids))
+	objn<-as.numeric(unlist(cids))
+	dup.id<-duplicated(objn)
+	na.id<-is.na(objn)
+	if(sum(c(dup.id,na.id))>0){
 			
 			objc<-as.character(unlist(cids))
 			objn<-as.numeric(unlist(cids))
-			
-			#removal ids
-			dup.id<-duplicated(objn)
-			na.id<-is.na(objn)
 			
 			#remove duplicated
 			cat(paste("The following duplicates were removed:","\n"))
@@ -960,7 +961,7 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 			cat(paste(objc[na.id]),sep="\n")
 			
 			cid.objects<-objn[!(na.id | dup.id)]
-		}
+		} else { cid.objects<-objn }
 	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n")
 	
 	compounds <- getIds(cid.objects) # get sdfset
@@ -1370,6 +1371,69 @@ spectra.string.to.matrix<-function(spectra, encode.char = ":"){
 		tmp<-matrix(fixln(spec.mat[,-1]),ncol=ncol(spec.mat)-1)
 		dimnames(tmp)<-list(fixlc(spec.mat[,1]),c(1:ncol(tmp)))
 		return(tmp)
+}
+
+#get cosine correllations from mz/intensity strings
+get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = max(1:length(spectra))){
+	#spectra = encoded mass spectar of type "mz : intensity" string
+	#known = row index for "known" metabolites to allow unknown connections too
+	#cutoff = cosine correlation coefficient >= to accept 
+	#edge.limit = maximum nunber of connections
+	library(lsa)
+	
+	if(all(na.omit(as.numeric(known)) == 0) ){ known <- 0} # long story
+	
+	#get cosine correlations between spectra (link unknown)
+	spec.mat<-spectra.string.to.matrix(spectra)
+	
+	cos.cor<-cosine(spec.mat)
+	cos.cor<-as.data.frame(cos.cor)
+	dimnames(cos.cor)<-list(colnames(spec.mat),colnames(spec.mat)) # cosine correlations
+	# convert to edge.list
+	# extract known in network
+	# create edges between knowns and unknowns 
+	# based on max cosine cor and above some threshold
+
+	edge.list<-gen.mat.to.edge.list(mat=cos.cor)
+	values$b<-edge.list
+	#filter list now to speed up
+	edge.list<-matrix(fixln(edge.list[abs(fixln(edge.list[,3]))>=cutoff,]),ncol=3)
+	
+	if(length(edge.list) > 0) {
+		#id for unknown
+		if ( all(known == 0)) { 
+			unknowns<-1:length(spectra) 
+		} else { 
+			known<-c(1:length(spectra))[!known == 0 & !is.na(known)]
+			unknowns<-c(1:length(spectra))[-known]
+		}
+		
+		# scan edge.list looking for known to unknown connections
+		known.id1<-edge.list[,1]%in%known & !edge.list[,2]%in%known
+		known.id2<-edge.list[,2]%in%known & !edge.list[,1]%in%known
+		known.id<-known.id1|known.id2
+		
+		if(sum(known.id)>0){
+			query.index<-c(1:nrow(edge.list))[known.id] # position in list for knowns
+			edges<-edge.list[query.index,]
+		}	else {
+			edges<-edge.list
+		}
+
+		tmp2<-split(data.frame(edges),as.factor(edges[,1]))
+		#limit top edges per node
+		top.edges<-lapply(1:length(tmp2),function(i){
+			obj<-tmp2[[i]][order(tmp2[[i]][,3],decreasing=TRUE),]
+			obj[c(1:nrow(obj))<=edge.limit,]
+		})
+
+		results<-do.call("rbind",top.edges)
+		results<-data.frame(results[!is.na(results[,1]),])
+		colnames(results)<-c("source", "target", "weight")
+		
+	} else {message("No edges met criteria");results<-NULL}	
+		
+	return(results)
 }
 
 #extract spectra from .mgf files (then use spectra.string.to.matrix to convert to a more usable form)

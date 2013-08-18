@@ -1,62 +1,3 @@
-#fxns to move elsewhere
-get.spectral.edge.list<-function(spectra, known = NULL, cutoff = 0.7, edge.limit = max(1:length(spectra))){
-	#spectra = encoded mass spectar of type "mz : intensity" string
-	#known = row index for "known" metabolites to allow unknown connections too
-	#cutoff = cosine correlation coefficient >= to accept 
-	#edge.limit = maximum nunber of connections
-	library(lsa)
-	#get cosine correlations between spectra (link unknown)
-	spec.mat<-spectra.string.to.matrix(spectra)
-	
-	cos.cor<-cosine(spec.mat)
-	cos.cor<-as.data.frame(cos.cor)
-	dimnames(cos.cor)<-list(colnames(spec.mat),colnames(spec.mat)) # cosine correlations
-	# convert to edge.list
-	# extract known in network
-	# create edges between knowns and unknowns 
-	# based on max cosine cor and above some threshold
-
-	edge.list<-gen.mat.to.edge.list(mat=cos.cor)
-	#filter list now to speed up
-	edge.list<-matrix(fixln(edge.list[abs(fixln(edge.list[,3]))>=cutoff,]),ncol=3)
-	
-	if(length(edge.list) > 0) {
-		#id for unknown
-		if (is.null(known)) { unknowns<-1:length(spectra) } else { unknowns< c(1:length(spectra))[!known]}
-
-		# scan edge.list looking for known to unknown connections
-		# choose top number of edges
-		list<-split(edge.list,as.factor(edge.list[,1])) # very slow need alternatives
-		variable.index<-fixln(sapply(1:length(list),function(i){list[[i]][1,1]})) # variable index in list
-		query.index<-c(1:length(variable.index))[known] # position in list for knowns
-		
-		#list of edges from known to unknowns
-		if(length(query.index) > 0) {
-			edges<-lapply(1:length(query.index),function(i){
-						obj<-list[[query.index[i]]]
-						obj[fixln(obj[,2])%in%unknowns,]
-			})
-		} else {
-			edges<-edge.list
-		}
-
-		if(is.list(edges)) tmp<-do.call("rbind",edges) else tmp<-edges
-		tmp2<-split(data.frame(tmp),as.factor(fixln(tmp[,2])))
-		#limit top edges per node
-		top.edges<-lapply(1:length(tmp2),function(i){
-			obj<-tmp2[[i]]
-			obj[nrow(obj)<=edge.limit,]
-		})
-
-		results<-do.call("rbind",top.edges)
-		results<-data.frame(results[!is.na(results[,1]),])
-		colnames(results)<-c("source", "target", "weight")
-		
-	} else {message("No edges met criteria");results<-NULL}	
-		
-	return(results)
-}
-
 
 #debugging  print all names and values in input
 output$debug<- renderPrint({
@@ -69,7 +10,6 @@ output$debug<- renderPrint({
 	
 	return(list(input = input.obj,values = values.obj))
 })
-
 
 getdata <- function(dataset = input$datasets) {
   values[[dataset]]
@@ -216,8 +156,11 @@ DB.names <- function() {
 
 #mass spect encoding types
 MZ.encode<-function(){
-	list("m/z ; intensity" = "mz_int")
+	list("m/z : intensity" = "mz_int")
 }
+
+#get network_spec
+
 #function to rencode edge.list index
 make.edge.list.index<-function(edge.names, edge.list){
 	#need to replace old ids with ne code in multiple edge.lists
@@ -298,10 +241,13 @@ calculate_edgelist<-reactive({#function(){
 		} 
 	}
 	
-	#chemical similarity edges based on cosine correlation between m/z spectra
+	#spectral similarity edges based on cosine correlation between m/z spectra
 	if(input$spec_edges){
-		index<-getdata()[,input$network_index_chem]
-		spec.edges<-get.spectral.edge.list(spectra = index, known = NULL, cutoff = 0.7, edge.limit = max(1:length(spectra)))
+		index<-getdata()[,input$network_index_spec]
+		known<-input$network_spec_primary_nodes
+		if(!known == "0"){known<-getdata()[,known]} # long story
+		
+		spec.edges<-get.spectral.edge.list(spectra = index, known = known, cutoff = input$spec_cutoff, edge.limit = input$network_spec_nodes_max)
 		if(nrow(spec.edges)>0){
 			res<-data.frame(rbind(res,data.frame(as.matrix(spec.edges[,1:2]),type = "m/z", weight = spec.edges[,3,])))
 			node.attr<-data.frame(cbind(node.attr,mass.spectral.edge.index  = index))	
@@ -368,6 +314,8 @@ output$network_index_info_spec<-renderUI({
 		conditionalPanel(condition = "input.spec_edges",
 		selectInput(inputId = "network_index_spec", label = "Mass spectra:", choices = varnames(), selected = varnames()[1], multiple = FALSE),
 		selectInput(inputId = "network_index_type_spec", label = "Encode type:", choices = MZ.encode(), selected = MZ.encode()[1], multiple = FALSE),
+		selectInput(inputId = "network_spec_primary_nodes", label = "Primary nodes:", choices = c("none" = 0,varnames()), selected = "none", multiple = FALSE),
+		numericInput(inputId = "network_spec_nodes_max", "Maximum connections", min = 1, max = 1000, value = 5, step = 1), # need to dynamixcally update max, or make it big for now?
 		numericInput(inputId = "spec_cutoff" , "cutoff", value = 0.7, min = 0, max = 1, step = .005)
 	))
 })
@@ -384,7 +332,6 @@ wellPanel(
 		numericInput(inputId = "cor_cutoff" , "p-value", value = 0.05, min = 0, max = 1, step = .0005)
 	))
 })
-
 
 # Generate output for the summary tab
 # output$summary <- renderUI(function() {
@@ -405,6 +352,8 @@ output$network <- renderPlot({
 		# if(!input$metabomapr == "Network") return()
 		if(is.null(values$edge.list)) { 
 			plot(x = 1, type = 'n', main="Please calculate edge list first.", axes = FALSE, xlab = "", ylab = "")
+		} else if(length(values$edge.list) == 0) { 
+			plot(x = 1, type = 'n', main="No connections fit set criteria.", axes = FALSE, xlab = "", ylab = "")
 		} else {
 		
 		
