@@ -117,7 +117,7 @@ make.scree.plot.bar<-function(eigenvalues){
 
 
 plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE){
-	# results<-match.args(results)
+	#results<-match.args(results) #
 	local<-switch(results[1],
 
 		"screeplot" 	= function(pca,...){make.scree.plot.bar(pca$pca.eigenvalues)},
