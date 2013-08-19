@@ -45,6 +45,7 @@ shinyUI(pageWithSidebar(
 				)
 	),
 				
+				
   mainPanel(
 	# h3('caption'),
 	tabsetPanel( id = "metabomapr",

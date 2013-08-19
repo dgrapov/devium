@@ -938,6 +938,7 @@ devium.calculate.correlations<-function(data,type="pearson", results = "matrix")
 				cor<-gen.mat.to.edge.list(res$cor)
 				p.vals<-gen.mat.to.edge.list(res$p.value)
 				res<-data.frame(cor,p.values = p.vals[,3])
+				
 			}		
 			
 		return(res)			

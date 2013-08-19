@@ -278,6 +278,7 @@ calculate_edgelist<-reactive({#function(){
 	return(res)
 })
 
+
 #function to rencode index
 make.edge.list.index<-function(edge.names, edge.list){
 	#need to replace old ids with ne code in multiple edge.lists
