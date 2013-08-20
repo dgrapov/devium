@@ -42,7 +42,8 @@ sourceGitDirectory(url="https://github.com/dgrapov/devium/tree/master/R", user="
 #
 
 # options(repos = c("http://cran.rstudio.com/"))
-libs <- c("tools","CTSgetR","lsa","igraph","reshape2") #"RJSONIO", "shiny", "car", "AER", "Ecdat", "foreign", "tools", "ggplot2", 
+libs <- c("tools","CTSgetR","lsa","igraph","reshape2","network","sna","Hmisc","graph","ggplot2")
+ #"RJSONIO", "shiny", "car", "AER", "Ecdat", "foreign", "tools", "ggplot2", 
 	#"gridExtra", "reshape2", "plyr", "markdown", "R.utils", "psych", "rela", "arm", "xts")
 available <- suppressWarnings(suppressPackageStartupMessages(sapply(libs, require, character.only=TRUE)))
 inst.libs <- libs[available == FALSE]
@@ -66,7 +67,7 @@ values[["Citric Acid Cycle"]] <-data.frame(KEGG = TCA.kegg, CID = TCA.CID )
 # values[["Citric Acid Cycle"]] <-"Citric_Acid_Cycle"
 datasets<-"Citric Acid Cycle"
 values$clipboard<-""
-
+values$network_state<-""
 # #test data for spectra and correlation
 # # setwd("C:/Users/D/Desktop")
 # metabolomics.data<-x<-read.csv("example data.csv")
@@ -74,6 +75,6 @@ values$clipboard<-""
 # CID.id <-x$PubChem.id
 # input<-list()
 # input$network_spec_primary_nodes<-known<-x$known
-# get.spectral.edge.list(spectra, known = c(1,2), cutoff = 0.7, edge.limit = max(1:length(spectra)))
+# e<-get.spectral.edge.list(spectra, known = c(1,2), cutoff = 0.7, edge.limit = max(1:length(spectra)))
 # data<-x[,10:12]
 # type<-input$network_index_type_cor <- "spearman"

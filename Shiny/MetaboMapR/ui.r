@@ -50,11 +50,20 @@ shinyUI(pageWithSidebar(
 	# h3('caption'),
 	tabsetPanel( id = "metabomapr",
 		tabPanel("Data", tableOutput("view_data")),
-		tabPanel("Edge List", list(actionButton("create_edgelist", "Calculate"),
+		tabPanel("Edge List", list(actionButton("create_edgelist", "Calculate Connections"),
 		br(),
 		tableOutput("edge_list"))),
 		tabPanel("Node Attributes",tableOutput("node.attributes")),
-		tabPanel("Network", plotOutput("network",width = 850, height = 650)),#height = "100%"
+		tabPanel("Network", list(actionButton("create_edgelist_network", "Draw Network"),
+		tags$details( # options for network plotting
+			checkboxInput(inputId = "network_plot_bezier", label = "curved edges",value=FALSE),
+			numericInput(inputId = "network_plot_edge_size", "edge thickness", min = 0, max = 20, value = 2, step = .25),
+			checkboxInput(inputId = "network_plot_show_name", label = "show names",value=TRUE),
+			numericInput(inputId = "network_plot_name_size", "label size", min = 0, max = 20, value = 5, step = 1),
+			numericInput(inputId = "network_plot_node_size", "vertex size", min = 0, max = 20, value = 5, step = 1)
+		),
+		br(), 
+		plotOutput("network",width = 850, height = 650))),#height = "100%"
 		tabPanel("Debug", verbatimTextOutput("debug"))),
 		conditionalPanel("updateBusy() || $('html').hasClass('shiny-busy')",
 			id='progressIndicator',

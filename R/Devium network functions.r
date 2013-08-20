@@ -1269,7 +1269,6 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 				static 		= do.call("plot",graph.par),
 				interactive = do.call("tkplot",graph.par),
 				"3D-plot" 	= do.call("rglplot",graph.par))
-		
 	}
 
 #calculating qvalue and local FDR

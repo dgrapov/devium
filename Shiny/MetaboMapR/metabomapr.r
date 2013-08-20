@@ -1,3 +1,151 @@
+# move elsewhere post debugging
+#ggplot based network drawing fxn
+ggplot2.network<-function(edge.list, edge.color.var = NULL, edge.color = NULL, directed = FALSE,
+						node.color = NULL, show.names = TRUE,
+						bezier = TRUE, node.size = 7,node.label.size = 5, max.edge.thickness = 2){
+	# edge list  = 2 column data.frame representing source and target. Columns over 2 will be sorted with edgelist. 
+	# edge.color.var = name of variable in edge list to use to color
+	# edge.color = color for each level of object edge.color.var
+	# directed = logical, if FALSE edge will be transposed and duplicated making undirected
+	# node.color = colors for nodes, need to take into account node name ordering
+	# node.names = names of nodes
+	
+	# Function to generate paths between each connected node
+	# adapted from : https://gist.github.com/dsparks/4331058
+	edgeMaker <- function(whichRow, len = 100, curved = TRUE){
+	  fromC <- layoutCoordinates[adjacencyList[whichRow, 1], ]  # Origin
+	  toC <- layoutCoordinates[adjacencyList[whichRow, 2], ]  # Terminus
+	 
+	  # Add curve:
+	  graphCenter <- colMeans(layoutCoordinates)  # Center of the overall graph
+	  bezierMid <- c(fromC[1], toC[2])  # A midpoint, for bended edges
+	  distance1 <- sum((graphCenter - bezierMid)^2)
+	  if(distance1 < sum((graphCenter - c(toC[1], fromC[2]))^2)){
+		bezierMid <- c(toC[1], fromC[2])
+		}  # To select the best Bezier midpoint
+	  bezierMid <- (fromC + toC + bezierMid) / 3  # Moderate the Bezier midpoint
+	  if(curved == FALSE){bezierMid <- (fromC + toC) / 2}  # Remove the curve
+	 
+	  edge <- data.frame(bezier(c(fromC[1], bezierMid[1], toC[1]),  # Generate
+								c(fromC[2], bezierMid[2], toC[2]),  # X & y
+								evaluation = len))  # Bezier path coordinates
+	  edge$Sequence <- 1:len  # For size and colour weighting in plot
+	  edge$Group <- paste(adjacencyList[whichRow, 1:2], collapse = ">")
+	   if(ncol(adjacencyList)>2){
+			tmp<-data.frame(matrix(as.matrix(adjacencyList[whichRow, -c(1,2),drop=FALSE]),nrow = nrow(edge), ncol=ncol(adjacencyList)-2, byrow=TRUE))
+			colnames(tmp)<-colnames(adjacencyList)[-c(1:2)]
+			edge$extra<-tmp
+			edge<-do.call("cbind",edge)
+			colnames(edge)<-gsub("extra.","",colnames(edge))
+		}
+	  return(edge)
+	  }
+	  
+	edgeMaker2<-function(whichRow){
+	  fromC <- layoutCoordinates[adjacencyList[whichRow, 1], ]  # Origin
+	  toC <- layoutCoordinates[adjacencyList[whichRow, 2], ]  # Terminus
+	 
+	  edge <- data.frame(c(fromC[1], toC[1]), c(fromC[2] ,toC[2]))  # Generate
+								 # X & )  # Bezier path coordinates
+	  edge$Sequence <- 1 # For size and colour weighting in plot
+	  edge$Group <- paste(adjacencyList[whichRow, 1:2], collapse = ">")
+	  #get other info if supplied with edge list
+	  if(ncol(adjacencyList)>2){
+			tmp<-data.frame(matrix(as.matrix(adjacencyList[whichRow, -c(1,2),drop=FALSE]),nrow = nrow(edge), ncol=ncol(adjacencyList)-2, byrow=TRUE))
+			colnames(tmp)<-colnames(adjacencyList)[-c(1:2)]
+			edge$extra<-tmp
+			edge<-do.call("cbind",edge)
+			colnames(edge)<-gsub("extra.","",colnames(edge))
+		}
+	  colnames(edge)[1:2]<-c("x","y")
+	  return(edge)
+	  }
+	
+	# adding transposed source target edges to make undirected bezier curves
+	if (bezier == TRUE) {
+		if(all(!directed)) { is.rev<-rep(TRUE, nrow(edge.list)) } else { is.rev<-directed==TRUE }
+		rev.edge.list<-data.frame(rbind(as.matrix(edge.list[,1:2]),as.matrix(edge.list[is.rev,2:1]))) # need matrix else no reordering of columns?
+	} else{ 
+		rev.edge.list<-edge.list[,1:2]
+	}
+	#extra info (separate now, later recombine)
+	info<-edge.list[,-c(1:2)]
+	
+	#getting layout and making sure edeg list ids are in the same order
+	g<-as.network(rev.edge.list[,1:2],matrix.type = "edgelist")
+	#control remaking of the layout (only update if edge.list has changed)
+	if(!exists("node.layout")){
+		node.layout<<-gplot.layout.fruchtermanreingold(g[,], layout.par = NULL)
+		values$network_state<-g
+	}
+	#marker of a change in state
+	if(!identical(g,values$network_state)){
+		node.layout<<-gplot.layout.fruchtermanreingold(g[,], layout.par = NULL)
+		values$network_state<-g
+	}
+	n.edge.list<-as.matrix.network.edgelist(g)
+	dimnames(node.layout)<-list(rownames(g[,]),c("x","y"))
+
+	#preparing for edge path
+	layoutCoordinates<-node.layout
+	adjacencyList<-data.frame(n.edge.list,info)
+
+	if (bezier == TRUE) {
+		allEdges <- lapply(1:nrow(adjacencyList), edgeMaker, len = 500, curved = TRUE)
+		allEdges <- do.call(rbind, allEdges)  # a fine-grained path ^, with bend ^
+	 } else {
+		#straight edges using same controls(faster)
+		allEdges <- lapply(1:nrow(adjacencyList), edgeMaker2)
+		allEdges <- do.call(rbind, allEdges)
+	}
+	allEdges$neg.Sequence<- - allEdges$Sequence
+
+	
+	#set up for plotting
+	#theme 
+	new_theme_empty <- theme_bw()
+	new_theme_empty$line <- element_blank()
+	new_theme_empty$rect <- element_blank()
+	new_theme_empty$strip.text <- element_blank()
+	new_theme_empty$axis.text <- element_blank()
+	new_theme_empty$plot.title <- element_blank()
+	new_theme_empty$axis.title <- element_blank()
+	new_theme_empty$plot.margin <- structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit")
+                                        
+	#set default plotting variables
+	# Edge colors
+	if(is.null(edge.color)){
+		if(is.null(edge.color.var)){
+			edge.color=rep("gray20",2) # no clue why 2 are needed as a default
+			edge.guide = FALSE
+		} else {
+			edge.color<-rainbow(nlevels(as.factor(with (edge.list, get(edge.color.var)))))
+			edge.guide = TRUE
+		}
+	}
+	# node colors
+	if(is.null(node.color)){node.color <-"red"; node.guide = FALSE} else {node.guide = TRUE}
+	# node names
+	if(length(show.names) == attr(n.edge.list,"vnames")) { node.names <- show.names} 
+	if (show.names) { node.names<-attr(n.edge.list,"vnames") } 
+	if(!show.names){node.names<-rep("",nrow(node.layout))}
+	#make plot
+	zp1 <- ggplot(allEdges)  # Pretty simple plot code
+	#bezier edges	
+	zp1 <- zp1 + geom_path(aes_string(x = "x", y = "y", group = "Group",  # Edges with gradient
+							   colour = edge.color.var, size = "neg.Sequence"))  # and taper # Customize taper					   
+	#nodes					   
+	zp1 <- zp1 + geom_point(data = data.frame(layoutCoordinates, color = node.color),  # Add nodes
+							aes(x = x, y = y, fill = color), size = node.size, pch = 21,colour = "black",  show_guide = node.guide)# Add
+	zp1<-zp1 + geom_text(data = data.frame(layoutCoordinates, label = node.names),  
+							aes(x = x, y = y-.2, label = label), size = node.label.size)	# node names
+	zp1 <- zp1 + scale_colour_manual(values = edge.color, guide = edge.guide)
+	zp1 <- zp1 + scale_size(range = c(1/100, max.edge.thickness), guide = "none")  #edge thickness
+	zp1 <-zp1 + guides(color = guide_legend(override.aes = list (size = 1.5 ))) + labs(color='Edge Type')	
+	# Customize gradient 
+	zp1 <- zp1 + new_theme_empty  # Clean up plot
+	print(zp1)
+}
 
 #debugging  print all names and values in input
 output$debug<- renderPrint({
@@ -148,7 +296,7 @@ varnames <- function() {
 	colnames(getdata())
 }
 
-#names fo databas identifiers
+#names of databas identifiers
 DB.names <- function() {
 	if(is.null(input$datasets)) return()
 	list("Chemical Name" = "name", "KEGG" = "kegg", "PubChem CID" = "pubchemCID", "BioCyc" =  "biocyc" ,"InChiKey" = "inchikey") #hmdb = "HMDB"
@@ -257,11 +405,30 @@ calculate_edgelist<-reactive({#function(){
 	#edges based on correlation
 	if(input$cor_edges){
 		data<-getdata()[,input$network_index_cor]
-		tmp<-devium.calculate.correlations(data,type=input$network_index_type_cor, results = "edge list")
+		tmp<-devium.calculate.correlations(data,type=input$network_index_type_cor, results = "edge list")            
+		
+		#fdr adjust trade p-value for q-value
+		if(input$cor_edges_fdr) { 
+				# q.val<-FDR.adjust(obj = fixln(tmp[,4]),type="pvalue")
+				adj.p<-p.adjust(fixln(tmp[,4]), method="BH")
+				adj.p[is.na(as.numeric(adj.p))]<- 0 # error vars, assume due cor =1
+				tmp[,4]<-adj.p
+			}
+		 
 		#filter
-		cor.edges<-tmp[fixln(tmp[,4]) >= input$cor_cutoff,]
-		#create edge list
-		values$a<-cor.edges
+		cor.edges<-tmp[fixln(tmp[,4]) <= input$cor_cutoff,]
+		
+		if(nrow(cor.edges)>0){
+			type<-paste("positive",input$network_index_type_cor)
+			res<-data.frame(rbind(res,data.frame(as.matrix(cor.edges[,1:2]),type = type, weight = abs(fixln(cor.edges[,3])))))
+			res$type[fixln(cor.edges[,3])<=0]<-paste("negative",input$network_index_type_cor)
+			res[,1]<-gsub("X","",fixlc(res[,1]))
+			res[,2]<-gsub("X","",fixlc(res[,2]))
+			#Which nodes are correlations calculated for
+			cor.index<-rep(0,nrow(getdata()))
+			cor.index[rownames(getdata())%in%gsub("X","",input$network_index_cor)]<-1
+			node.attr<-data.frame(cbind(node.attr,correlation.edge.index  = cor.index))	
+		} 
 		
 	}
 	
@@ -358,9 +525,48 @@ output$edge_list <- renderTable({
 	
 })
 
+
+
+# # Generate output for the plots tab
+# output$network <- renderPlot({
+		
+		# # if(!input$metabomapr == "Network") return()
+		# if(is.null(values$edge.list)) { 
+			# plot(x = 1, type = 'n', main="Please calculate edge list first.", axes = FALSE, xlab = "", ylab = "")
+		# } else if(length(values$edge.list) == 0) { 
+			# plot(x = 1, type = 'n', main="No connections fit set criteria.", axes = FALSE, xlab = "", ylab = "")
+		# } else {
+		
+		
+			# #igraph network
+			# #options for igraph.plot
+			# #see all options http://127.0.0.1:10494/library/igraph/html/plot.common.html
+			# # graph.par.obj<-list(
+			# # x = NULL,# this is also calculated by the function should control
+			# # mark.groups = NULL,
+			# # mark.col = NULL,
+			# # layout = DB[,c("x.pos","y.pos")],#"layout.fruchterman.reingold",
+			# # vertex.label = node.par$name, 
+			# # vertex.color = mark.col,
+			# # vertex.size = 2,
+			# # vertex.label.dist=-2)
+			# graph.par.obj<-NULL
+			# #need mechanism to selectively color edges
+			# #make plot
+			# edge.list<-values$edge.list[,1:2]
+			# devium.igraph.plot(edge.list,graph.par.obj,plot.type="static",add=FALSE) # if running in local mode plot can be interactive or 3D
+		# }
+	# })
+	
 # Generate output for the plots tab
 output$network <- renderPlot({
-		
+	
+	if (input$create_edgelist_network == 0) 
+		plot(x = 1, type = 'n', main="Please select options and draw the network.", axes = FALSE, xlab = "", ylab = "")
+
+		#calculate edges and plot 		
+	isolate({
+		calculate_edgelist()
 		# if(!input$metabomapr == "Network") return()
 		if(is.null(values$edge.list)) { 
 			plot(x = 1, type = 'n', main="Please calculate edge list first.", axes = FALSE, xlab = "", ylab = "")
@@ -368,26 +574,15 @@ output$network <- renderPlot({
 			plot(x = 1, type = 'n', main="No connections fit set criteria.", axes = FALSE, xlab = "", ylab = "")
 		} else {
 		
-		
-			#igraph network
-			#options for igraph.plot
-			#see all options http://127.0.0.1:10494/library/igraph/html/plot.common.html
-			# graph.par.obj<-list(
-			# x = NULL,# this is also calculated by the function should control
-			# mark.groups = NULL,
-			# mark.col = NULL,
-			# layout = DB[,c("x.pos","y.pos")],#"layout.fruchterman.reingold",
-			# vertex.label = node.par$name, 
-			# vertex.color = mark.col,
-			# vertex.size = 2,
-			# vertex.label.dist=-2)
-			graph.par.obj<-NULL
-			#need mechanism to selectively color edges
-			#make plot
-			edge.list<-values$edge.list[,1:2]
-			devium.igraph.plot(edge.list,graph.par.obj,plot.type="static",add=FALSE) # if running in local mode plot can be interactive or 3D
+			edge.list<-values$edge.list
+			ggplot2.network(edge.list, edge.color.var = "type", edge.color = NULL, directed = FALSE,
+						node.color = NULL, show.names = input$network_plot_show_name,
+						bezier = input$network_plot_bezier, node.size = input$network_plot_node_size, 
+						node.label.size = input$network_plot_name_size, max.edge.thickness = input$network_plot_edge_size)				
+						
 		}
-	})
+		})
+	})	
 
 #network attributes table
 output$node.attributes <- renderTable({
