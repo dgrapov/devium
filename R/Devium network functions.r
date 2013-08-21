@@ -1389,7 +1389,31 @@ get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = 
 	#known = row index for "known" metabolites to allow unknown connections too
 	#cutoff = cosine correlation coefficient >= to accept 
 	#edge.limit = maximum nunber of connections
-	library(lsa)
+	# library(lsa) # when cannnot load library like on shiny server due to JAVA dependancie mismatch
+	cosine<-function (x, y = NULL) 
+		{
+			if (is.matrix(x) && is.null(y)) {
+				co = array(0, c(ncol(x), ncol(x)))
+				f = colnames(x)
+				dimnames(co) = list(f, f)
+				for (i in 2:ncol(x)) {
+					for (j in 1:(i - 1)) {
+						co[i, j] = cosine(x[, i], x[, j])
+					}
+				}
+				co = co + t(co)
+				diag(co) = 1
+				return(as.matrix(co))
+			}
+			else if (is.vector(x) && is.vector(y)) {
+				return(crossprod(x, y)/sqrt(crossprod(x) * crossprod(y)))
+			}
+			else {
+				stop("argument mismatch. Either one matrix or two vectors needed as input.")
+			}
+		}
+
+
 	
 	if(all(na.omit(as.numeric(known)) == 0) ){ known <- 0} # long story
 	
