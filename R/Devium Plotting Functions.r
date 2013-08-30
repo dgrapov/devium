@@ -486,24 +486,24 @@ get.ellipse.coords<-function(obj,group=NULL, ellipse.level=.95){
 		
 		fct<-if(is.null(group)) as.factor(rep(1,nrow(obj))) else factor(unlist(group))
 		.obj<-split(as.data.frame(obj),fct)
-		
+		names<-c(colnames(obj),"")
 		#calculate points for ellipse
 		#for level of group
 		ellipse.var<-lapply(1:nlevels(fct),function(i)
 			{
-
 				pts<-.obj[[i]]
 				m<-colMeans(pts)
-				cbind(tryCatch(ellipse::ellipse(as.matrix(cov(pts)),centre=c(m[1],m[2]),level=ellipse.level),
-					error=function(e){data.frame(NA,NA)}),rep(levels(fct)[i],nrow(pts)))
+				tmp<-cbind(tryCatch(ellipse::ellipse(as.matrix(cov(pts)),centre=c(m[1],m[2]),level=ellipse.level),
+					error=function(e){matrix( c(NA,NA),nrow=1)}),rep(levels(fct)[i],nrow(pts)))
+				colnames(tmp)<-NULL
+				tmp				
 			})
 			
 		#format for ggplot 2
 		tmp<-do.call("rbind",ellipse.var)
-		# colnames(tmp)<-c("x","y","group")
-		# tmp[,1]<-as.numeric(tmp[,1])
-		# tmp[,2]<-as.numeric(tmp[,2])
-		# get area for plotting order
+		#remove errors
+		tmp<-tmp[!is.na(tmp[,1]),]
+		
 		ellipse.size<-sapply(1:length(ellipse.var),function(i)
 			{
 				tryCatch(areapl(ellipse.var[[i]]),error=function(e){NA})

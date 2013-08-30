@@ -4,7 +4,6 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
                          distance.method = c("none","euclidean", "maximum", "manhattan", "canberra", "binary" ,"minkowski"),
                          alpha = NULL,font.size = 12,show.names=F, ncolors = 100){
   check.get.packages("pheatmap")
-  
   type<-match.arg(type)
   cluster.method<-match.arg(cluster.method)
   distance.method<-match.arg(distance.method)
