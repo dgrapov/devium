@@ -116,7 +116,7 @@ make.scree.plot.bar<-function(eigenvalues){
 }
 
 
-plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE, legend.name =  NULL){
+plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE){
 	#results<-match.args(results) #
 	local<-switch(results[1],
 
@@ -131,9 +131,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								.theme2<- theme(
 											axis.line = element_line(colour = 'gray', size = .75), 
 											panel.background = element_blank(), 
-											plot.background = element_blank(),
-											legend.background=element_rect(fill='white'),
-											legend.key = element_blank()
+											plot.background = element_blank()
 										 )
 								#Hoettellings T2 ellipse	 
 								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
@@ -145,8 +143,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								labels +
 								geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y,fill=group, color=group),linetype=2,alpha=.1, legend=FALSE) +
 								scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
-								scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100)) 
-								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
+								scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100))+
 								print(p)
 							},
 							

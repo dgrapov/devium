@@ -224,40 +224,6 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.in
 	}
 	
 
-#get poisson and quasi posson p-values for one-way comparison
- prot.test<-function(data, group, type = c("poisson","quasi-poisson"), FDR="BH"){
-	offset <- NULL
-	#type<-match.arg(type)
-	#group<-as.numeric(as.factor(group[,]))
-	
-	p.values<-sapply(1:ncol(data), function(i){
-			
-			tmp<-round(as.numeric(data[,i]),0)
-			
-			if(type=="poisson"){
-				# poisson p-value
-				g1a <- glm(tmp ~ group, family=poisson)
-				g1 <- glm(tmp ~ 1, family=poisson)
-				anovaP <- data.frame(anova(g1, g1a, test="Chisq"))
-				out<-ifelse(anovaP[2,4] < 0.1e-15, 1, anovaP[2,5])
-			}
-			
-			if(type=="quasi-poisson"){ 			
-				# quasi p-value
-				gquasi1a <- glm(tmp ~ group, offset=offset, family=quasi(link=log, variance=mu))
-				gquasi1 <- glm(tmp ~ 1, offset=offset, family=quasi(link=log, variance=mu))
-				anovaPq <- data.frame(anova(gquasi1, gquasi1a, test="F"))
-				out<-ifelse(anovaPq[2,4] < 0.1e-15, 1, anovaPq[2,6])
-			}
-			return(out)
-		})		
-	# FDR 	
-	adj.p<-as.data.frame(p.adjust(p.values, method =FDR, n = length(p.values))) 
-	adjusted.q<-FDR.adjust(as.matrix(p.values),type="pvalue",return.all=TRUE)$qval
-     
-	data.frame(p.values=p.values, adjusted.p.values = adj.p , q.values = adjusted.q)	
- }
- 
 #random junk I will eventually delete	
 testing <-function(){
 #check for errors Nan or Inf

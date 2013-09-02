@@ -1,5 +1,5 @@
 #function to carry out PLS or orthogonal signal correction PLS (OSC-PLS)
-OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,cv.scale=F,...){ 
+OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,...){ 
 	
 	check.get.packages("pls")
 	
@@ -7,13 +7,14 @@ OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",pro
 	OSC.results<-list()
 	OSC.results$data[[1]]<-pls.data
 	OSC.results$y[[1]]<-pls.y # also add a place to store plsr options for record keeping
+	#  add a place to store plsr options for record keeping
 	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = (OSC.comp+1), style = 3)}
 	
 	#need to iteratively fit models for each OSC
 	for(i in 1:(OSC.comp+1)){ 
 		
 		data<-OSC.results$data[[i]]
-		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,CV.scale=cv.scale,...)#
+		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,...)#
 		ww<-tmp.model$loading.weights[,1]
 		pp<-tmp.model$loadings[,1]
 		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
@@ -37,65 +38,6 @@ OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",pro
 	
 	if (progress == TRUE){close(pb)}	
 	return(OSC.results)	
-}
-
-#fit many OPLS models to overview optimal LV and OLV
-optimize.OPLS<-function(max.LV=4,tolerance =0.01,pls.y,pls.data,validation = "LOO",method="oscorespls",cv.scale=T,...){
-
-	#iterate and fit OSC models for each possible LV > 1
-	out<-lapply(1:max.LV, function(i){
-		mod<-OSC.correction(pls.y=pls.y,pls.data=pls.data,comp=i,OSC.comp=i,validation = validation,cv.scale=cv.scale,...)
-		tmp<-data.frame(RMSEP=do.call("rbind",mod$RMSEP))
-		tmp$LV<-i
-		tmp$OLV<-rep(mod$OSC.LVs,each=(ncol(pls.y)*(i+1)))
-		tmp$pls.y<-rep(1:ncol(pls.y), each=(i+1))
-		#do not report partials
-		get<-matrix(rep(0:i),nrow=nrow(tmp))
-		tmp[get==max(get),]
-	})
-	obj<-do.call("rbind",out)
-	
-	#choose optimal combination of LV/OLV for all Ys
-	choose.opt.OPLS.comp(obj=obj,pls.y=pls.y,tolerance=0.01)
-}
-
-#choose optimal model LV and OLV component number
-choose.opt.OPLS.comp<-function(obj,pls.y,tolerance=0.01){
-	
-
-	tmp.list<-split(obj,obj$pls.y)
-	
-	results<-lapply(1:length(tmp.list), function(i){
-		x<-tmp.list[[i]]
-		RMSEP<-x[,1:2]
-		comp<-x$LV
-		ocomp<-x$OLV
-		
-		even<-1:ncol(RMSEP)%%2==0 # CV RMSEP currently assuming this was used in modeling
-		tmp<-RMSEP[,even]# CV RMSEP
-		is.min<-which.min(tmp)
-		min.RMSEP<-tmp[is.min]
-		#look for smaller model with in tolerance
-		# not worse than this, accept smaller				
-		delta<-tmp-min.RMSEP
-		tmp.min<-which(delta<=tolerance)
-		data.frame(x[c(tmp.min),], delta[tmp.min])
-
-	})
-	
-	#choose smallest model within tolerance for both
-	tmp<-do.call("rbind",results)
-	x<-split(tmp$LV, tmp$pls.y )
-	LV<-unlist(Reduce(intersect, x))
-	x<-split(tmp$OLV, tmp$pls.y )
-	OLV<-unlist(Reduce(intersect, x))
-	
-	#if there is an intersection
-	if(length(LV)>0&length(OLV)>0){
-		list(best=tmp[tmp$LV==min(LV)&tmp$OLV==min(OLV), ], LV=min(LV), OLV=min(OLV))
-	} else {
-		list(best=tmp, LV=tmp$LV[which.min(tmp$delta.tmp.min.)], OLV = tmp$OLV[which.min(tmp$delta.tmp.min.)])
-	}		
 }
 
 #plot OSC results
@@ -218,20 +160,19 @@ plot.OSC.results<-function(obj,plot="RMSEP",groups="NULL"){
 	.local(obj)
 	}
 
-#plot results for a single model , for pls output..need to merge with opls
+#plot results for a single model
+#plot OSC results
 plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(obj$data))),comp1=1,comp2=2){
 	require(ggplot2)
 	#plot = one of: c("RMSEP","scores","loadings")
 	#groups is a factor to show group visualization in scores plot
-	
-	switch(plot, # only looks right for single Y models!
+	switch(plot,
 		RMSEP 			=  .local<-function(obj,comp1,comp2){
 								#bind info and RMSEP
-								comps<-1:obj$ncomp
-								obj$RMSEP<-as.data.frame(drop(RMSEP(obj))$val)
-								plot.obj<-tryCatch(obj$RMSEP[2,] ,error= function(e){obj$RMSEP[1,]})# CV
+								comps<-1:obj$total.LVs
+								plot.obj<-tryCatch(obj$RMSEP[,2] ,error= function(e){obj$RMSEP[,1]})# CV
 								
-								bound<-data.frame(component=comps,RMSEP=unlist(plot.obj[-1])) # not the intercept
+								bound<-data.frame(component=comps,RMSEP=plot.obj[-1]) # not the intercept
 								
 								#custom theme
 								.theme<- theme(
@@ -244,15 +185,13 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 								geom_line(size=1,alpha=.5) + geom_point(size=2)+.theme +
 								scale_x_continuous(breaks = c(min(comps):max(comps)))
 								print(p)
-							
-								
 							},
 		scores 			=	.local<-function(obj,comp1,comp2){
-								comps<-obj$ncomp
+								comps<-obj$total.LVs
 								plot.obj<-tryCatch(obj$scores[[1]][,c(comp1,comp2)],error=function(e){obj$scores[,c(comp1,comp2)]}) # not sure how to simply unclass and coerce to data.frame
 								
 								#format data
-								out<-data.frame(plot.obj[,c(comp1,comp2)],join.columns(as.matrix(groups)))
+								out<-as.data.frame(cbind(plot.obj[,c(comp1,comp2)],join.columns(as.matrix(groups))))
 								colnames(out)<-c("LV1","LV2","groups")
 									
 								out[,1:2]<-as.numeric(as.matrix(out[,1:2]))	
@@ -312,52 +251,6 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 						)				
 	.local(obj,comp1,comp2)
 	}	
-	
-#create PLS model
-make.PLS.model<-function(y,data,pls.method="simpls",
-		ncomp=2, CV="LOO",CV.segments=NULL,segment.type=NULL, CV.scale=FALSE, opt.comp=FALSE){
-	#use opt.comp=TRUE to dynamically optimize the # of latent variables
-	#minimum of 2 components 
-	#need to switch based on CV specifications
-	
-	#make sure the number of supplied components won't error plsr
-	if(ncomp>nrow(data)-1)
-		{
-			ncomp<-nrow(data)-1
-			#cat("The number of components was changed to", ncomp, "to accommodate sample number","\n")
-		}
-	if(CV=="LOO")
-
-	{	if(opt.comp==TRUE)
-		{	
-			mod1 <- plsr(y~ as.matrix(data), ncomp=ncomp,
-			data=as.data.frame(data) ,method=pls.method,validation=CV,scale=CV.scale)
-			new.comp<-c(2:ncomp)[which.max(R2(mod1)$val[-c(1:2)])]
-			#cat("PCs were changed from",PCs,"to", new.comp)
-			if(dim(as.data.frame(new.comp))[1]==0){new.comp<-2}
-			mod1 <- plsr(y~ as.matrix(data), ncomp=new.comp,
-			data=as.data.frame(data) ,method=pls.method,validation=CV,scale=CV.scale)
-		}else{
-			mod1 <- plsr(y~ as.matrix(data), ncomp=ncomp,
-			data=as.data.frame(data) ,method=pls.method,validation=CV,scale=CV.scale)
-		}
-	}else{
-		if(opt.comp==TRUE)
-		{
-			mod1 <- plsr(y~ as.matrix(data), ncomp=ncomp,
-			data=as.data.frame(data) ,method=pls.method,validation=CV,segments=CV.segments,segment.type=segment.type,scale=CV.scale)
-			new.comp<-c(2:ncomp)[which.max(R2(mod1)$val[-c(1:2)])]
-			if(dim(as.data.frame(new.comp))[1]==0){new.comp<-2}
-			mod1 <- plsr(y~ as.matrix(data), ncomp=ncomp,
-			data=as.data.frame(data) ,method=pls.method,validation=CV,segments=CV.segments,segment.type=segment.type,scale=CV.scale)
-		}else{
-			mod1 <- plsr(y~ as.matrix(data), ncomp=ncomp,
-			data=as.data.frame(data) ,method=pls.method,validation=CV,segments=CV.segments,segment.type=segment.type,scale=CV.scale)
-		}
-	}
-
-	mod1
-	}
 	
 #extract OSC submodel from OSC results object
 get.OSC.model<-function(obj,OSC.comp){
@@ -737,8 +630,7 @@ PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TR
 		#return results
 		return(as.data.frame(combo.cut))
 	}	
-
-
+	
 testing<-function(){ 
 #testing
 library(pls)
