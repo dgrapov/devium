@@ -11,6 +11,7 @@ Prototypes for some of the analyses implemented in ```Devium``` can be viewed in
 - [Heirarchical Cluster Analysis](http://spark.rstudio.com/dgrapov/Heatmap/)
 - [Basic Plotting] (http://spark.rstudio.com/dgrapov/Plotting/)
 - [Principal Components Analysis Diagnostics] (http://spark.rstudio.com/dgrapov/PCA/)
+- [Metabolomic Network Generation](http://spark.rstudio.com/dgrapov/MetaMapR)
 
 
 [GTK] (http://www.gtk.org/)
