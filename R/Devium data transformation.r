@@ -133,4 +133,27 @@ impute.missing<-function(data, method="min", scalar=1, report=TRUE){
 			} else {
 				return(fixed)
 			}
-	}		
+	}
+
+#get non-redundant ratio of all variables relative to each other
+all.ratios<-function(data){
+	if(is.null(colnames(data))){colnames(data)<-c(1:ncol(data))}
+	#accesory function
+	all.pairs <- function(r)
+  		list(first = rep(1:r,rep(r,r))[lower.tri(diag(r))],
+       second = rep(1:r, r)[lower.tri(diag(r))])
+	id<-all.pairs(ncol(data)) 
+	den<-split(id$second,id$first)
+	num<-split(id$first,id$first)
+	vars<-lapply(1:length(num),function(i){
+		obj<-as.matrix(data[,num[[i]][1],drop=FALSE])
+		tmp<-sweep(as.matrix(data[,den[[i]],drop=FALSE]),2,obj,"/")
+		names<-paste0(colnames(data)[den[[i]]],"_ratio_",colnames(data)[num[[i]]])
+		colnames(tmp)<-names 
+		tmp
+	}) 
+	
+	do.call("cbind",vars)	   
+}	
+
+#

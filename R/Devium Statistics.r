@@ -1,4 +1,4 @@
-
+#
 #function to convert pattern to a single char objects name
 rename <- function(x, pattern, replace="_")
 	{
@@ -89,8 +89,9 @@ anova.formula.list<-function(data,formula,meta.data)
 	  tmp<-lapply(1:ncol(data),function(i)
 		{
 			#tryCatch(na.omit(as.data.frame(with(meta.data,anova(lm(as.formula(paste("data[,",i,"]~",formula,sep=""))))[,5,drop=FALSE]))), error=function(e){NULL})
-			tryCatch(na.omit(as.data.frame(anova(lm(as.formula(paste("data[,",i,"]~",formula,sep="")),data=tmp.data))[,5,drop=FALSE])), error=function(e){NULL})
-			
+			tmp<-tryCatch(na.omit(as.data.frame(anova(lm(as.formula(paste("data[,",i,"]~",formula,sep="")),data=tmp.data))[,5,drop=FALSE])), error=function(e){data.frame(1)})
+			if(nrow(tmp)==0){tmp<-data.frame(1)} # all errors become 1
+			tmp
 		})
 		if(is.null(tmp))
 			{
@@ -223,7 +224,6 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.in
 		return(datac)
 	}
 	
-
 #get poisson and quasi posson p-values for one-way comparison
  prot.test<-function(data, group, type = c("poisson","quasi-poisson"), FDR="BH"){
 	offset <- NULL
@@ -257,6 +257,23 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.in
      
 	data.frame(p.values=p.values, adjusted.p.values = adj.p , q.values = adjusted.q)	
  }
+ 
+#t-test with FDR for many variables
+multi.t.test<-function(data, factor,paired=FALSE,progress=TRUE){
+	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
+	p.vals<-sapply(1:ncol(data), function(i){
+			if (progress == TRUE){setTxtProgressBar(pb, i)}
+			t.test(data[,i]~factor,paired = paired)$p.value 
+	})
+	if (progress == TRUE){close(pb); message("Calculating FDR adjustment and q-values")}
+	adj.p<-as.data.frame(p.adjust(as.matrix(p.vals), method = "BH", n = length(p.vals)))
+	adjusted.q<-FDR.adjust(as.matrix(p.vals),type="pvalue",return.all=TRUE)$qval
+	names<-paste("t.test",c("p.value","adjusted.p.value","q.value"),sep="_")
+	out<-data.frame(p.vals,adj.p,adjusted.q)
+	colnames(out)<-names
+	return(out)
+} 
+ 
  
 #random junk I will eventually delete	
 testing <-function(){

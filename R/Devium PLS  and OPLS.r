@@ -1,5 +1,6 @@
-#function to carry out PLS or orthogonal signal correction PLS (OSC-PLS)
-OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,cv.scale=F,...){ 
+#
+#function to carry out PLS or orthogonal signal correction PLS (OSC-PLS), obsolete use make.OSC.PLS.model
+OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,cv.scale=FALSE,return.obj="stats",...){ 
 	
 	check.get.packages("pls")
 	
@@ -22,7 +23,11 @@ OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",pro
 		Xcorr<- data - tcrossprod(t.ortho,p.ortho)
 		
 		#store results
-		OSC.results$RMSEP[[i]]<-matrix(RMSEP(tmp.model)$val,ncol=2,byrow=TRUE)
+		OSC.results$RMSEP[[i]]<-matrix(RMSEP(tmp.model)$val,ncol=2,byrow=TRUE) # multi Y RMSEP is bound by row 
+		OSC.results$rmsep[[i]]<- RMSEP(tmp.model)$val[2,,comp+1]# CV adjusted rmsep for each y by column
+		OSC.results$Q2[[i]]<-matrix(R2(tmp.model)$val,,byrow=TRUE)
+		OSC.results$Xvar[[i]]<-drop(tmp.model$Xvar/tmp.model$Xtotvar)
+		OSC.results$fitted.values[[i]]<-tmp.model$fitted.values
 		OSC.results$scores[[i]]<-tmp.model$scores
 		OSC.results$loadings[[i]]<-tmp.model$loadings
 		OSC.results$loading.weights[[i]]<-tmp.model$loading.weights
@@ -35,8 +40,78 @@ OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",pro
 		if (progress == TRUE){setTxtProgressBar(pb, i)}
 		}
 	
-	if (progress == TRUE){close(pb)}	
-	return(OSC.results)	
+	if (progress == TRUE){close(pb)}
+	if (return.obj=="model"){return(tmp.model)} else {	return(OSC.results)	}
+}
+
+#function to carry out PLS or orthogonal signal correction PLS (O-PLS) adapted from OSC.PLS adding predictions
+make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,cv.scale=FALSE,return.obj="stats",train.test.index=NULL,...){ 
+	
+	check.get.packages("pls")
+	
+	#initialize
+	OSC.results<-list()
+	OSC.results$data[[1]]<-pls.data
+	OSC.results$y[[1]]<-pls.y<-as.matrix(pls.y)
+	if(!is.null(train.test.index)){ # objects fo predictions
+			OSC.results$test.data[[1]]<-OSC.results$data[[1]][train.test.index=="test",]
+			if(cv.scale==TRUE){
+				OSC.results$test.y<-test.y<-as.matrix(OSC.results$y[[1]][train.test.index=="test",])
+			} else {
+				OSC.results$test.y<-test.y<-as.matrix(OSC.results$y[[1]][train.test.index=="test",])
+			}		
+			OSC.results$data[[1]]<-OSC.results$data[[1]][train.test.index=="train",]
+			OSC.results$y[[1]]<-as.matrix(OSC.results$y[[1]][train.test.index=="train",])
+	} 
+	
+	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = (OSC.comp+1), style = 3)}
+	
+	#need to iteratively fit models for each OSC
+	for(i in 1:(OSC.comp+1)){ 
+			
+		data<-OSC.results$data[[i]]
+		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale)#,...
+		ww<-tmp.model$loading.weights[,1]
+		pp<-tmp.model$loadings[,1]
+		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
+		t.ortho<- as.matrix(data) %*% w.ortho
+		p.ortho<- crossprod(as.matrix(data),t.ortho)/ c(crossprod(t.ortho))
+		Xcorr<- data - tcrossprod(t.ortho,p.ortho)
+		
+		#prediction objects
+		if(!is.null(train.test.index)){
+			test.data<-OSC.results$test.data[[i]]
+			predicted.mod<-	predict(tmp.model,newdata=test.data, ncomp=1:comp, comps=1:comp, type="response")
+			OSC.results$predicted.Y[[i]]<-predicted.mod
+			OSC.results$predicted.RMSEP[[i]]<-sapply(1:ncol(test.y), function(i){
+				(sum((predicted.mod[,i]-test.y[,i])^2)/nrow(predicted.mod))^.5
+			})
+			t.tst<-as.matrix(test.data)%*%w.ortho
+			p.tst <- crossprod(as.matrix(test.data), t.tst) / c(crossprod(t.tst))
+			OSC.test.data <- as.matrix(test.data) - tcrossprod(t.tst, p.tst)
+			OSC.results$test.data[[i+1]]<-OSC.test.data # for next round
+		}
+		
+		#store results
+		OSC.results$RMSEP[[i]]<-matrix(RMSEP(tmp.model)$val,ncol=2,byrow=TRUE) # multi Y RMSEP is bound by row 
+		OSC.results$rmsep[[i]]<- RMSEP(tmp.model)$val[2,,comp+1]# CV adjusted rmsep for each y by column
+		OSC.results$Q2[[i]]<-matrix(R2(tmp.model)$val,ncol=ncol(pls.y),byrow=TRUE)
+		OSC.results$Xvar[[i]]<-drop(tmp.model$Xvar/tmp.model$Xtotvar)
+		OSC.results$fitted.values[[i]]<-tmp.model$fitted.values
+		OSC.results$scores[[i]]<-tmp.model$scores
+		OSC.results$loadings[[i]]<-tmp.model$loadings
+		OSC.results$loading.weights[[i]]<-tmp.model$loading.weights
+		OSC.results$total.LVs[[i]]<-comp
+		OSC.results$OSC.LVs[[i]]<-i-1 # account for first model not having any OSC LVs
+		#initialize data for next round
+		OSC.results$data[[i+1]]<-as.data.frame(Xcorr)
+		
+		#update timer
+		if (progress == TRUE){setTxtProgressBar(pb, i)}
+		}
+	
+	if (progress == TRUE){close(pb)}
+	if (return.obj=="model"){return(tmp.model)} else {	return(OSC.results)	}
 }
 
 #fit many OPLS models to overview optimal LV and OLV
@@ -738,34 +813,440 @@ PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TR
 		return(as.data.frame(combo.cut))
 	}	
 
+#permute PLS model
+permute.PLS<-function(data,y,n=10,ncomp,...){# could be made parallel
+	#permuted Y
+	perm.y<-lapply(1:n,function(i)
+			{
+				apply(y,2,gtools::permute)
+			})
 
-testing<-function(){ 
-#testing
-library(pls)
-data(gasoline)
-pls.data<-gasoline[,-1] # take out Y
-pls.y<-gasoline$octane 
-
-#get bootstrapped error for feature selected model
-results<-boot.model(algorithm="plsr",data=pls.data,y=pls.y,ncomp=5,return="coef",R=500,method="oscorespls")
-
-ncomp=2;steps=2
-feature.subset<-feature.cut(obj=results[[1]][,1],type="number",cuts=seq(ncomp,ncol(data),round(ncol(data)/(steps+1),0))[-1])
-obj<-multi.boot.model(algorithm="plsr",data=pls.data,y=pls.y,feature.subset=feature.subset,ncomp=ncomp,return="pred.error",R=10,parallel=FALSE,plot=TRUE)
-
-#plot selected feature in the context of the complete data set
-# as bargraph or heat map
-# with and without the complete feature set
-feature.set = feature.subset[[c(1:nrow(obj$results))[obj$results[,2]%in%obj$RMSEP_0.632.min]]]
-weights.set = results$coef [,1]
-
-mod<-OSC.correction(pls.y,pls.data[,feature.set],comp=2,OSC.comp=2,validation = "LOO",progress=TRUE,method="oscorespls") 
-
-#choose optimal OSC number based on CV RMSEP
-index<-matrix(rep(1:length(mod$RMSEP),each=length(mod$RMSEP)),nrow=length(mod$RMSEP))[which.min(do.call("rbind",mod$RMSEP)[,2])[1]]
-
-best.mod<-get.OSC.model(obj=mod,OSC.comp=mod$OSC.LV[index])
-
-plot.PLS.results(obj=best.mod,plot="loadings",groups=pls.y)
-}
+	#generate permuted models		
+	model<-lapply(1:n,function(i)
+			{
+				# cat("permuting model",i,"\n")
+				model<-make.PLS.model(y=perm.y[[i]],data,ncomp=ncomp,...)
+				#get stats
+				q2<-R2(model)$val[,,ncomp+1]
+				rx2<-drop(model$Xvar/model$Xtotvar)[ncomp]
+				pred.val<-model$fitted.values[,,ncomp]
+				rmsep<-pls::RMSEP(model)$val[2,,ncomp] # take CV adjuste RMSEP
+				list(Q2=q2,RX2=rx2,RMSEP=rmsep)#,predicted=pred.val,actual=perm.y[[i]])
+			})
 	
+	tmp<-matrix(unlist(do.call("rbind",model)),ncol=3) 
+	colnames(tmp)<-c("Q2","Xvar","RMSEP")
+	means<-apply(tmp,2,mean)
+	sds<-apply(tmp,2,sd)
+	summary<-paste(signif(means,4)," ± ", signif(sds,3))
+	return(list(permuted.values=tmp, mean = means, standard.deviations = sds, summary = summary))
+}	
+
+#permute OSC-PLS model
+permute.OSC.PLS<-function(data,y,n=10,ncomp,osc.comp=1,...){ # should be made parallel
+	#permuted Y
+	perm.y<-lapply(1:n,function(i)
+			{
+				apply(y,2,gtools::permute)
+			})
+
+	#generate permuted models		
+	model<-lapply(1:n,function(i)
+			{
+				# cat("permuting model",i,"\n")
+				model<-OSC.correction(pls.y=perm.y[[i]],pls.data=data,comp=ncomp,OSC.comp=osc.comp,...) 
+				#get stats
+				q2<-model$Q2[[osc.comp+1]][ncomp+1,,drop=FALSE]# cv adjusted 
+				rx2<-model$Xvar[[osc.comp+1]][ncomp]
+				pred.val<-model$fitted.values[[osc.comp+1]][,,ncomp]
+				rmsep<-model$rmsep[[osc.comp+1]] # take CV adjusted RMSEP
+				list(Q2=q2,RX2=rx2,RMSEP=rmsep)#,predicted=pred.val,actual=perm.y[[i]])
+			})
+	
+	tmp<-matrix(unlist(do.call("rbind",model)),ncol=3) 
+	colnames(tmp)<-c("Q2","Xvar","RMSEP")
+	means<-apply(tmp,2,mean)
+	sds<-apply(tmp,2,sd)
+	summary<-paste(signif(means,4),"±", signif(sds,3))
+	return(list(permuted.values=tmp, mean = means, standard.deviations = sds, summary = summary))
+	
+}	
+
+#statistical test to compare permuted distrubution to model performance
+OSC.validate.model<-function(model, perm, train= NULL) {
+#model must be object generated with OSC.correction, the stats for largest LV/OLV model will be used
+#perm must be object generated with permute.OSC.PLS
+# if train = NULL perform a one-sample t-test to test if model stat comes from permuted distibution
+# else perform a two sample t-test to compare train/test to permuted stats
+
+	if(is.null(train)){
+		tmp<-c("Q2","Xvar","RMSEP")	
+		p.vals<-do.call("cbind",sapply(1:length(tmp), function(i) {	
+				val<-model[[tmp[i]]]
+				val<-as.matrix(val[[length(val)]])
+				val<-val[nrow(val),ncol(val)]
+				per.val<-tryCatch(perm$permuted.values[,tmp[i]], error=function(e) {"not found"}) 
+				data.frame(matrix(c(val,tryCatch(t.test(per.val,mu=val)$p.value, error=function(e) {1})),ncol=1)) #force error = insiginificant 
+		}))
+		
+		#make output in table form
+		res<-data.frame(rbind(signif(p.vals[1,],4),perm$summary,signif(p.vals[2,],4)))
+		dimnames(res)<-list(c("model","permuted model","p-value"), tmp)
+	} else {
+		tmp<-c("Q2","RMSEP")	
+		#need to summarize results from train objects
+		p.vals<-sapply(1:length(tmp), function(i) {	
+				val<-train$performance[,tmp[i]]
+				per.val<-tryCatch(perm$permuted.values[,tmp[i]], error=function(e) {"not found"}) 
+				tryCatch(t.test(per.val,val)$p.value, error=function(e) {1}) #force error = insiginificant 
+		})
+		res<-data.frame(rbind(train$summary,perm$summary[c(1,3)],signif(p.vals,4))) # don't include Xvar
+		dimnames(res)<-list(c("model","permuted model","p-value"), tmp)
+	}
+	return(res)
+}
+
+#conduct train/test validations on PLS model
+PLS.train.test<-function(pls.data,pls.y,pls.train.index,comp,...) 
+	{
+		pls.y<-as.matrix(pls.y)
+		#order for merging test with train stats in one object
+		new.order<-c(c(1:nrow(pls.data))[pls.train.index=="train"],c(1:nrow(pls.data))[pls.train.index=="test"])
+		back.sort<-order(new.order)
+
+		train.y<-train.real<-pls.y[pls.train.index=="train",]
+		train.data<-pls.data[pls.train.index=="train",]
+		#all arguments gave been preset elsewhere
+		test.pls.results<-make.PLS.model(train.y,train.data,ncomp=comp,...)
+		Q2<-unlist(R2(test.pls.results)$val[,,max(comp)+1])
+
+		train.pred<-test.pls.results$fitted.values[,,comp]
+		
+		#use model to predict test values
+		test.data<-as.matrix(pls.data[pls.train.index=="test",])
+		test.pred<- as.data.frame(predict(object=test.pls.results, newdata=test.data, ncomp = c(1:comp), comps=c(1:comp),type ="response"))
+
+		test.real<-pls.y[pls.train.index=="test",]
+		RMSEP<-sapply(1:ncol(pls.y), function(i){
+			(sum((test.pred[,i]-test.real[,i])^2)/nrow(test.pred))^.5
+		})
+
+		#results
+		predicted.y<-rbind(train.pred,test.pred)
+		actual.y<-rbind(train.real,test.real)
+		test.index<-pls.train.index
+		res<-list(predicted.y[back.sort,], actual.y[back.sort,], test.index,RMSEP,Q2,LVs=PCs)
+		names(res)<-c("predicted.y","actual.y=","pls.train.index","RMSEP","Q2","LVs")
+		return(res)
+	}
+
+#conduct train/test validations on O-PLS model	
+OSC.PLS.train.test<-function(pls.data,pls.y,train.test.index,comp,OSC.comp,...) 
+	{
+		pls.y<-as.matrix(pls.y)
+		results<-lapply(1:ncol(train.test.index), function(i){
+			pls.train.index<-as.matrix(train.test.index[,i])
+			#order for merging test with train stats in one object
+			new.order<-c(c(1:nrow(pls.data))[pls.train.index=="train"],c(1:nrow(pls.data))[pls.train.index=="test"])
+			back.sort<-order(new.order)
+
+			train.y<-train.real<-pls.y[pls.train.index=="train",]
+			train.data<-pls.data[pls.train.index=="train",]
+			test.real<-pls.y[pls.train.index=="test",]
+			#all arguments gave been preset elsewhere
+			test.pls.results<-make.OSC.PLS.model(pls.y=pls.y,pls.data=pls.data,comp=comp,OSC.comp=OSC.comp, train.test.index=pls.train.index)#,...
+			Q2<-test.pls.results$Q2[[OSC.comp+1]][comp,]
+			
+			#fitted values
+			train.pred<-test.pls.results$fitted.values[[OSC.comp+1]][,,comp]
+			test.pred<-test.pls.results$predicted.Y[[OSC.comp+1]]
+			RMSEP<-test.pls.results$predicted.RMSEP[[OSC.comp+1]]
+			#results
+			predicted.y<-rbind(as.matrix(train.pred),as.matrix(test.pred))
+			actual.y<-rbind(as.matrix(train.real),as.matrix(test.real))
+			test.index<-pls.train.index
+			res<-list(predicted.y[back.sort,], actual.y[back.sort,], test.index,RMSEP,Q2,LVs=comp)
+			names(res)<-c("predicted.y","actual.y","pls.train.index","RMSEP","Q2","LVs")
+			return(res)
+		})
+		
+		#need to summarize results
+		aggregated<-matrix(t(sapply(1:length(results),function(i){
+			c(results[[i]]$Q2, results[[i]]$RMSEP)
+		})),ncol=2)
+		colnames(aggregated)<-c("Q2","RMSEP")
+		
+		aggregated.summary<-matrix(paste(signif(apply(aggregated,2,mean),4),"±",signif(apply(aggregated,2,sd),3)),nrow=1)
+		colnames(aggregated.summary)<-c("Q2","RMSEP")
+		list(full.results=results, performance=aggregated, summary=aggregated.summary)
+	}	
+
+# function for splitting dataset in to test and trainning sets
+test.train.split<-function(nsamples, n=1, strata=NULL, prop.train=2/3, split.type="random",data=NULL){
+	#nsamples the number of samples in the data set to split among test and trainnig data sets
+	#n the number ot test/training splits to return
+	#strata factor within whose levels the test/trainning sets will be derived
+	#prop.train the proportion of samples in the trainning set
+	#split.type how sample assignment to trainning/test splits is determined,  the options are "random", "duplex"
+	#data needed for duplex method
+	res<-lapply(1:n,function(i){
+		if(is.null(strata)){
+			if(split.type=="random"){
+				t.num<-ceiling(nsamples*prop.train)
+				test.train.id<-rep("test",nsamples)
+				test.train.id[sample(c(1:length(test.train.id)),t.num)]<-"train"
+			}
+			
+			if(split.type=="duplex"){ # takes the floor, if the sample number is not even the proportion of trainning samples may be one less than specified
+				object<-ken.sto2(data, per = "TRUE",per.n= (1-prop.train),va = "TRUE",num=1)
+				object<-duplex.select(data,object,percent.in.test=(1-prop.train))	
+				test.train.id<-rep("train",nrow(data))
+				test.train.id[object$`Chosen validation row number`]<-"test"	
+			}	
+		} else {
+			if(split.type=="random"){
+				tmp<-split(1:nsamples,strata)
+				train.id<-unlist(sapply(1:length(tmp),function(i){
+						t.num<-ceiling(length(tmp[[i]])*prop.train)
+						tmp[[i]][sample(c(1:length(tmp[[i]])),t.num)]
+					}))
+				test.train.id<-rep("test",nsamples)
+				test.train.id[train.id]<-"train"
+			}
+			
+			if(split.type=="duplex"){ # trainning/test assignments are underestimated for odd number of samples (due rounding down)
+				tmp<-split(data,strata)
+				test.id<-fixlc(sapply(1:length(tmp),function(i){
+					object<-ken.sto2(tmp[[i]], per = "TRUE",per.n= (1-prop.train),va = "TRUE",num=1)
+					object<-duplex.select(tmp[[i]],object,percent.in.test=(1-prop.train))	
+					object$`Chosen validation sample names`
+					}))
+				test.train.id<-rep("train",nrow(data))
+				test.train.id[rownames(data)%in%test.id]<-"test"	
+			}	
+				
+		}
+		test.train.id
+	})
+	as.data.frame(do.call("cbind",res))
+}	
+
+#function for carrying out test/trainning split based on duplex or kennard-stone method 
+ken.sto2<-function(inp, per = "TRUE", per.n = 0.3, num = 7, va = "TRUE")
+ {
+	#based on  ken.sto in package "soil.spec"
+	#changes: altered number of PCs selection
+	#took out saving, plotting
+	#opened slot for custom PCA analysis options
+	#fixed some bugs 
+
+    if (class(inp) != "data.frame" & class(inp) != "matrix") 
+	{
+        stop("Invalid argument: 'inp' has to be of class 'data.frame' or 'matrix'.")
+    	}
+    if (per != "TRUE" & per != "FALSE") 
+	{
+        stop("Invalid argument: 'per' has to be either 'TRUE' or 'FALSE'.")
+    }
+
+    if (per == "TRUE")
+	 {
+        if (class(per.n) != "numeric") 
+		{
+            stop("Invalid argument: 'per' has to be of class 'numeric'.")
+        	}
+
+        if (per.n < 0 | per.n > 1) 
+		{
+            stop("Invalid argument: 'per' has to be between 0 and 1.")
+        	}
+        n <- round(per.n * nrow(inp), 0)
+    }
+
+    if (per == "FALSE") 
+	{
+        if (class(as.integer(num)) != "integer") 
+		{
+            	stop("Invalid argument: 'num' has to be of class 'integer'.")
+       	 }
+
+        if (num <= 0) 
+	 {
+            stop("Invalid argument: 'num' has to be between 1 and the number of samples minus one.")
+        }
+
+        if (num >= nrow(inp)) 
+		{
+           	 stop("Invalid argument: 'num' has to be between 1 and the number of samples minus one.")
+        	}
+
+        n <- num
+   	 }
+    if (va != "TRUE" & va != "FALSE") 
+	{
+        stop("Invalid argument: 'va' has to be either 'TRUE' or 'FALSE'.")
+   	 }
+   
+    #allow to use specified PCA analysis results
+    pca <- prcomp(inp, scale = T)
+    prco <- as.data.frame(pca$x)
+    cpv <- summary(pca)[[6]][3,]
+    zzz <- matrix(nrow = 1, ncol = (length(cpv)-2))
+    for (i in 1:(ncol(zzz)-2)) 
+	{
+        e <- (cpv[i] + 0.04) < cpv[i + 3]
+        zzz[i] <- e
+    	}
+    pc <- (which(zzz == FALSE) - 1)[1]
+    if (pc == 1|is.na(pc)) 
+	{
+        pc <- 2
+    	}
+    prco <- prco[, 1:pc]
+    min <- c(rep(1, ncol(prco)))
+    max <- c(rep(1, ncol(prco)))
+    for (i in 1:ncol(prco)) 
+	{
+        blub <- which(prco[, i] == min(prco[, i]))
+        min[i] <- blub[1]
+        bla <- which(prco[, i] == max(prco[, i]))
+        max[i] <- bla[1]
+   	 }
+    min <- rownames(prco)[min]
+    max <- rownames(prco)[max]
+    start <- unique(c(min, max))
+    start.n <- match(start, rownames(inp))
+
+    if (va == "FALSE") 
+    {
+        euc <- as.data.frame(as.matrix(dist(prco)))
+        inp.start <- rownames(prco)[-start.n]
+        inp.start.b <- inp.start
+        cal <- start
+	  stop<-min(c(n,length(start)))
+        for (k in 1:(stop)) 
+		{
+            test <- apply(euc[inp.start.b, cal], 1, min)
+            bla <- names(which(test == max(test)))
+            cal <- c(cal, bla)
+            inp.start.b <- inp.start.b[-(which(match(inp.start.b, 
+                bla) != "NA"))]
+        	}
+       cal.n <- match(cal, rownames(inp))
+	
+       output <- list(`Calibration and validation set` = va, 
+            `Number important PC` = pc, `PC space important PC` = prco, 
+            `Chosen sample names` = unique(cal), `Chosen row number` = unique(cal.n), 
+            `Chosen calibration sample names` = "NULL", `Chosen calibration row number` = "NULL", 
+            `Chosen validation sample names` = "NULL", `Chosen validation row number` = "NULL")
+    }
+
+    if (va == "TRUE") 
+    {
+	  n<-ceiling(per.n*nrow(inp))
+        cal.start <- start
+        cal.start.n <- start.n
+        val.min <- c(rep(1, ncol(prco)))
+        val.max <- c(rep(1, ncol(prco)))
+        for (i in 1:ncol(prco)) 
+		{
+            blub <- which(prco[-cal.start.n, i] == min(prco[-cal.start.n, 
+                i]))
+            val.min[i] <- blub[sample(length(blub), 1)]
+            bla <- which(prco[-cal.start.n, i] == max(prco[-cal.start.n, 
+                i]))
+            val.max[i] <- bla[sample(length(bla), 1)]
+       	 }
+        val.min <- rownames(prco[-cal.start.n, ])[val.min]
+        val.max <- rownames(prco[-cal.start.n, ])[val.max]
+        val.start <- unique(c(val.min, val.max))
+        val.start.n <- match(val.start, rownames(inp))
+        cal.val <- c(cal.start, val.start)
+        cal.val.start <- match(c(cal.start, val.start), rownames(inp))
+        euc <- as.data.frame(as.matrix(dist(prco)))
+        inp.start <- rownames(prco)[-cal.val.start]
+        inp.start.b <- inp.start
+        val <- val.start
+	  stop<-n#min(c(n,length(val.start)))
+	  k<-1
+        for (k in 1:(stop)) 
+		{
+            test <- apply(euc[inp.start.b, val], 1, min)
+            bla <- names(which(test == max(test)))
+            val <- c(val, bla)
+            inp.start.b <- inp.start.b[-(which(match(inp.start.b, 
+                bla) != "NA"))]
+       	 }
+        val.n <- match(val, rownames(inp))
+        cal.n <- c(1:nrow(inp))[-val.n]
+        cal <- rownames(inp)[cal.n]
+        
+		#tmp fix for problem in function
+		n<-ceiling(per.n*nrow(inp))
+		if(n<1){n<-1}
+		tst.id<-unique(val.n)
+		if(n>length(tst.id)){n=length(tst.id)}
+		val.n<-sample(tst.id,n)
+		cal.n<-c(cal.n,tst.id[!tst.id%in%val.n])
+
+		cal <- rownames(inp)[cal.n]
+		val<-rownames(inp)[val.n]
+
+
+
+        output <- list(`Calibration and validation set` = va, 
+            `Number important PC` = pc, `PC space important PC` = prco, 
+            `Chosen sample names` = "NULL", `Chosen row number` = "NULL", 
+            `Chosen calibration sample names` = unique(cal), `Chosen calibration row number` = unique(cal.n), 
+            `Chosen validation sample names` = unique(val), `Chosen validation row number` = unique(val.n))
+	}
+        class(output) <- "ken.sto"
+        return(output)
+    }
+
+#wrapper to iterate ken.sto2
+duplex.select<-function(data,ken.sto2.obj,percent.in.test)
+	{
+	#determine how many more are needed
+	start.have<-ken.sto2.obj$`Chosen validation sample names`
+	need<-percent.in.test*nrow(data)-length(start.have)
+	
+	#don't do anything if there are enough
+	if(need>0)
+	{
+	#extract from remainning data
+	have<-start.have
+	while(need>0)
+		{
+			tmp.data<-data[!rownames(data)%in%have,]
+			more<-ken.sto2(tmp.data, per = "TRUE", per.n = percent.in.test, num = 7, va = "TRUE")
+			now.have<-more$`Chosen validation sample names`
+			need<-percent.in.test*nrow(data)-(length(now.have)+length(have))
+			have<-c(have,now.have)
+		}
+
+	#adjust for too many selected 
+	drop<-NA
+	if(need<0)
+		{
+			drop<-now.have[sample(length(now.have),abs(need))]
+		}
+
+	new.obj<-have[!have%in%drop]
+	
+	#objects to return
+	`Chosen validation sample names`=c(new.obj)
+	`Chosen validation row number`= c(1:nrow(data))[rownames(data)%in%new.obj]
+	`Chosen calibration sample names`= rownames(data)[!rownames(data)%in%`Chosen validation sample names`]
+	`Chosen calibration row number` =c(1:nrow(data))[rownames(data)%in%`Chosen calibration sample names`]
+	}else{
+	`Chosen validation sample names`=ken.sto2.obj$`Chosen validation sample names`
+	`Chosen validation row number`= ken.sto2.obj$`Chosen validation row number`
+	`Chosen calibration sample names`= ken.sto2.obj$`Chosen calibration sample names`
+	`Chosen calibration row number` =ken.sto2.obj$`Chosen calibration row number`
+	}
+	output<-list(`Chosen validation row number`= `Chosen validation row number`,
+			 `Chosen validation sample names`=`Chosen validation sample names`,
+			 `Chosen calibration sample names` = `Chosen calibration sample names`, 
+			 `Chosen calibration row number` = `Chosen calibration row number`)
+}
