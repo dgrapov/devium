@@ -954,7 +954,7 @@ OSC.PLS.train.test<-function(pls.data,pls.y,train.test.index,comp,OSC.comp,...)
 			train.data<-pls.data[pls.train.index=="train",]
 			test.real<-pls.y[pls.train.index=="test",]
 			#all arguments gave been preset elsewhere
-			test.pls.results<-make.OSC.PLS.model(pls.y=pls.y,pls.data=pls.data,comp=comp,OSC.comp=OSC.comp, train.test.index=pls.train.index)#,...
+			test.pls.results<-make.OSC.PLS.model(pls.y=pls.y,pls.data=pls.data,comp=comp,OSC.comp=OSC.comp, train.test.index=pls.train.index,...)
 			Q2<-test.pls.results$Q2[[OSC.comp+1]][comp,]
 			
 			#fitted values
