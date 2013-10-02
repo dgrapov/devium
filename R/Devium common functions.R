@@ -647,51 +647,6 @@ rpel<-function (string, envir = .GlobalEnv)
 		eval(parse(text = string), envir = envir)
 	}
 	
-#function to calculate placement of list items into an Excel worksheet
-list.placement.full<-function(data.list,list.names,direction,start.col,start.row,spacer)
-	{
-        
-		#accessory fxn
-		list.object.dim.full<-function(data.list,list.names)
-        {
-                l.dim<-list()
-                n<-length(data.list)
-                i<-1
-                for(i in 1:n)
-                {
-                tmp.list<-as.data.frame(data.list[[i]])
-                height<-dim(tmp.list)[1]
-                width<-dim(as.data.frame(tmp.list))[2]
-                l.dim[[i]]<-as.data.frame(matrix(cbind(width,height),ncol=2))
-                }
-                        out<-do.call("rbind",l.dim)
-                        out<-cbind(list.names,out)
-                        colnames(out)<-c("objects","width","height")
-                        out
-        }
-		
-		set.1<-list.object.dim.full(data.list,list.names)
-        col.i<-rbind(matrix(LETTERS,ncol=1),matrix(paste(rep(LETTERS,each=length(LETTERS)),rep(LETTERS,length(LETTERS)),sep=""),ncol=1))
-        row.i<-matrix(1:1e6,ncol=1)
-        place.row<-matrix()
-        place.col<-matrix()
-        place.range<-matrix()
-        columns<-matrix()
-        rows<-matrix()
-        n<-dim(set.1)[1]
-        i<-1
-                for(i in 1:n)
-					{
-                        place.row[i]<-start.row+sum(unlist(set.1[1:i,3]))+spacer*(i-1)-unlist(set.1[i,3])
-                        place.col[i]<-col.i[start.col+sum(unlist(set.1[1:(i),2]))+spacer*(i-1)-unlist(set.1[i,2])]
-                        if(direction=="vertical"){
-                        place.range[i]<-matrix(paste(col.i[start.col],place.row[i],sep=""),ncol=1)} else{
-                        if(direction=="horizontal"){
-                        place.range[i]<-matrix(paste(place.col[i],start.row,sep=""),ncol=1)}}}
-                        ex.range<-as.data.frame(cbind(set.1,place.range))
-                        ex.range
-	}
-
 #function to get gwidget svalues for assigned widgets
 d.get<-function(object, main.object="devium.pca.object",envir=devium)
 	{
