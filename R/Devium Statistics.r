@@ -144,7 +144,7 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1)
 			{
 				as.data.frame(p.adjust(as.matrix(p.values[,i]), method = "BH", n = nrow(p.values)))
 			}))
-		colnames(adj.p)<-paste(colnames(p.values),"adjusted.pvalues",sep="_")	
+		colnames(adj.p)<-paste(colnames(p.values),"adjusted.p.values",sep="_")	
 		#estimate q-values	
 		adjusted.q<-sapply(1:ncol(as.matrix(p.values)),function(i)
 			{

@@ -231,6 +231,93 @@ return.to.Excel<-function(workbook.path="new",return.obj.list,return.name=names(
 			saveWorkbook(wb)
 	}
 
+#functions to calculate ranges for excel placement
+list.placement.full<-function(data.list,list.names,direction,start.col,start.row,spacer){
+	set.1<-list.object.dim.full(data.list,list.names)
+	col.i<-matrix(paste(rbind(matrix(LETTERS,ncol=1),matrix(paste(rep(LETTERS,each=length(LETTERS)),rep(LETTERS,length(LETTERS)),sep=""),ncol=1)),"$",sep=""))
+	row.i<-matrix(1:1e6,ncol=1)
+	place.row<-matrix()
+	place.col<-matrix()
+	place.range<-matrix()
+	columns<-matrix()
+	rows<-matrix()
+	n<-dim(set.1)[1]
+	i<-1
+		for(i in 1:n){
+			place.row[i]<-start.row+sum(unlist(set.1[1:i,3]))+spacer*(i-1)-unlist(set.1[i,3])
+			place.col[i]<-col.i[start.col+sum(unlist(set.1[1:(i),2]))+spacer*(i-1)-unlist(set.1[i,2])]
+			if(direction=="vertical"){
+			place.range[i]<-matrix(paste(col.i[start.col],place.row[i],sep=""),ncol=1)} else{
+			if(direction=="horizontal"){
+			place.range[i]<-matrix(paste(place.col[i],start.row,sep=""),ncol=1)}}}
+			ex.range<-as.data.frame(cbind(set.1,place.range))
+			ex.range}
+			
+# accesory fxn to list.placement.full
+list.object.dim.full<-function(data.list,list.names)
+	{
+		l.dim<-list()
+		n<-length(data.list)
+		i<-1
+		for(i in 1:n)
+		{
+		tmp.list<-as.data.frame(data.list[[i]])
+		height<-dim(tmp.list)[1]
+		width<-dim(as.data.frame(tmp.list))[2]
+		l.dim[[i]]<-as.data.frame(matrix(cbind(width,height),ncol=2))
+		}
+			out<-do.call("rbind",l.dim)
+			out<-cbind(list.names,out)
+			colnames(out)<-c("objects","width","height")
+			out
+	}
+
+#write object to an excel sheet based on positional location of top left corner
+multi.object.XL<-function(workbook.path="new",placement.list,workbook.name=NULL,sheet.name="Output")
+	{
+		check.get.packages(c("XLConnect"))
+		
+		#load workbok
+		if (!workbook.path=="new")
+			{
+				#connect to worksheet
+				old.dir<-getwd()
+				wd<-dirname(workbook.path)
+				workbook.name<-basename(workbook.path)
+				setwd(wd)
+				wb = loadWorkbook(workbook.name, create = FALSE)
+				
+			}else{
+			
+				if(is.null(workbook.name)){workbook.name<-paste('Workbook',format(Sys.time(), "%Y.%m.%d_%I_%M_%p"),"xls", sep = ".")}
+				wb = loadWorkbook(workbook.name, create = TRUE)
+			}
+		
+		#create worksheet
+		createSheet(wb, name = sheet.name)
+		
+		#create named regions and return objects
+		sapply(1:nrow(placement.list),function(i)
+			{
+				print(i)
+				name<-fixlc(placement.list[i,1])
+				#delete name is if exists
+				tryCatch(removeName(wb,name),error=function(e){})
+				#fix formula for colukn position
+				name.location<-paste(sheet.name,paste("$",unlist(placement.list[i,4]),sep=""),sep="!") # too lazy too rewrite depnedancy must accept uglness for now
+				createName(wb, name = name, formula = name.location)
+				
+				#bind rownames else not visible
+				return<-get(name)
+				writeNamedRegion(wb, data = return, name = name, header = TRUE)
+				
+			})
+			
+			saveWorkbook(wb)
+	}
+
+	
+	
 #get object from EXCEL	
 get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name=NULL,a,return=TRUE,environment=.GlobalEnv)
 				{
