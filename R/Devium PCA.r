@@ -124,7 +124,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 		"scores"		= function(pca,...){
 								obj<-pca$pca.scores[,]	
 								points<-if(is.null(color)) { geom_point(color="gray",size=size,alpha=.5,legend=FALSE) } else { geom_point(aes(color=color),size=size,alpha=.5)  } 	
-								labels<-if(label==TRUE){geom_text(size=3,aes(x=PC1, y=(PC2 -.5),color=color,label=id),legend = F)} else { NULL }
+								labels<-if(label==TRUE){geom_text(size=size,aes(x=PC1, y=(PC2 -.5),color=color,label=id),legend = F)} else { NULL }
 								tmp<-data.frame(obj,id = rownames(obj),color=color)
 								
 								#plot 

@@ -1,4 +1,4 @@
-# translate index based on lookup table 
+1# translate index based on lookup table 
 translate.index<-function(id, lookup){
 	# lookup is a two column data.frame or matrix with 
 	# column 1 containing index matching id and
@@ -737,7 +737,7 @@ unique.obj<-function(data, index){
 	}
 
 #look up KEGG reactant pairs 
-get.KEGG.pairs<-function(type="main",url="https://gist.github.com/dgrapov/5548641/raw/3f38cc29508dfd31bf4195eed48fab6871341eb5/KEGG+RPairs"){ 
+get.KEGG.pairs<-function(type="main",url="https://gist.github.com/dgrapov/5548641/raw/befdaa0fd8a9c2204afa52ab79cee0714a2710fa/KEGG+RPairs"){ 
 		#older repo: "https://gist.github.com/dgrapov/4964564/raw/aec1a5097a3265d22109c9b34edd99a28f4012a3/KEGG+reaction+pairs"
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
