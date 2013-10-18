@@ -364,7 +364,7 @@ multiplot <- function(..., plotlist=NULL, cols) {
 
 #~time series line plot for multiple groups
 time.series.plot<-function(variable,group,time,xlab="Time",color=NULL,alpha=0.9,size=3,text=20,legend="right",background=element_blank(),save=FALSE){
-	
+	library(ggplot2)
 	
 	tmp.data<-data.frame(variable=variable,group=group,time=time)
 	dfc<-summarySE (data=tmp.data, measurevar=colnames(tmp.data)[1], groupvars=colnames(tmp.data)[2:3], na.rm=TRUE, conf.interval=.95, .drop=TRUE)

@@ -733,3 +733,12 @@ check.fix.names<-function(names,ok.chars=c(".","_",",","(",")",":"," "),replace.
 					obj<-paste(fixlc(strsplit(tmp," ")),collapse=replace.with)
 				}))
 			}
+			
+#get top triangle of possible pairwise interactions
+#accessory function
+all.pairs<-function(r,type="one")
+		{       
+				switch(type,
+				one = list(first = rep(1:r,rep(r,r))[lower.tri(diag(r))], second = rep(1:r, r)[lower.tri(diag(r))]),
+				two = list(first = rep(1:r, r)[lower.tri(diag(r))], second = rep(1:r,rep(r,r))[lower.tri(diag(r))]))
+		}

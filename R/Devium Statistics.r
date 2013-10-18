@@ -180,10 +180,10 @@ covar.adjustment<-function(data,formula)
 	out<-as.data.frame(do.call("cbind",output))
 	dimnames(out)<-dimnames(data)
 	#add back pre-adjustment column median to all
-	medians<-apply(data,2,median, na.rm=T)
+	min<-apply(out,2,min, na.rm=T)
 	adj.out<-do.call("cbind",sapply(1:ncol(out),function(i)
 		{
-			out[,i,drop=F] + medians[i]
+			out[,i,drop=F] + abs(min[i])
 		}))
 	return(adj.out)
 	}

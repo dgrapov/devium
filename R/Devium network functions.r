@@ -1,4 +1,38 @@
-1# translate index based on lookup table 
+#get the metabolomic information from IDEOM Look up table
+enrichR.IDEOM<-function(id, from="PubChem CID",IDEOM.DB=NULL){
+	#use external look up table to get metabolite information
+	# based on suplied id (can supply empty as "")
+	if(is.null("IDEOM.DB")){
+		DB<-IDEOMgetR()
+		} else {DB<-IDEOM.DB} # load table
+	# hard coded for from =  "PubChem CID" for now
+	#get CIDs to match to metabolic maps
+	id<-fixlc(id)
+	tmp.id<-which(id%in%DB$PubChem.CID)
+	DB.id<-which(as.matrix(DB$PubChem.CID)%in%as.matrix(id))
+
+	cids<-DB$PubChem.CID[DB.id][DB$PubChem.CID[DB.id]%in%id[tmp.id]]
+	id2<-which(id%in%cids)
+	dupes<-which(duplicated(id[id%in%cids]))
+	empty<-which(id[id%in%cids]=="")
+	if(length(dupes)>0){id3<-id2[-c(dupes,empty)]} else {id3<-id2}
+	cids<-sort(id[id3])
+
+	maps<-DB[which(fixlc(DB$PubChem.CID)%in%fixlc(cids)),]
+	maps2<-maps[order(as.numeric(as.matrix(maps[,1]))),]
+	maps2<-maps2[!duplicated(maps2[,1]),]
+	names<-maps2[,"Metabolite"]
+	results<-data.frame(metabolites=names, maps2[,!colnames(maps)%in%"Metabolite"])
+	
+	#map results back to original order
+	missed<-id[!id%in%cids]
+	tmp.id<-c(fixlc(results$PubChem.CID),missed)
+	tmp.res<-rbind(results,rep("",length(missed)))
+	i.ord<-c(1:length(id))[order(id)]
+	return(tmp.res[order(tmp.id),][order(i.ord),])
+}
+
+# translate index based on lookup table 
 translate.index<-function(id, lookup){
 	# lookup is a two column data.frame or matrix with 
 	# column 1 containing index matching id and
@@ -881,8 +915,8 @@ IDEOMgetR<-function(url="https://gist.github.com/dgrapov/5548790/raw/399f0958306
 		#try to fix colnames
 		names<-unlist(strsplit(obj[1,],"  "))[1:ncol(obj)]
 		tmp<-obj[-1,]
-		colnames(tmp)<-names
-		return(as.matrix(tmp))
+		colnames(tmp)<-gsub(" ",".",names)
+		return(as.data.frame(tmp))
 	}	
 
 #making an edge list based on CIDs from KEGG reactant pairs

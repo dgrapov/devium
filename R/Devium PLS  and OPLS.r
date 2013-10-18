@@ -843,7 +843,7 @@ permute.PLS<-function(data,y,n=10,ncomp,...){# could be made parallel
 }	
 
 #permute OSC-PLS model
-permute.OSC.PLS<-function(data,y,n=10,ncomp,osc.comp=1,...){ # should be made parallel
+permute.OSC.PLS<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...){ # should be made parallel
 	
 	
 	#permuted Y
@@ -857,12 +857,12 @@ permute.OSC.PLS<-function(data,y,n=10,ncomp,osc.comp=1,...){ # should be made pa
 			{
 				# cat("permuting model",i,"\n")
 				if(!is.null(train.test.index)) {tmp.train.test.index<-train.test.index[,i,drop=FALSE]} else {tmp.train.test.index<-train.test.index}
-				model<-make.OSC.PLS.model(pls.y=as.matrix(perm.y[[i]]),pls.data=data,comp=ncomp,OSC.comp=osc.comp,train.test.index=tmp.train.test.index,...) #,...
+				model<-make.OSC.PLS.model(pls.y=as.matrix(perm.y[[i]]),pls.data=data,comp=ncomp,OSC.comp=OSC.comp,train.test.index=tmp.train.test.index,...) #,...
 				#get stats
-				q2<-model$Q2[[osc.comp+1]][ncomp+1,,drop=FALSE]# cv adjusted 
-				rx2<-model$Xvar[[osc.comp+1]][ncomp]
-				pred.val<-as.matrix(model$fitted.values[[osc.comp+1]][,,ncomp])
-				rmsep<-model$rmsep[[osc.comp+1]]# take CV adjusted RMSEP (see true below RMSEP)
+				q2<-model$Q2[[OSC.comp+1]][ncomp+1,,drop=FALSE]# cv adjusted 
+				rx2<-model$Xvar[[OSC.comp+1]][ncomp]
+				pred.val<-as.matrix(model$fitted.values[[OSC.comp+1]][,,ncomp])
+				rmsep<-model$rmsep[[OSC.comp+1]]# take CV adjusted RMSEP (see true below RMSEP)
 				if(!is.null(train.test.index)) {
 					rmsep<-model$predicted.RMSEP 
 				}
