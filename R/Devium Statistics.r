@@ -259,22 +259,99 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.in
  }
  
 #t-test with FDR for many variables
-multi.t.test<-function(data, factor,paired=FALSE,progress=TRUE){
+multi.t.test<-function(data, factor,paired=FALSE,progress=TRUE,FDR="BH"){
 	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
 	p.vals<-sapply(1:ncol(data), function(i){
 			if (progress == TRUE){setTxtProgressBar(pb, i)}
-			t.test(data[,i]~factor,paired = paired)$p.value 
+			#test if variance is equal
+			e.var<-tryCatch(var.test(data[,i]~unlist(factor))$p.value, error=function(e){1})
+			if(e.var<=0.05){equal.var<-FALSE} else {equal.var <-TRUE}
+			tryCatch(t.test(data[,i]~unlist(factor),paired = paired,var.equal = equal.var)$p.value ,error=function(e){1})
 	})
 	if (progress == TRUE){close(pb); message("Calculating FDR adjustment and q-values")}
-	adj.p<-as.data.frame(p.adjust(as.matrix(p.vals), method = "BH", n = length(p.vals)))
+	adj.p<-as.data.frame(p.adjust(as.matrix(p.vals), method = FDR, n = length(p.vals)))
 	adjusted.q<-FDR.adjust(as.matrix(p.vals),type="pvalue",return.all=TRUE)$qval
 	names<-paste("t.test",c("p.value","adjusted.p.value","q.value"),sep="_")
 	out<-data.frame(p.vals,adj.p,adjusted.q)
 	colnames(out)<-names
 	return(out)
 } 
+
+#simple mixed effects model for repeated measures
+simple.lme<-function(data,factor,subject,FDR="BH", progress=TRUE){
+		#data  = data.frame of values to test
+		#factor = object to be tested 
+		#subject = identifier for repeated measures
+		library("lme4")
+		library(car)
+		tmp.data<-data.frame(data,factor=factor,subject=subject)
+		
+		if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
+		lmer.p.values<-sapply(1:ncol(data), function(i){
+			if (progress == TRUE){setTxtProgressBar(pb, i)}
+			mod<-lmer(data[,i]~ factor + (1|subject), data=tmp.data)
+			res<-Anova(mod)
+			res$"Pr(>Chisq)"
+		})
+		if (progress == TRUE){close(pb)}
+		#FDR adjust 
+		adj.p<-as.data.frame(p.adjust(as.matrix(lmer.p.values), method = FDR, n = length(lmer.p.values)))
+		adjusted.q<-FDR.adjust(as.matrix(lmer.p.values),type="pvalue",return.all=TRUE)$qval
+		names<-paste("mixed.effect",c("p.value",paste(FDR,"adjusted.p.value",sep="."),"q.value"),sep="_")
+		out<-data.frame(lmer.p.values,adj.p,adjusted.q)
+		colnames(out)<-names
+		return(out)
+} 
  
- 
+#calculate AUC for multiple treatments
+ multi.group.AUC<-function(data,subject.id,sample.type, time){
+	library(pracma)
+	#too lazy to rename objects from older fxn
+	subject.id<-as.factor(subject.id)
+	fact<-as.factor(sample.type)	#sample type factor
+	tme<-as.factor(time)	#time	
+	
+	#split objects
+	tmp.data<-split(data,fact)
+	tmp.time<-split(tme,fact)
+	tmp.subs<-split(as.character(subject.id),fact)
+	
+	group.AUC<-lapply(1:nlevels(fact),function(i){
+		ddata<-tmp.data[[i]]
+		ttime<-tmp.time[[i]]
+		subs<-tmp.subs[[i]]
+		
+		#calculate AUC
+		AUC<-sapply(1:length(ddata),function(i)
+		{
+			
+			obj<-split(as.data.frame(ddata[[i]]),subs)
+			#subtract baseline for correct negative AUC
+			base.obj<-lapply(1:length(obj),function(j)
+				{
+					tmp<-as.numeric(as.matrix(unlist(obj[[j]])))
+					tmp-tmp[1]
+				})
+			tmp<-split(as.data.frame(ttime),subs)
+			#x11()
+			#plot(as.numeric(as.matrix(do.call("cbind",tmp))),as.numeric(as.matrix(do.call("cbind",base.obj))))
+			out<-as.data.frame(sapply(1:length(obj),function(j)
+			{
+				x<-as.numeric(as.matrix(unlist(tmp[[j]])))
+				o<-order(x) # need to be in order else AUC will be wrong!
+				y<-as.numeric(as.matrix(unlist(base.obj[[j]])))
+				trapz(x[o],y[o])
+			}))
+		colnames(out)<-colnames(data[i])
+		out
+		})
+		tmp<-do.call("cbind",AUC)
+		rownames(tmp)<-paste(levels(fact)[i],names(split(as.data.frame(ttime),subs)),sep="_")
+		tmp
+	})	
+	do.call("rbind",group.AUC)
+}
+
 #random junk I will eventually delete	
 testing <-function(){
 #check for errors Nan or Inf
