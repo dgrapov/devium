@@ -1,7 +1,7 @@
 DEVIUM
 ======
 
-<b>D</b>ynamic multivariat<b>E</b> Data Analysis and <b>VI</b>s<b>U</b>alization Platfor<b>M</b>
+<b>D</b>ynamic Multivariat<b>E</b> Data Analysis and <b>VI</b>s<b>U</b>alization Platfor<b>M</b>
 
 Interactive plotting and analysis of multivariate data using Shiny or GTK based GUIs.
 
