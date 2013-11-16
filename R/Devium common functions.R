@@ -1,4 +1,4 @@
-#list to character
+#list to characte1r
 fixlc<-function(obj){as.character(unlist(obj))}
 
 #list to numeric
@@ -316,8 +316,6 @@ multi.object.XL<-function(workbook.path="new",placement.list,workbook.name=NULL,
 			saveWorkbook(wb)
 	}
 
-	
-	
 #get object from EXCEL	
 get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name=NULL,a,return=TRUE,environment=.GlobalEnv)
 				{
@@ -365,7 +363,7 @@ get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name
 					if(return){get(tmp.obj,envir=environment)}
 }						
 				
-#collapse columns as strings
+#collapse columns as strings (why am I not using paste collapse?)
 join.columns<-function(obj=formatted$row.metadata[,4:6],char="|",quote.last=FALSE)
         {
                 

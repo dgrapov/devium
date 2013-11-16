@@ -967,7 +967,7 @@ devium.calculate.correlations<-function(data,type="pearson", results = "matrix")
 			
 			res<-.local(data)	
 			
-			#add option for matrix or edge list	out put
+			#add option for matrix or edge list	out put # there is a faster way to get edge list!
 			if (results == "edge list"){
 				cor<-gen.mat.to.edge.list(res$cor)
 				p.vals<-gen.mat.to.edge.list(res$p.value)

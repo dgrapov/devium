@@ -11,7 +11,7 @@ rename <- function(x, pattern, replace="_")
 		return(x)	
 }
 
-# wrapper to compute functions on subsets of data specefied by the factor
+# wrapper to compute functions on subsets of data specified by the factor
 calc.stat<-function(data,factor,stat)
 	{
 		d.list<-split(data,as.factor(factor))
@@ -104,7 +104,7 @@ anova.formula.list<-function(data,formula,meta.data)
 }
 
 #get summary statistics
-stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1)
+stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,na.rm=TRUE)
 	{
 		#summarise and make ANOVA from data based on formula 
 		#check.get.packages(c("qvalue"))  using fdrtools instead to avoid random erros with initialization
@@ -179,7 +179,7 @@ covar.adjustment<-function(data,formula)
 		})
 	out<-as.data.frame(do.call("cbind",output))
 	dimnames(out)<-dimnames(data)
-	#add back pre-adjustment column median to all
+	#add back pre-adjustment column min to all
 	min<-apply(out,2,min, na.rm=T)
 	adj.out<-do.call("cbind",sapply(1:ncol(out),function(i)
 		{
@@ -225,7 +225,7 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.in
 	}
 	
 #get poisson and quasi posson p-values for one-way comparison
- prot.test<-function(data, group, type = c("poisson","quasi-poisson"), FDR="BH"){
+prot.test<-function(data, group, type = c("poisson","quasi-poisson"), FDR="BH"){
 	offset <- NULL
 	#type<-match.arg(type)
 	#group<-as.numeric(as.factor(group[,]))
@@ -259,18 +259,33 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.in
  }
  
 #t-test with FDR for many variables
-multi.t.test<-function(data, factor,paired=FALSE,progress=TRUE,FDR="BH"){
+multi.t.test<-function(data, factor,mu=NULL,paired=FALSE,progress=TRUE,FDR="BH",qvalue="storey",...){
 	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
 	p.vals<-sapply(1:ncol(data), function(i){
 			if (progress == TRUE){setTxtProgressBar(pb, i)}
-			#test if variance is equal
-			e.var<-tryCatch(var.test(data[,i]~unlist(factor))$p.value, error=function(e){1})
-			if(e.var<=0.05){equal.var<-FALSE} else {equal.var <-TRUE}
-			tryCatch(t.test(data[,i]~unlist(factor),paired = paired,var.equal = equal.var)$p.value ,error=function(e){1})
+			if(is.null(mu)){
+				#test if variance is equal
+				e.var<-tryCatch(var.test(data[,i]~unlist(factor))$p.value, error=function(e){1})
+				if(is.nan(e.var)|is.na(e.var)){e.var<-1}
+				if(e.var<=0.05){equal.var<-FALSE} else {equal.var <-TRUE}
+				val<-tryCatch(t.test(data[,i]~unlist(factor),paired = paired,var.equal = equal.var)$p.value ,error=function(e){1})
+				if(is.nan(val)|is.na(val)){val<-1}
+				val
+			} else {
+				val<-tryCatch(t.test(data[,i],mu=mu)$p.value ,error=function(e){1})
+				if(is.nan(val)|is.na(val)){val<-1}
+				val
+			}
 	})
 	if (progress == TRUE){close(pb); message("Calculating FDR adjustment and q-values")}
 	adj.p<-as.data.frame(p.adjust(as.matrix(p.vals), method = FDR, n = length(p.vals)))
-	adjusted.q<-FDR.adjust(as.matrix(p.vals),type="pvalue",return.all=TRUE)$qval
+	if(qvalue=="fdrtools"){
+		adjusted.q<-FDR.adjust(as.matrix(p.vals),type="pvalue",return.all=TRUE)$qval
+	} else {
+		library(qvalue)
+		adjusted.q<-tryCatch(qvalue(as.matrix(p.vals),...)$qvalue,error=function(e){rep(1,length(p.vals))})
+	}
+	
 	names<-paste("t.test",c("p.value","adjusted.p.value","q.value"),sep="_")
 	out<-data.frame(p.vals,adj.p,adjusted.q)
 	colnames(out)<-names
