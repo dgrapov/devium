@@ -782,7 +782,7 @@ get.KEGG.pairs<-function(type="main",url="https://gist.github.com/dgrapov/554864
 		full<-out<-matrix(unlist(tmp2),ncol=4, byrow=TRUE)
 		
 		if(type =="main"){
-				out<-full[full[,3]=="main",1:2]
+				out<-full[agrep("main",full[,3]),1:2] # now will get all main types
 			} 
 			
 		if(type =="all"){
