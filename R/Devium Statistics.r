@@ -12,15 +12,15 @@ rename <- function(x, pattern, replace="_")
 }
 
 # wrapper to compute functions on subsets of data specified by the factor
-calc.stat<-function(data,factor,stat)
+calc.stat<-function(data,factor,stat,...)
 	{
 		d.list<-split(data,as.factor(factor))
 		#function to calculate (ddply, stopped working after update? not obvious why)
-		calc<-function(d.list,stat){
+		calc<-function(d.list,stat,...){
 					out<-sapply(1:length(d.list),function(i)
 						{
 							obj<-d.list[[i]]
-							apply(obj,2,get(stat))
+							apply(obj,2,get(stat),...) #to avoid NA's in stats
 						})
 					colnames(out)<-paste(stat, "-",names(d.list), sep="")	
 					out
@@ -30,7 +30,7 @@ calc.stat<-function(data,factor,stat)
 			{
 				what<-stat[i]
 				name.what<-paste(what,"-",sep="")
-				calc(d.list,stat[i])	
+				calc(d.list,stat[i],...)	
 			}))
 			return(as.data.frame(output))
 	}
@@ -104,7 +104,7 @@ anova.formula.list<-function(data,formula,meta.data)
 }
 
 #get summary statistics
-stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,na.rm=TRUE)
+stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,...)
 	{
 		#summarise and make ANOVA from data based on formula 
 		#check.get.packages(c("qvalue"))  using fdrtools instead to avoid random erros with initialization
@@ -119,8 +119,8 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,na.rm=
 					tmp.data<-data.frame(tmp[[2]])
 						
 					# get means ± sd, fold change
-					means<-calc.stat(tmp.data,factor=fct,stat=c("mean"))
-					sds<-calc.stat(tmp.data,factor=fct,stat=c("sd"))
+					means<-calc.stat(tmp.data,factor=fct,stat=c("mean"),...)
+					sds<-calc.stat(tmp.data,factor=fct,stat=c("sd"),...)
 					fc<-fold.change(means,log=log,rel)
 					colnames(fc)<-paste(colnames(fc),rep(colnames(fc)[rel],ncol(fc)), sep="/")
 
