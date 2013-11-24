@@ -1305,17 +1305,6 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 				"3D-plot" 	= do.call("rglplot",graph.par))
 	}
 
-#calculating qvalue and local FDR
-FDR.adjust<-function(obj,type="pvalue",return.all=FALSE){
-	check.get.packages("fdrtool")
-	#adjust p-values for multiple hypothese tested
-	#options for FDR for tests c("normal", "correlation", "pvalue", "studentt")\
-	#methods for FDR c("fndr", "pct0", "locfdr")
-	obj<-as.numeric(as.character(unlist(obj))) # just to be sure it is numeric
-	obj<-fdrtool(obj, statistic=type,plot=FALSE, color.figure=FALSE, verbose=TRUE,cutoff.method="fndr",pct0=0.75)
-	if(return.all==TRUE){return(obj)} else {return(as.numeric(as.character(unlist(obj$qval))))}
-	}
-	
 #use chemical resolver to get inchi keys from smiles
 get.inchikey.from.smiles<-function(smiles,progress=TRUE){
 		# smiles are coerced to a 1 column data frame

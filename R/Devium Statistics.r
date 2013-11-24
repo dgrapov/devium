@@ -260,6 +260,8 @@ prot.test<-function(data, group, type = c("poisson","quasi-poisson"), FDR="BH"){
  
 #t-test with FDR for many variables
 multi.t.test<-function(data, factor,mu=NULL,paired=FALSE,progress=TRUE,FDR="BH",qvalue="storey",...){
+	check.get.packages(c("qvalue","fdrtool"))
+	
 	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
 	p.vals<-sapply(1:ncol(data), function(i){
 			if (progress == TRUE){setTxtProgressBar(pb, i)}
@@ -283,12 +285,14 @@ multi.t.test<-function(data, factor,mu=NULL,paired=FALSE,progress=TRUE,FDR="BH",
 		adjusted.q<-FDR.adjust(as.matrix(p.vals),type="pvalue",return.all=TRUE)$qval
 	} else {
 		library(qvalue)
+		
 		adjusted.q<-tryCatch(qvalue(as.matrix(p.vals),...)$qvalue,error=function(e){rep(1,length(p.vals))})
 	}
 	
 	names<-paste("t.test",c("p.value","adjusted.p.value","q.value"),sep="_")
 	out<-data.frame(p.vals,adj.p,adjusted.q)
 	colnames(out)<-names
+	rownames(out)<-colnames(data)
 	return(out)
 } 
 
@@ -367,309 +371,14 @@ simple.lme<-function(data,factor,subject,FDR="BH", progress=TRUE){
 	do.call("rbind",group.AUC)
 }
 
-#random junk I will eventually delete	
-testing <-function(){
-#check for errors Nan or Inf
-#replace with NA
-return.list<-lapply(1:length(return.obj.list),function(i)
-	{
-		obj<-return.obj.list[[i]]
-		obj[is.na(obj)|obj=="Inf"|obj=="NaN"]<-"NA"
-		obj
-	})
-
-	######use existing data to conduct a statistical test################################
-# load data from workbook
-workbook.path<-"C:\\Users\\dgrapov\\Dropbox\\Metabolomics Core\\Data Analysis\\Jasmohan Bajaj\\2013\\BAJAJ CTP comparison.xls" #home
-get.object.sheet<- "DATA"
-excel.obj<-get.from.Excel(workbook.path,get.object.sheet)
-# transpose and excise rownames (avoid dealing with non-unique)
-var.names<-excel.obj[,1]	
-data<-as.data.frame(t(excel.obj[,-1]))
-#load index for tests
-get.object.sheet<- "Samples"
-index<-get.from.Excel(workbook.path,get.object.sheet)
-rownames(index)<-index[,1]
-
-#match data and comparison index object
-match.obj<-match.data(data1=data,data2=index)
-
-#prepare for statistical test
-data<-match.obj[[1]]
-test.factor<-match.obj[[2]][,2,drop=FALSE];colname
-formula<-"Comparison"
-
-#conduct test
-out<-stats.summary(data,comp.obj=test.factor,formula)
-
-#prepare to return results to excel 
-return.name<-"statistical.summary"
-return.obj<-data.frame(variables=var.names,out)
-rownames(return.obj)<-c(1:nrow(return.obj))
-colnames(return.obj)<-c("variables",colnames(out))
-return.obj.list<-list(return.obj)
-	
-#because sometimes this can corrupt files the results should be returned to a new worksheet copied and then added to the book in question
-setwd( "C:\\Users\\dgrapov\\Dropbox\\Metabolomics Core\\Data Analysis\\Jasmohan Bajaj\\2013")
-return.to.Excel(workbook.path="new",return.obj.list,return.name,workbook.name=NULL)
-
-#create file containing basic information about the data and analysis to be used in latex report
-analysis.summary<-list(	samples=nrow(data), variables=ncol(data),
-						analysis.factor = "CTP",
-						analysis.factor.levels = c("0 = control","1 = CTP 1 similiar to controls", "2 = CTP 1", "3 = CTP 2","4 = CTP 3"),
-						univariate.analysis = "one-way analysis of variance (one-way ANOVA)",
-						multivariate.analysis = "PLS-DA"
-						)
-						
-#save an object called stats_table to the directory containing foild changes and p-values for the top 20 analytes
-#########################################################################################
-
-
-	
-###############load data from BinBase out put############################################
-#load binbse input from excel work sheet	
-workbook.path<-"C:\\Users\\D\\Dropbox\\Metabolomics Core\\Data Analysis\\Manami Hara\\2013\\mx 110609_Manami Hara Data Analysis.xls" #home
-workbook.path<-"C:\\Users\\dgrapov\\Dropbox\\Metabolomics Core\\Data Analysis\\Manami Hara\\2013\\mx 110609_Manami Hara Data Analysis.xls" # work
-get.object.sheet<- "submit"
-..<-get.from.Excel(workbook.path,get.object.sheet)	
-#format loaded object and assign to environment
-obj<-format.binbase.output('..')	
-
-#carry out statictical tests based on the factor in the last column of  row.metadata
-data<-as.data.frame(do.call("cbind",unclass(as.data.frame(na.omit(obj$data)))));dimnames(data)<-dimnames(as.data.frame(na.omit(obj$data))) # need to break factors
-
-#formatting factor
-fct=na.omit(as.data.frame(t(as.data.frame(strsplit(as.character(unlist(obj$row.metadata[,6])), ">")))))
-fct<-as.data.frame(sapply(1:ncol(fct),function(i){gsub("-",".",fct[,i])}));colnames(fct)<-c("diabetic","age")
-formula<-as.character(join.columns(as.data.frame(matrix(colnames(fct),nrow=1)),char="*")) #
-formula<-"age*diabetic"
-
-out<-stats.summary(data,comp.obj=fct,formula)
-#add rownames
-#function to return results to Excel worksheet via XLConnect
-return.name<-"statistical.summary"
-return.obj<-data.frame(variables=as.character(obj$col.metadata[,1]),out)
-rownames(return.obj)<-c(1:nrow(return.obj))
-colnames(return.obj)<-c("index",colnames(out))
-return.obj.list<-list(return.obj)
-	
-#because sometimes this can corrupt files the results should be returned to a new worksheet copied and then added to the book in question
-setwd( "C:\\Users\\D\\Dropbox\\Metabolomics Core\\Data Analysis\\Manami Hara\\2013")
-return.to.Excel(workbook.path="new",return.obj.list,return.name,workbook.name=NULL)
-
-#make a box plot for group-swise comparisons
-#theme for plot
-library(grid);library(ggplot2)
-#theme for boxplot formatting
-theme_box.plot <- theme (
-    #axis.line = element_line(colour = 'black', size = 2), 
-	axis.line = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks = element_blank(), 
-	#axis.text.x = element_text(size = 80,vjust=20),
-	axis.text.x = element_blank(),
-	axis.title.x = element_blank(),	
-    axis.title.y = element_blank(), 
-    axis.ticks.length = unit(1, "lines"), 
-    axis.ticks.margin = unit(.1, "lines"), 
-    legend.position = "none", 
-    panel.background = element_blank(), 
-    panel.border = element_blank(), 
-    panel.grid.major = element_blank(),  
-    panel.grid.minor = element_blank(), 
-    panel.margin = unit(c(1,.25,.25,.25), "lines"), 
-    plot.background = element_blank(), 
-    plot.margin = unit(0*c(.5,.25,.25,.25), "lines"))
-	
-#generate data summary to use for plots
-#factor for plots
-fct<-join.columns(fct)
-#reorder factor to visualization preffernce young non-d then old non- d
-fct[fct=="non.diabetic  | young "]<-1;fct[fct=="non.diabetic  | old "]<-2;fct[fct=="diabetic  | young "]<-3;fct[fct=="diabetic  | old "]<-4
-
-col<-I(c("green","#008B00","red","#8B1A1A")) # color scheme young-old (light-dark) non-diab. (green-red)
-
-#vvars are names of variables (using numeric index now incase of duplicates and to conserve name later)
-id<-as.numeric(rownames(vvars))
-vars<-as.character(unlist(vvars[,1]))
-save.dir<-"C:\\Users\\dgrapov\\Dropbox\\Metabolomics Core\\Data Analysis\\Manami Hara\\2013\\node images"
-setwd(save.dir)
-
-#generate plots
-i<-1
-for(i in 1:length(vars))
-	{
-		#box plot	
-		p4<- ggplot(data, aes(factor(fct), data[,id[i]]))+ geom_boxplot(aes(factor(fct)),fill=col,notch = FALSE,size=.6,width=1)+guides(fill=FALSE) + theme_box.plot
-
-		#save top file
-		png(file = paste(vars[i],".png",sep=""),pointsize=1,width=45,height=45) # was 90
-		print(p4)
-		#ggsave(plot = p4, filename= paste(save.file.prefix,tmp.var,".png",sep=""), dpi=300, pointsize=1)
-		#plot
-		dev.off()	
-	}
-
-#use age adjusted data to simplify
-	
-	
-#insert graphs into network
-#create node visualizations 
-#insert images into nodes
-#---------------------------------------------
-path<-save.dir
-library(RCytoscape)
-network<- existing.CytoscapeWindow ('Sheet1.1',  copy.graph.from.cytoscape.to.R=TRUE) # get network from cytoscape
-
-#plot nodes
-#Object with cids and names of nodes to plot node inset graphs for 
-plot.nodes<-as.character(cids[,2])
-image.paths<-paste(sprintf ('file:///%s/%s', path,plot.nodes),".png",sep="")
-
-image.node.info<-cbind(cids,image.paths)
-#need to make sure the node is also
-net.nodes<-getAllNodes(network) 
-image.node.info<-image.node.info[as.character(image.node.info[,1])%in%net.nodes,]
-
-
-#need to match node names with images
-
-#cids 
-setNodeImageDirect (network,as.character(image.node.info[,1]), as.character(image.node.info[,3])) # change node attributes file
-setNodeLabelDirect(network,as.character(image.node.info[,1]),as.character(image.node.info[,2])) #fix labels
-setNodeShapeDirect(network,as.character(image.node.info[,1]),"ellipse") # fix shape
-redraw(network)
-
-
-
-#set age-adjusted diffrences between diabetic factor as network node graphs
-ffactor<-factor(fct.labels,levels=c("non-diabetic","diabetic"))
-
-col<-I(c("#00FFFFFF","#FF0000FF")) # color scheme young-old (light-dark) non-diab. (green-red)
-
-#look up for variable names
-id<-as.numeric(rownames(vvars))
-vars<-as.character(unlist(vvars))
-save.dir<-"C:\\Users\\dgrapov\\Dropbox\\Metabolomics Core\\Data Analysis\\Manami Hara\\2013\\node images"
-setwd(save.dir)
-
-#generate plots
-i<-1
-for(i in 1:length(vars))
-	{
-		#box plot	
-		p4<- ggplot(data, aes(factor(ffactor), data[,id[i]]))+ geom_boxplot(aes(factor(ffactor)),fill=col,notch = FALSE,size=.6,width=1)+guides(fill=FALSE) + theme_box.plot
-		#save top file
-		png(file = paste(vars[i],"ageadj",".png",sep=""),pointsize=1,width=45,height=45) # was 90
-		print(p4)
-		#ggsave(plot = p4, filename= paste(save.file.prefix,tmp.var,".png",sep=""), dpi=300, pointsize=1)
-		#plot
-		dev.off()	
-	}
-
-#add plots to network
-#insert graphs into network
-#need to translate node names to CIDs
-library(RCytoscape)
-cy <- CytoscapeConnection ()
-network<- existing.CytoscapeWindow ('Sheet1',  copy.graph.from.cytoscape.to.R=TRUE)
-
-#---------------------------------------------
-path<-save.dir
-#plot nodes
-#Object with cids and names of nodes to plot node inset graphs for 
-plot.nodes<-as.character(cids[,2])
-image.paths<-paste(sprintf ('file:///%s/%s', path,plot.nodes),"ageadj",".png",sep="")
-
-image.node.info<-cbind(cids,image.paths)
-#need to make sure the node is also
-net.nodes<-getAllNodes(network) 
-image.node.info<-image.node.info[as.character(image.node.info[,1])%in%net.nodes,]
-
-
-
-#need to match node names with images
-
-#cids 
-setNodeImageDirect (network,as.character(image.node.info[,1]), as.character(image.node.info[,3])) # change node attributes file
-setNodeLabelDirect(network,as.character(image.node.info[,1]),as.character(image.node.info[,2])) #fix labels
-setNodeShapeDirect(network,as.character(image.node.info[,1]),"ellipse") # fix shape
-redraw(network)
-set
-
-
-	
-#############one sample t-test to identify changes in AUC
-data<-start.data
-fct<-as.factor(fct) # pre post index
-data<-cbind(fct,data)
-#use ddply
-require(plyr)
-
-
-test<-function(x,mu){
-		c(mean= mean(x),
-		sd = sd(x),
-		p.value = tryCatch(t.test(x,mu=mu)$p.value,error = function(e) {NA}))
-	}
-
-out.put<- ddply(.data=data, .(fct), colwise(test,mu=0),
-    .progress = "text", .inform = FALSE, .drop = TRUE,
-    .parallel = FALSE, .paropts = NULL)
-
-# output
-out.put<-as.data.frame(t(out.put));colnames(s)<-rep(c("mean","stdev","p-value"),length(.(fct)))
-
-
-#add adjusted p and q.values
-#get index for p-values in above results
-id<-seq(1, nlevels(fct)*3)
-cols<-id[id%%3==0]
-adjusted.p<-lapply(1:length(cols),function(i)
-	{
-		p.values<-as.numeric(as.matrix(out.put[,cols[i],drop=FALSE]))
-		p.vals<-as.data.frame(p.adjust(p.values, method = "BH", n = length(p.values)))
-		q.vals<-tryCatch(qvalue(p.values,lambda=.5, robust=TRUE)$qvalues,error=function(e){matrix("Can not estimate",nrow=length(p.values),ncol=1)})	
-		data.frame(adj.p.value = p.vals, q.value = q.vals)
-	})
-
-
-
-###fixing network size and color
-path<-save.dir
-library(RCytoscape)
-network<- existing.CytoscapeWindow ('PLS_DA PRE',  copy.graph.from.cytoscape.to.R=TRUE) # get network from cytoscape
-
-#plot nodes
-#Object with cids and names of nodes to plot node inset graphs for 
-plot.nodes<-as.character(cids[,2])
-image.paths<-paste(sprintf ('file:///%s/%s', path,plot.nodes),".png",sep="")
-
-image.node.info<-cbind(cids,image.paths)
-#need to make sure the node is also
-net.nodes<-getAllNodes(network) 
-image.node.info<-image.node.info[as.character(image.node.info[,1])%in%net.nodes,]
-
-
-#need to match node names with images
-
-#cids 
-setNodeImageDirect (network,as.character(image.node.info[,1]), as.character(image.node.info[,3])) # change node attributes file
-setNodeLabelDirect(network,as.character(image.node.info[,1]),as.character(image.node.info[,2])) #fix labels
-setNodeShapeDirect(network,as.character(image.node.info[,1]),"ellipse") # fix shape
-redraw(network)
-
-
-
-x<-log(1:10,base=10)
-
-for(i in 1:length(x))
-	{
-		print(paste("x=",x[i]))	
-	
+#calculating qvalue and local FDR
+FDR.adjust<-function(obj,type="pvalue",return.all=FALSE){
+	check.get.packages("fdrtool")
+	#adjust p-values for multiple hypothese tested
+	#options for FDR for tests c("normal", "correlation", "pvalue", "studentt")\
+	#methods for FDR c("fndr", "pct0", "locfdr")
+	obj<-as.numeric(as.character(unlist(obj))) # just to be sure it is numeric
+	obj<-fdrtool(obj, statistic=type,plot=FALSE, color.figure=FALSE, verbose=FALSE,cutoff.method="fndr",pct0=0.75)
+	if(return.all==TRUE){return(obj)} else {return(as.numeric(as.character(unlist(obj$qval))))}
 	}
 	
-
-re<-t.test(x, x*rnorm(length(x)))$p.value
-	
-}
