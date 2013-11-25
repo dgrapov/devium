@@ -155,8 +155,8 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 									geom_point(aes(color=color),size=size,alpha=.5)  
 								}
 								#labels
-								lab.offset<-abs(range(obj[,2])[1]-range(obj[,2])[2])/20							
-								labels<-if(label==TRUE){geom_text(size=size,aes(x=PC1, y=(PC2 - lab.offset),label=id),color="black",show_guide = FALSE)} else { NULL }
+								tmp$lab.offset<-tmp$PC2-abs(range(obj[,2])[1]-range(obj[,2])[2])/20							
+								labels<-if(label==TRUE){geom_text(size=size,aes(x=PC1, y=lab.offset,label=id),color="black",show_guide = FALSE)} else { NULL }
 								
 								#Hoettellings T2 ellipse	 
 								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
@@ -292,7 +292,7 @@ pca.inputs<-tmp
 
 res<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
-results<-"screeplot"#"biplot"#"scores","loadings","biplot")
+results<-"scores"#"biplot"#"scores","loadings","biplot")"screeplot"
 color<-NULL#data.frame(am=mtcars$am)
 plot.PCA(pca=res,results,size=3,color=color, label=TRUE, legend.name =  NULL)
 
