@@ -261,10 +261,27 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								tmp.loadings[,1]<-rescale(loadings[,1], range(scores[,1]))
 								tmp.loadings[,2]<-rescale(loadings[,2], range(scores[,2]))
 								tmp.loadings<-data.frame(tmp.loadings,label=rownames(loadings))
+								
+								#Adding Hoettellings T2 ellipse
+								tmp<-scores[,1:2]
+								if(is.null(color)){
+										tmp$color<-"gray"
+									}else{
+										tmp$color<-as.factor(color[,])
+										if(is.null(legend.name)){legend.name<-colnames(color)}
+								}								
+								ell<-get.ellipse.coords(cbind(tmp[,1],tmp[,2]), group=tmp$color)# group visualization via 
+								polygons<-if(is.null(color)){
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+									} else {
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = TRUE) 
+									}
+								
 								 p<-ggplot()+
-								 geom_point(data=scores, aes_string(x=colnames(data)[1], y=colnames(data)[2]))+
-								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(data)[1], yend=colnames(data)[2]), arrow=arrow(length=unit(0.05,"cm")), alpha=0.25)+
-								 geom_text(data=tmp.loadings, aes_string(x=colnames(data)[1], y=colnames(data)[2], label="label"), alpha=0.5, size=font.size)+
+								 geom_point(data=tmp, aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2]))+
+								 polygons+
+								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=arrow(length=unit(0.05,"cm")), alpha=0.25)+
+								 geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
 								 scale_colour_discrete("Variety")+
 								 scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
 								 scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100))+
