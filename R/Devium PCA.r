@@ -155,7 +155,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 									geom_point(aes(color=color),size=size,alpha=.5)  
 								}
 								#labels
-								tmp$lab.offset<-tmp$PC2-abs(range(obj[,2])[1]-range(obj[,2])[2])/20							
+								tmp$lab.offset<-tmp$PC2-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
 								labels<-if(label==TRUE){geom_text(size=font.size,aes(x=PC1, y=lab.offset,label=id),color="black",show_guide = FALSE)} else { NULL }
 								
 								#Hoettellings T2 ellipse	 
@@ -205,7 +205,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 									geom_point(aes(color=color),size=size,alpha=.5)  
 								}
 								#labels
-								lab.offset<-abs(range(obj[,2])[1]-range(obj[,2])[2])/20							
+								lab.offset<-abs(range(obj[,2])[1]-range(obj[,2])[2])/50							
 								labels<-if(label==TRUE){geom_text(size=font.size,aes(x=PC1, y=(PC2 - lab.offset),label=id),color="black",show_guide = FALSE)} else { NULL }
 								
 								#Hoettellings T2 ellipse	 
@@ -286,6 +286,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								 scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
 								 scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100))+
 								 .theme2
+								 if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								 print(p)
 							}
 	)
