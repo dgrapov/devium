@@ -1,4 +1,7 @@
-#
+
+#scale model
+
+
 #function to carry out PLS or orthogonal signal correction PLS (OSC-PLS), obsolete use make.OSC.PLS.model
 OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,cv.scale=FALSE,return.obj="stats",...){ 
 	
@@ -70,7 +73,7 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 	for(i in 1:(OSC.comp+1)){ 
 			
 		data<-OSC.results$data[[i]]
-		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale)#,...
+		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale,...)#
 		ww<-tmp.model$loading.weights[,1]
 		pp<-tmp.model$loadings[,1]
 		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
@@ -1254,4 +1257,26 @@ duplex.select<-function(data,ken.sto2.obj,percent.in.test)
 			 `Chosen validation sample names`=`Chosen validation sample names`,
 			 `Chosen calibration sample names` = `Chosen calibration sample names`, 
 			 `Chosen calibration row number` = `Chosen calibration row number`)
+}
+
+
+#various tests
+test<-function(){
+data(mtcars)
+data<-mtcars[,1:6]
+y<-data.frame(am=mtcars$am)
+pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
+
+scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
+#make OSC model
+mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=2, validation = "LOO",method="oscorespls", cv.scale=TRUE)
+plot.OSC.results(mods,plot="scores",groups=color)
+plot.OSC.results(mods,plot="RMSEP",groups=color)
+
+#make model visualization
+final<-results<-get.OSC.model(obj=mods,OSC.comp=2)
+plot.PLS.results(obj=final,plot="scores",groups=tmp.group)
+
+
+
 }

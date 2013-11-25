@@ -274,11 +274,15 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								polygons<-if(is.null(color)){
 										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
 									} else {
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = TRUE) 
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
 									}
-								
+								points<-if(all(tmp$color=="gray")) { 
+									geom_point(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2]),color="gray",size=size,alpha=.75,show_guide = FALSE) 
+								} else { 
+									geom_point(data=tmp, aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2],color="color"),size=size,alpha=.5)  
+								}
 								 p<-ggplot()+
-								 geom_point(data=tmp, aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2]))+
+								 points +
 								 polygons+
 								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=arrow(length=unit(0.05,"cm")), alpha=0.25)+
 								 geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
