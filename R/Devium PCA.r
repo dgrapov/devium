@@ -122,7 +122,7 @@ make.scree.plot.bar<-function(eigenvalues){
 }
 
 
-plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE, legend.name =  NULL){
+plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5){
 	
 	library(ggplot2)
 	library(reshape2)
@@ -156,7 +156,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								}
 								#labels
 								tmp$lab.offset<-tmp$PC2-abs(range(obj[,2])[1]-range(obj[,2])[2])/20							
-								labels<-if(label==TRUE){geom_text(size=size,aes(x=PC1, y=lab.offset,label=id),color="black",show_guide = FALSE)} else { NULL }
+								labels<-if(label==TRUE){geom_text(size=font.size,aes(x=PC1, y=lab.offset,label=id),color="black",show_guide = FALSE)} else { NULL }
 								
 								#Hoettellings T2 ellipse	 
 								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
@@ -206,7 +206,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								}
 								#labels
 								lab.offset<-abs(range(obj[,2])[1]-range(obj[,2])[2])/20							
-								labels<-if(label==TRUE){geom_text(size=size,aes(x=PC1, y=(PC2 - lab.offset),label=id),color="black",show_guide = FALSE)} else { NULL }
+								labels<-if(label==TRUE){geom_text(size=font.size,aes(x=PC1, y=(PC2 - lab.offset),label=id),color="black",show_guide = FALSE)} else { NULL }
 								
 								#Hoettellings T2 ellipse	 
 								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
@@ -264,7 +264,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								 p<-ggplot()+
 								 geom_point(data=scores, aes_string(x=colnames(data)[1], y=colnames(data)[2]))+
 								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(data)[1], yend=colnames(data)[2]), arrow=arrow(length=unit(0.05,"cm")), alpha=0.25)+
-								 geom_text(data=tmp.loadings, aes_string(x=colnames(data)[1], y=colnames(data)[2], label="label"), alpha=0.5, size=3)+
+								 geom_text(data=tmp.loadings, aes_string(x=colnames(data)[1], y=colnames(data)[2], label="label"), alpha=0.5, size=font.size)+
 								 scale_colour_discrete("Variety")+
 								 scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
 								 scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100))+
@@ -293,7 +293,8 @@ pca.inputs<-tmp
 res<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
 results<-"scores"#"biplot"#"scores","loadings","biplot")"screeplot"
-color<-NULL#data.frame(am=mtcars$am)
+color<-data.frame(am=mtcars$am,vs=mtcars$vs)#NULL#data.frame(am=mtcars$am)
+join.columns(color)
 plot.PCA(pca=res,results,size=3,color=color, label=TRUE, legend.name =  NULL)
 
 
