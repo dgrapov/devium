@@ -68,7 +68,7 @@ devium.pca.calculate<-function(pca.inputs=get("devium.pca.object",envir=devium),
 		}
 	}
 
-	#trying to debug issue in shiny 
+#trying to debug issue in shiny 
 devium.pca.calculate2<-function(pca.inputs,args.list=TRUE,return=NULL, plot=TRUE)
 	{
 		#port of imDEV source code optimized for GUI use
@@ -194,8 +194,8 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 	#results<-match.args(results) #
 	local<-switch(results[1],
 
-		"screeplot" 	= function(pca,...){make.scree.plot.bar(pca$pca.eigenvalues)},
-		"scores"		= function(pca,...){
+		"screeplot" 	= function(pca){make.scree.plot.bar(pca$pca.eigenvalues)},
+		"scores"		= function(pca,color, size){
 								obj<-pca$pca.scores[,]	
 								points<-if(is.null(color)) { geom_point(color="gray",size=size,alpha=.5,legend=FALSE) } else { geom_point(aes(color=color),size=size,alpha=.5)  } 	
 								labels<-if(label==TRUE){geom_text(size=size,aes(x=PC1, y=(PC2 -.5),color=color,label=id),legend = F)} else { NULL }
@@ -224,7 +224,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								print(p)
 							},
 							
-		"loadings"		= function(pca,...){
+		"loadings"		= function(pca,size){
 								obj<-pca$pca.loadings[,]	
 								points<-if(is.null(color)) { geom_point(color="gray",size=size,alpha=.5,legend=FALSE) } else { geom_point(aes(color=color),size=size,alpha=.5)  } 	
 								labels<-if(label==TRUE){geom_text(size=3,aes(x=PC1, y=(PC2 -.5),color=color,label=id),legend = F)} else {NULL}
@@ -249,7 +249,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								print(p)
 							},
 							
-		"biplot"		= function(pca,...){
+		"biplot"		= function(pca){
 								#rescaling based on: http://cran.r-project.org/doc/contrib/Lemon-kickstart/rescale.R
 								 rescale<-function(x,newrange) {
 								 if(nargs() > 1 && is.numeric(x) && is.numeric(newrange)) {
