@@ -273,7 +273,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 							}
 	)
 	
-	local(pca,color,size)
+	local(pca=pca,color=color,size=size)
 
 }
 
@@ -292,7 +292,7 @@ pca.inputs<-tmp
 
 res<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
-results<-"biplot"#"scores","loadings","biplot")
+results<-"screeplot"#"biplot"#"scores","loadings","biplot")
 color<-NULL#data.frame(am=mtcars$am)
 plot.PCA(pca=res,results,size=3,color=color, label=TRUE, legend.name =  NULL)
 
