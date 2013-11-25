@@ -122,7 +122,7 @@ make.scree.plot.bar<-function(eigenvalues){
 }
 
 
-plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5){
+plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5){
 	
 	library(ggplot2)
 	library(reshape2)
@@ -131,7 +131,7 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 
 		"screeplot" 	= function(pca,...){make.scree.plot.bar(pca$pca.eigenvalues)},
 		"scores"		= function(pca,color,size){
-								obj<-pca$pca.scores[,]	
+								obj<-pca$pca.scores[,c(xaxis,yaxis)]	
 								tmp<-data.frame(obj,id = rownames(obj))
 								#plot 
 								.theme2<- theme(
@@ -155,8 +155,8 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 									geom_point(aes(color=color),size=size,alpha=.5)  
 								}
 								#labels
-								tmp$lab.offset<-tmp$PC2-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
-								labels<-if(label==TRUE){geom_text(size=font.size,aes(x=PC1, y=lab.offset,label=id),color="black",show_guide = FALSE)} else { NULL }
+								tmp$lab.offset<-tmp[,2]-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
+								labels<-if(label==TRUE){geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="id"),color="black",show_guide = FALSE)} else { NULL }
 								
 								#Hoettellings T2 ellipse	 
 								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
@@ -174,14 +174,14 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								.theme2 + 
 								labels +
 								polygons +
-								scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
-								scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100)) 
+								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
+								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								print(p)
 							},
 							
 		"loadings"		= function(pca,color,size){
-								obj<-pca$pca.loadings[,]	
+								obj<-pca$pca.loadings[,c(xaxis,yaxis)]	
 								tmp<-data.frame(obj,id = rownames(obj))
 								#plot 
 								.theme2<- theme(
@@ -205,8 +205,8 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 									geom_point(aes(color=color),size=size,alpha=.5)  
 								}
 								#labels
-								lab.offset<-abs(range(obj[,2])[1]-range(obj[,2])[2])/50							
-								labels<-if(label==TRUE){geom_text(size=font.size,aes(x=PC1, y=(PC2 - lab.offset),label=id),color="black",show_guide = FALSE)} else { NULL }
+								tmp$lab.offset<-tmp[,2]-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
+								labels<-if(label==TRUE){geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="id"),color="black",show_guide = FALSE)} else { NULL }
 								
 								#Hoettellings T2 ellipse	 
 								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
@@ -224,8 +224,8 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								.theme2 + 
 								labels +
 								polygons +
-								scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
-								scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100)) 
+								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
+								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								print(p)
 							},
@@ -256,8 +256,8 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 												plot.background = element_blank()
 											 )
 								#based on https://groups.google.com/forum/#!topic/ggplot2/X-o2VXjDkQ8
-								scores<-pca$pca.scores[,]
-								loadings<-tmp.loadings<-pca$pca.loadings[,]
+								scores<-pca$pca.scores[,c(xaxis,yaxis)]
+								loadings<-tmp.loadings<-pca$pca.loadings[,c(xaxis,yaxis)]
 								tmp.loadings[,1]<-rescale(loadings[,1], range(scores[,1]))
 								tmp.loadings[,2]<-rescale(loadings[,2], range(scores[,2]))
 								tmp.loadings<-data.frame(tmp.loadings,label=rownames(loadings))
@@ -283,8 +283,8 @@ plot.PCA<-function(pca, results = c("screeplot","scores","loadings","biplot"),si
 								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=arrow(length=unit(0.05,"cm")), alpha=0.25)+
 								 geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
 								 scale_colour_discrete("Variety")+
-								 scale_x_continuous(sprintf("PC1 (%s%%)", round(pca$pca.eigenvalues[1,1],digits=2)*100))+
-								 scale_y_continuous(sprintf("PC2 (%s%%)", round(pca$pca.eigenvalues[2,1],digits=2)*100))+
+								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
+								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) +
 								 .theme2
 								 if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								 print(p)
@@ -310,10 +310,13 @@ pca.inputs<-tmp
 
 res<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
-results<-"scores"#"biplot"#"scores","loadings","biplot")"screeplot"
+results<-"biplot"#"biplot"#"scores","loadings","biplot")"screeplot"
 color<-data.frame(am=mtcars$am,vs=mtcars$vs)#NULL#data.frame(am=mtcars$am)
-join.columns(color)
-plot.PCA(pca=res,results,size=3,color=color, label=TRUE, legend.name =  NULL)
+color<-data.frame(color=join.columns(color))
+xaxis<-1
+yaxis=2
+
+plot.PCA(pca=res,results=results,yaxis=yaxis,xaxis=xaxis,size=3,color=color, label=TRUE, legend.name =  NULL)
 
 
 }
