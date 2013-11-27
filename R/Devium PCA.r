@@ -71,7 +71,6 @@ devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return=NULL, plot=TRUE)
 		}
 	}
 	
-	
 # generate a scree plot base
 make.scree.plot<-function(eigenvalues)
 	{
