@@ -515,42 +515,32 @@ get.ellipse.coords<-function(obj,group=NULL, ellipse.level=.95){
 	}		
 	
 #get polygon coordinates for each group
-get.polygon.coords<-function(){ 			
-		comps<-obj$total.LVs
-		plot.obj<-tryCatch(obj$scores[[1]][,c(comp1,comp2)],error=function(e){obj$scores[,c(comp1,comp2)]}) # not sure how to simply unclass and coerce to data.frame
+get.polygon.coords<-function(obj,group){ 
+		require(plyr)
+		fct<-if(is.null(group)) as.factor(rep(1,nrow(obj))) else factor(join.columns(group))
+		chull.bounds <- ddply(obj, .(fct), function(x) data.frame(x[chull(as.matrix(x)),]))
 		
-		#format data
-		out<-as.data.frame(cbind(plot.obj[,c(comp1,comp2)],join.columns(as.matrix(groups))))
-		colnames(out)<-c("LV1","LV2","groups")
-			
-		out[,1:2]<-as.numeric(as.matrix(out[,1:2]))	
 		
-		#calculate convex hull for polygons for each group
-		data.obj <- split(out, as.factor(unlist(groups)))
-		tmp.obj <- lapply(1:length(data.obj), function(i){
-			obj<-data.obj[[i]]
-			s2<-split(obj,obj[,3])
-			do.call(rbind,lapply(1:length(s2),function(j){
-				tmp<-s2[[j]]
-				tmp[chull(tmp[,1:2]),] 
-				}))
-		})
-		chull.boundaries <- do.call("rbind", tmp.obj)
-	
-		#custom theme
-		.theme<- theme(
-							axis.line = element_line(colour = 'gray', size = .75), 
-							panel.background = element_blank(), 
-							panel.border = element_rect(colour="gray",fill=NA),
-							plot.background = element_blank()
-						 )
-						 
-		#make plot
-		p<-ggplot(data=out, aes(x=LV1, y=LV2, group=groups,color=groups)) + 
-		geom_hline(aes(yintercept=0),color="gray60",linetype="dashed")+ 
-		geom_vline(aes(xintercept=0),color=I("gray60"),linetype=2) 
-		p<-p+geom_polygon(data=chull.boundaries,aes(x=LV1,y=LV2,fill=groups),alpha=.5) +geom_point(size=2)+.theme
-		print(p)
+		colnames(chull.bounds)<-c("group","x","y")	
+		return(chull.bounds)	
 }
 
-#scatter plot matrix in ggplot2
+#rescaling based on: http://cran.r-project.org/doc/contrib/Lemon-kickstart/rescale.R
+ rescale<-function(x,newrange) {
+ if(nargs() > 1 && is.numeric(x) && is.numeric(newrange)) {
+  # if newrange has max first, reverse it
+  if(newrange[1] > newrange[2]) {
+   newmin<-newrange[2]
+   newrange[2]<-newrange[1]
+   newrange[1]<-newmin
+  }
+  xrange<-range(x)
+  if(xrange[1] == xrange[2]) stop("can't rescale a constant vector!")
+  mfac<-(newrange[2]-newrange[1])/(xrange[2]-xrange[1])
+  invisible(newrange[1]+(x-xrange[1])*mfac)
+ }
+ else {
+  cat("Usage: rescale(x,newrange)\n")
+  cat("\twhere x is a numeric object and newrange is the min and max of the new range\n")
+ }
+}

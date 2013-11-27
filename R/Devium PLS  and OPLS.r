@@ -389,71 +389,34 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 	}	
 	
 #recreating plots based on plot.PCA options with slight modifications (good example of a place to use oob, need to have helper function to switch top level inputs based on class and use generic plotter)
-plot.PLS<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(obj$data))),comp1=1,comp2=2){
+plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse"){
 	require(ggplot2)
 	#plot = one of: c("RMSEP","scores","loadings")
 	#groups is a factor to show group visualization in scores plot
 	
-	switch(plot, # only looks right for single Y models!
-		RMSEP 			=  .local<-function(obj,...){
+	local<-switch(plot, # only looks right for single Y models!
+		RMSEP 			=  function(obj,...){
 									
 									.theme<- theme(
 										axis.line = element_line(colour = 'gray', size = .75), 
 										panel.background = element_blank(),  
 										plot.background = element_blank()
 									) 
-									main.obj<-obj$RMSEP	
-									tmp<-data.frame(melt(main.obj))
-									tmp$offset<-tmp[,2]+.25
-							
-									tmp$OLVS<-paste0("OLV ",0:ncol(main.obj))
-									ggplot(data=tmp ,aes(y=value,x=Var2,color=OLVS))+
-									geom_line(size=1.5,alpha=.75)+geom_point(size=3)+.theme +ylab("RMSEP")+xlab("LV")
-								
-							},
-		scores 			=	.local<-function(obj,comp1,comp2){
-								comps<-obj$ncomp
-								plot.obj<-tryCatch(obj$scores[[1]][,c(comp1,comp2)],error=function(e){obj$scores[,c(comp1,comp2)]}) # not sure how to simply unclass and coerce to data.frame
-								
-								#format data
-								out<-data.frame(plot.obj[,c(comp1,comp2)],join.columns(as.matrix(groups)))
-								colnames(out)<-c("LV1","LV2","groups")
+									RMSEP<-obj$RMSEP[[length(obj$RMSEP)]][,ncol(obj$RMSEP[[1]])] # get for all LVs and optionally CV version
+									Q2<-obj$Q2[[length(obj$Q2)]][,ncol(obj$Q2[[1]])]
+									Xvar<-c(0,obj$Xvar[[length(obj$Xvar)]]) # 0 is for intercept only model
+									LV<-paste0("LV ",1:length(RMSEP))
+									tmp<-melt(data.frame(LV,RMSEP,Q2,Xvar))
 									
-								out[,1:2]<-as.numeric(as.matrix(out[,1:2]))	
+									ggplot(data=tmp ,aes(y=value,x=LV,fill=variable))+
+									geom_bar(stat="identity",position=position_dodge())+.theme +ylab("value")+xlab("LV")
 								
-								#calculate convex hull for polygons for each group
-								data.obj <- split(out, as.factor(unlist(groups)))
-								tmp.obj <- lapply(1:length(data.obj), function(i){
-									obj<-data.obj[[i]]
-									s2<-split(obj,obj[,3])
-									do.call(rbind,lapply(1:length(s2),function(j){
-										tmp<-s2[[j]]
-										tmp[chull(tmp[,1:2]),] 
-										}))
-								})
-								chull.boundaries <- do.call("rbind", tmp.obj)
-							
-								#custom theme
-								.theme<- theme(
-													axis.line = element_line(colour = 'gray', size = .75), 
-													panel.background = element_blank(), 
-													panel.border = element_rect(colour="gray",fill=NA),
-													plot.background = element_blank()
-												 )
-												 
-								#make plot
-								p<-ggplot(data=out, aes(x=LV1, y=LV2, group=groups,color=groups)) + 
-								geom_hline(aes(yintercept=0),color="gray60",linetype="dashed")+ 
-								geom_vline(aes(xintercept=0),color=I("gray60"),linetype=2) 
-								p<-p+geom_polygon(data=chull.boundaries,aes(x=LV1,y=LV2,fill=groups),alpha=.5) +geom_point(size=2)+.theme
-								print(p)
 							},
-							
-							function(obj,color,size){
-								plot.obj<-tryCatch(obj$scores[[1]][,c(comp1,comp2)],error=function(e){obj$scores[,c(comp1,comp2)]}) # not sure how to simply unclass and coerce to data.frame
-								
-								obj<-pca$pca.scores[,c(xaxis,yaxis)]	
-								tmp<-data.frame(obj,id = rownames(obj))
+		scores 			=	function(obj,color,size){
+								comps<-obj$total.LVs[1]
+								tmp.obj<-tryCatch(obj$scores[[comps]][,c(xaxis,yaxis)],error=function(e){obj$scores[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce to data.frame
+					
+								tmp<-data.frame(tmp.obj,id = rownames(tmp.obj))
 								#plot 
 								.theme2<- theme(
 											axis.line = element_line(colour = 'gray', size = .75), 
@@ -476,17 +439,29 @@ plot.PLS<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(obj$data))
 									geom_point(aes(color=color),size=size,alpha=.5)  
 								}
 								#labels
-								tmp$lab.offset<-tmp[,2]-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
+								tmp$lab.offset<-tmp[,2]-abs(range(tmp.obj[,2])[1]-range(tmp.obj[,2])[2])/50						
 								labels<-if(label==TRUE){geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="id"),color="black",show_guide = FALSE)} else { NULL }
 								
-								#Hoettellings T2 ellipse	 
-								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
-								polygons<-if(is.null(color)){
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
-									} else {
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
-									}
+								#group visualizations
+								#Hoettellings T2 ellipse
+								polygons<-NULL
+								if(group.bounds=="ellipse"){		
+									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.2, show_guide = FALSE) 
+										} else {
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.2, show_guide = FALSE) 
+										}
+								}
 								
+								if(group.bounds=="polygon"){
+									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+										} else {
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+										}
+								}
 								#making the actual plot 
 								p<-ggplot(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2])) + 
 								geom_vline(xintercept = 0,linetype=2, size=.5, alpha=.5) + 
@@ -499,34 +474,133 @@ plot.PLS<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(obj$data))
 								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								print(p)
+							},
+		"loadings"		= function(obj,color,size){
+							comps<-obj$total.LVs[1]
+							tmp.obj<-tryCatch(obj$loadings[[comps]][,c(xaxis,yaxis)],error=function(e){obj$scores[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce to data.frame
+							tmp<-data.frame(tmp.obj,id = rownames(tmp.obj))
+							#plot 
+							.theme2<- theme(
+										axis.line = element_line(colour = 'gray', size = .75), 
+										panel.background = element_blank(), 
+										plot.background = element_blank(),
+										legend.background=element_rect(fill='white'),
+										legend.key = element_blank()
+									 )
+									 
+							if(is.null(color)){
+									tmp$color<-"gray"
+								}else{
+									tmp$color<-as.factor(color[,])
+									if(is.null(legend.name)){legend.name<-colnames(color)}
 							}
 							
-		loadings 		= 	.local<-function(obj,comp1,comp2){ # will only plot first component for each model
-							plot.obj<-cbind(unclass(unlist(obj$loadings)))
-							weight<-unclass(unlist(obj$loading.weights[,ncol(obj$loading.weights)]))
-							out<-data.frame(plot.obj,weight,parameter=rownames(obj$loadings))
-							bound<-data.frame(melt(out))
-						
-							#
-							#custom theme
-							.theme<- theme(
+							points<-if(all(tmp$color=="gray")) { 
+								geom_point(color="gray",size=size,alpha=.75,show_guide = FALSE) 
+							} else { 
+								geom_point(aes(color=color),size=size,alpha=.5)  
+							}
+							#labels
+							tmp$lab.offset<-tmp[,2]-abs(range(tmp.obj[,2])[1]-range(tmp.obj[,2])[2])/50						
+							labels<-if(label==TRUE){geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="id"),color="black",show_guide = FALSE)} else { NULL }
+							
+							#group visualizations
+								#Hoettellings T2 ellipse
+								polygons<-NULL
+								if(group.bounds=="ellipse"){		
+									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.2, show_guide = FALSE) 
+										} else {
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.2, show_guide = FALSE) 
+										}
+								}
+								
+								if(group.bounds=="polygon"){
+									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+										} else {
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+										}
+								}
+							
+							#making the actual plot 
+							p<-ggplot(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2])) + 
+							geom_vline(xintercept = 0,linetype=2, size=.5, alpha=.5) + 
+							geom_hline(yintercept = 0,linetype=2, size=.5, alpha=.5) +
+							points +
+							.theme2 + 
+							labels +
+							polygons +
+							scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
+							scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
+							if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
+							print(p)
+						},				
+		"biplot"		= function(obj,...){
+								comps<-obj$total.LVs[1]
+								loadings<-tmp.loadings<-tryCatch(obj$loadings[[comps]][,c(xaxis,yaxis)],error=function(e){obj$loadings[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce
+								scores<-tmp.obj<-data.frame(tryCatch(obj$scores[[comps]][,c(xaxis,yaxis)],error=function(e){obj$scores[,c(xaxis,yaxis)]})) # not sure how to simply unclass and coerce to data.frame
+								.theme2<- theme(
 												axis.line = element_line(colour = 'gray', size = .75), 
 												panel.background = element_blank(), 
-												panel.border = element_rect(colour="gray",fill=NA),
-												plot.background = element_blank(),
-												legend.position = "none"
+												plot.background = element_blank()
 											 )
-											 
-							# add label color and sort on clusters
-							#make plot
-							p<-ggplot(data=bound, aes(x=parameter,y=value, fill=parameter)) + 
-							geom_bar(stat = "identity") + coord_flip() + #geom_density2d(aes(group=groups))+
-							facet_grid(. ~ variable) +.theme
-							print(p)
-						
-						}
-						)				
-	.local(obj,comp1,comp2)
+								#based on https://groups.google.com/forum/#!topic/ggplot2/X-o2VXjDkQ8
+								tmp.loadings[,1]<-rescale(loadings[,1], range(scores[,1]))
+								tmp.loadings[,2]<-rescale(loadings[,2], range(scores[,2]))
+								tmp.loadings<-data.frame(tmp.loadings,label=rownames(loadings))
+								
+								#Adding Hoettellings T2 ellipse
+								if(is.null(color)){
+										tmp.obj$color<-"gray"
+									}else{
+										tmp.obj$color<-as.factor(color[,])
+										if(is.null(legend.name)){legend.name<-colnames(color)}
+								}	
+								
+							#group visualizations
+								#Hoettellings T2 ellipse
+								polygons<-NULL
+								if(group.bounds=="ellipse"){		
+									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.2, show_guide = FALSE) 
+										} else {
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.2, show_guide = FALSE) 
+										}
+								}
+								
+								if(group.bounds=="polygon"){
+									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+										} else {
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+										}
+								}
+									
+								points<-if(all(tmp.obj$color=="gray")) { 
+									geom_point(data=data.frame(tmp.obj),aes_string(x=colnames(tmp.obj)[1], y=colnames(tmp.obj)[2]),color="gray",size=size,alpha=.75,show_guide = FALSE) 
+								} else { 
+									geom_point(data=data.frame(tmp.obj), aes_string(x=colnames(tmp.obj)[1], y=colnames(tmp.obj)[2],color="color"),size=size,alpha=.5)  
+								}
+								#plot
+								 p<-ggplot()+
+								 points +
+								 polygons+
+								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=NULL, alpha=0.25)+
+								 geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
+								 scale_colour_discrete("Variety")+
+								 scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
+								 scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) +
+								 .theme2
+								 if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
+								 print(p)
+							}					
+							
+		local(obj,color=color,size=size)
 	}		
 	
 #create PLS model
@@ -589,6 +663,8 @@ get.OSC.model<-function(obj,OSC.comp){
 	out$data<-obj$data[[id]]
 	out$y<-obj$y
 	out$RMSEP<-obj$RMSEP[[id]]
+	out$Q2<-obj$Q2[[id]]
+	out$Xvar<-obj$Xvar[[id]]
 	out$scores<-obj$scores[[id]]
 	out$loadings<-obj$loadings[[id]]
 	out$loading.weights<-obj$loading.weights[[id]]
@@ -1401,13 +1477,14 @@ duplex.select<-function(data,ken.sto2.obj,percent.in.test)
 #various tests
 test<-function(){
 data(mtcars)
-data<-mtcars[,1:6]
+data<-mtcars[,-c(8,9)]
 y<-data.frame(am=mtcars$am)
 pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
 color<-data.frame(sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
+# color<-NULL
 scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
 #make OSC model
-mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=2, validation = "LOO",method="oscorespls", cv.scale=TRUE)
+mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=1, validation = "LOO",method="oscorespls", cv.scale=TRUE)
 switch(type,
 	osc.scores 			= 	plot.OSC.results(mods,plot="scores",groups=color),
 	osc.RMSEP			=	plot.OSC.results(mods,plot="RMSEP",groups=color),
@@ -1416,7 +1493,7 @@ switch(type,
 )
 
 #make model visualization
-final<-results<-get.OSC.model(obj=mods,OSC.comp=2)
+final<-results<-get.OSC.model(obj=mods,OSC.comp=1)
 plot.PLS.results(obj=final,plot="scores",groups=color)
 plot.PLS.results(obj=final,plot="RMSEP",groups=color)
 plot.PLS.results(obj=final,plot="loadings",groups=color)
