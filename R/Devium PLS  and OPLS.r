@@ -174,7 +174,7 @@ choose.opt.OPLS.comp<-function(obj,pls.y,tolerance=0.01){
 }
 
 #plot OSC results
-plot.OSC.results<-function(obj,plot="RMSEP",groups="NULL"){
+plot.OSC.results<-function(obj,plot="RMSEP",groups=NULL){
 	check.get.packages("ggplot2")
 	#plot = one of: c("RMSEP","scores","loadings","delta.weights")
 	#groups is a factor to show group visuyalization in scores plot
@@ -206,6 +206,7 @@ plot.OSC.results<-function(obj,plot="RMSEP",groups="NULL"){
 								comps<-obj$total.LVs
 								ocomps<-obj$OSC.LVs
 								plot.obj<-obj$scores
+								if(is.null(groups)){groups<-rep("gray",nrow(plot.obj))}
 								bound<-do.call("rbind",lapply(1:length(comps),function(i)
 									{
 										out<-as.data.frame(cbind(plot.obj[[i]][,1:2],unlist(groups),paste(comps[i]," LVs and ",ocomps[i]," OSC LVs",sep="")))
@@ -415,8 +416,9 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 									LV<-paste0("LV ",1:length(RMSEP))
 									tmp<-melt(data.frame(LV,RMSEP,Q2,Xvar))
 									
-									ggplot(data=tmp ,aes(y=value,x=LV,fill=variable))+
+									p<-ggplot(data=tmp ,aes(y=value,x=LV,fill=variable))+
 									geom_bar(stat="identity",position=position_dodge())+.theme +ylab("value")+xlab("LV")
+									print(p)
 								
 							},
 		scores 			=	function(obj,color,size){
@@ -548,7 +550,7 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 							if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 							print(p)
 						},				
-		"biplot"		= function(obj,...){
+		"biplot"		= function(obj,color,size){
 								comps<-obj$total.LVs[1]
 								loadings<-tmp.loadings<-tryCatch(obj$loadings[[comps]][,c(xaxis,yaxis)],error=function(e){obj$loadings[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce
 								scores<-tmp.obj<-data.frame(tryCatch(obj$scores[[comps]][,c(xaxis,yaxis)],error=function(e){obj$scores[,c(xaxis,yaxis)]})) # not sure how to simply unclass and coerce to data.frame
