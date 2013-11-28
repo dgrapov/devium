@@ -293,7 +293,7 @@ plot.OSC.results<-function(obj,plot="RMSEP",groups="NULL"){
 	.local(obj)
 	}
 
-#plot results for a single model , for pls output..need to merge with opls
+##OBSOLETE## see plot.PLS -plot results for a single model , for pls output..need to merge with opls
 plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(obj$data))),comp1=1,comp2=2){
 	require(ggplot2)
 	#plot = one of: c("RMSEP","scores","loadings")
@@ -389,10 +389,12 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 	}	
 	
 #recreating plots based on plot.PCA options with slight modifications (good example of a place to use oob, need to have helper function to switch top level inputs based on class and use generic plotter)
-plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse"){
+plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis=1,yaxis=2,size=3,groups=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse"){
 	require(ggplot2)
-	#plot = one of: c("RMSEP","scores","loadings")
+	#plot = one of: c("screeplot","scores","loadings","biplot","multi")
 	#groups is a factor to show group visualization in scores plot
+	
+	
 	
 	local<-switch(plot, # only looks right for single Y models!
 		RMSEP 			=  function(obj,...){
@@ -402,9 +404,14 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 										panel.background = element_blank(),  
 										plot.background = element_blank()
 									) 
-									RMSEP<-obj$RMSEP[[length(obj$RMSEP)]][,ncol(obj$RMSEP[[1]])] # get for all LVs and optionally CV version
-									Q2<-obj$Q2[[length(obj$Q2)]][,ncol(obj$Q2[[1]])]
-									Xvar<-c(0,obj$Xvar[[length(obj$Xvar)]]) # 0 is for intercept only model
+									# RMSEP<-obj$RMSEP[length(obj$RMSEP)]][,ncol(obj$RMSEP[[1]])] # get for all LVs and optionally CV version
+									# Q2<-obj$Q2[[length(obj$Q2)]][,ncol(obj$Q2[[1]])]
+									# Xvar<-c(0,obj$Xvar[[length(obj$Xvar)]]) # 0 is for intercept only model
+									
+									RMSEP<-obj$RMSEP[,ncol(obj$RMSEP)] # get for all LVs and optionally CV version
+									Q2<-obj$Q2[,ncol(obj$Q2)]
+									Xvar<-c(0,obj$Xvar) # 
+									
 									LV<-paste0("LV ",1:length(RMSEP))
 									tmp<-melt(data.frame(LV,RMSEP,Q2,Xvar))
 									
@@ -470,14 +477,14 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								.theme2 + 
 								labels +
 								polygons +
-								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
-								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
+								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(obj$Xvar[xaxis],digits=2)*100),sep=" "))+
+								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(obj$Xvar[yaxis],digits=2)*100),sep=" ")) 
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								print(p)
 							},
 		"loadings"		= function(obj,color,size){
 							comps<-obj$total.LVs[1]
-							tmp.obj<-tryCatch(obj$loadings[[comps]][,c(xaxis,yaxis)],error=function(e){obj$scores[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce to data.frame
+							tmp.obj<-tryCatch(obj$loadings[[comps]][,c(xaxis,yaxis)],error=function(e){obj$loadings[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce to data.frame
 							tmp<-data.frame(tmp.obj,id = rownames(tmp.obj))
 							#plot 
 							.theme2<- theme(
@@ -487,12 +494,15 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 										legend.background=element_rect(fill='white'),
 										legend.key = element_blank()
 									 )
-									 
+							#check to make sure color length matches dim[1]
 							if(is.null(color)){
 									tmp$color<-"gray"
 								}else{
-									tmp$color<-as.factor(color[,])
-									if(is.null(legend.name)){legend.name<-colnames(color)}
+									if(!length(color[,])==nrow(tmp)){tmp$color<-"gray"# reset if doesn't match
+									} else { 
+											tmp$color<-as.factor(color[,])
+											if(is.null(legend.name)){legend.name<-colnames(color)}
+									}
 							}
 							
 							points<-if(all(tmp$color=="gray")) { 
@@ -509,7 +519,7 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								polygons<-NULL
 								if(group.bounds=="ellipse"){		
 									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp$color)# group visualization via 
-									polygons<-if(is.null(color)){
+									polygons<-if(all(tmp$color=="gray")){
 											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.2, show_guide = FALSE) 
 										} else {
 											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.2, show_guide = FALSE) 
@@ -518,7 +528,7 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								
 								if(group.bounds=="polygon"){
 									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
-									polygons<-if(is.null(color)){
+									polygons<-if(all(tmp$color=="gray")){
 											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
 										} else {
 											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
@@ -533,8 +543,8 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 							.theme2 + 
 							labels +
 							polygons +
-							scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
-							scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
+							scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(obj$Xvar[xaxis],digits=2)*100),sep=" "))+
+							scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(obj$Xvar[yaxis],digits=2)*100),sep=" ")) 
 							if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 							print(p)
 						},				
@@ -552,6 +562,7 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								tmp.loadings[,2]<-rescale(loadings[,2], range(scores[,2]))
 								tmp.loadings<-data.frame(tmp.loadings,label=rownames(loadings))
 								
+								#using tmp.obj because no need for labels, and started badly need to rewrite
 								#Adding Hoettellings T2 ellipse
 								if(is.null(color)){
 										tmp.obj$color<-"gray"
@@ -564,8 +575,8 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								#Hoettellings T2 ellipse
 								polygons<-NULL
 								if(group.bounds=="ellipse"){		
-									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp$color)# group visualization via 
-									polygons<-if(is.null(color)){
+									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp.obj$color)# group visualization via 
+									polygons<-if(all(tmp.obj$color=="gray")){
 											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.2, show_guide = FALSE) 
 										} else {
 											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.2, show_guide = FALSE) 
@@ -574,7 +585,7 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								
 								if(group.bounds=="polygon"){
 									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
-									polygons<-if(is.null(color)){
+									polygons<-if(all(tmp.obj$color=="gray")){
 											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
 										} else {
 											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
@@ -587,20 +598,21 @@ plot.PLS<-function(obj,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 									geom_point(data=data.frame(tmp.obj), aes_string(x=colnames(tmp.obj)[1], y=colnames(tmp.obj)[2],color="color"),size=size,alpha=.5)  
 								}
 								#plot
-								 p<-ggplot()+
-								 points +
-								 polygons+
-								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=NULL, alpha=0.25)+
-								 geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
-								 scale_colour_discrete("Variety")+
-								 scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
-								 scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) +
-								 .theme2
-								 if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
-								 print(p)
-							}					
+								p<-ggplot()+
+								points +
+								polygons+
+								geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=NULL, alpha=0.25)+
+								geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
+								scale_colour_discrete("Variety")+
+								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(obj$Xvar[xaxis],digits=2)*100),sep=" "))+
+								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(obj$Xvar[yaxis],digits=2)*100),sep=" ")) +
+								.theme2
+								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
+								print(p)
+							}
+		)
 							
-		local(obj,color=color,size=size)
+		local(obj,color,size)
 	}		
 	
 #create PLS model
@@ -1476,15 +1488,18 @@ duplex.select<-function(data,ken.sto2.obj,percent.in.test)
 
 #various tests
 test<-function(){
+library(reshape2)
+library(pcaMethods)
 data(mtcars)
 data<-mtcars[,-c(8,9)]
 y<-data.frame(am=mtcars$am)
 pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
-color<-data.frame(sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
+
+color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 # color<-NULL
 scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
 #make OSC model
-mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=1, validation = "LOO",method="oscorespls", cv.scale=TRUE)
+mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=2, validation = "LOO",method="oscorespls", cv.scale=TRUE)
 switch(type,
 	osc.scores 			= 	plot.OSC.results(mods,plot="scores",groups=color),
 	osc.RMSEP			=	plot.OSC.results(mods,plot="RMSEP",groups=color),
@@ -1493,10 +1508,16 @@ switch(type,
 )
 
 #make model visualization
-final<-results<-get.OSC.model(obj=mods,OSC.comp=1)
+final<-results<-get.OSC.model(obj=mods,OSC.comp=2)
 plot.PLS.results(obj=final,plot="scores",groups=color)
 plot.PLS.results(obj=final,plot="RMSEP",groups=color)
 plot.PLS.results(obj=final,plot="loadings",groups=color)
+
+#new plotting function
+plot.PLS(obj=final,plot="scores",groups=color)
+plot.PLS(obj=final,plot="RMSEP",groups=color)
+plot.PLS(obj=final,plot="loadings",groups=color)
+plot.PLS(obj=final,plot="biplot",groups=color)
 
 
 
