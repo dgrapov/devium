@@ -413,8 +413,17 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 									Q2<-obj$Q2[,ncol(obj$Q2)]
 									Xvar<-c(0,obj$Xvar) # 
 									
-									LV<-c(0:(length(RMSEP)-1)) # account for intercept only model
+									
+									LV<-paste0("",0:(length(RMSEP)-1))
 									tmp<-melt(data.frame(LV,RMSEP,Q2,Xvar))
+									
+									
+									# RMSEP<-obj$RMSEP[,ncol(obj$RMSEP)] # get for all LVs and optionally CV version
+									# Q2<-obj$Q2[,ncol(obj$Q2)]
+									# Xvar<-c(0,obj$Xvar) # 
+									
+									# LV<-as.character(c(0:(length(RMSEP)-1))) # account for intercept only model
+									# tmp<-melt(data.frame(LV,RMSEP,Q2,Xvar),id=LV)
 									
 									p<-ggplot(data=tmp ,aes(y=value,x=LV,fill=variable))+
 									geom_bar(stat="identity",position=position_dodge())+.theme +ylab("value")+xlab("LV")
