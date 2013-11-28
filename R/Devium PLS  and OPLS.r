@@ -206,7 +206,7 @@ plot.OSC.results<-function(obj,plot="RMSEP",groups=NULL){
 								comps<-obj$total.LVs
 								ocomps<-obj$OSC.LVs
 								plot.obj<-obj$scores
-								if(is.null(groups)){groups<-rep("gray",nrow(plot.obj))}
+								if(is.null(groups)){groups<-rep("gray",nrow(plot.obj[,]))}
 								bound<-do.call("rbind",lapply(1:length(comps),function(i)
 									{
 										out<-as.data.frame(cbind(plot.obj[[i]][,1:2],unlist(groups),paste(comps[i]," LVs and ",ocomps[i]," OSC LVs",sep="")))
@@ -413,7 +413,7 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 									Q2<-obj$Q2[,ncol(obj$Q2)]
 									Xvar<-c(0,obj$Xvar) # 
 									
-									LV<-paste0("LV ",1:length(RMSEP))
+									LV<-c(0:(length(RMSEP)-1)) # account for intercept only model
 									tmp<-melt(data.frame(LV,RMSEP,Q2,Xvar))
 									
 									p<-ggplot(data=tmp ,aes(y=value,x=LV,fill=variable))+
@@ -606,8 +606,8 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 								geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=NULL, alpha=0.25)+
 								geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
 								scale_colour_discrete("Variety")+
-								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(obj$Xvar[xaxis],digits=2)*100),sep=" "))+
-								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(obj$Xvar[yaxis],digits=2)*100),sep=" ")) +
+								scale_x_continuous(paste(colnames(tmp.obj)[1],sprintf("(%s%%)", round(obj$Xvar[xaxis],digits=2)*100),sep=" "))+
+								scale_y_continuous(paste(colnames(tmp.obj)[2],sprintf("(%s%%)", round(obj$Xvar[yaxis],digits=2)*100),sep=" ")) +
 								.theme2
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								print(p)
