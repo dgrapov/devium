@@ -612,7 +612,7 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 							}
 		)
 							
-		local(obj,color,size)
+		local(obj,color=groups,size)
 	}		
 	
 #create PLS model
