@@ -206,7 +206,7 @@ plot.OSC.results<-function(obj,plot="RMSEP",groups=NULL){
 								comps<-obj$total.LVs
 								ocomps<-obj$OSC.LVs
 								plot.obj<-obj$scores
-								if(is.null(groups)){groups<-rep("gray",nrow(plot.obj[,]))}
+								if(is.null(groups)){groups<-rep("gray",nrow(plot.obj[[1]][,]))}
 								bound<-do.call("rbind",lapply(1:length(comps),function(i)
 									{
 										out<-as.data.frame(cbind(plot.obj[[i]][,1:2],unlist(groups),paste(comps[i]," LVs and ",ocomps[i]," OSC LVs",sep="")))
