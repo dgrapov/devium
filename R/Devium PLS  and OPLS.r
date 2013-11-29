@@ -1511,7 +1511,7 @@ color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
 scaled.data<-data.frame(data)
 #make OSC model
-mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=0, validation = "LOO",method="simpls", cv.scale=FALSE,return.obj="model")
+mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=1, validation = "none",method="oscorespls", cv.scale=TRUE,return.obj="model")
 plot.OSC.results(mods,plot="scores",groups=color)
 plot.OSC.results(mods,plot="RMSEP",groups=color)
 plot.OSC.results(mods,plot="loadings",groups=color)
