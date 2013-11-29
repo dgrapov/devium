@@ -71,8 +71,7 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 			
 		data<-OSC.results$data[[i]]
 		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale,...)#,...
-		if(is.null(tmp.model$loading.weights)){tmp.model$loading.weights<-tmp.model$loadings}
-		ww<-tmp.model$loading.weights[,1] # does not exists for  simpls use loadings instead
+		ww<-tmp.model$loading.weights[,1] # does not exists for  simpls 
 		pp<-tmp.model$loadings[,1]
 		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
 		t.ortho<- as.matrix(data) %*% w.ortho
