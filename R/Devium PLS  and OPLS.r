@@ -1,5 +1,5 @@
 
-#function to carry out PLS or orthogonal signal correction PLS (OSC-PLS), obsolete use make.OSC.PLS.model
+##"OBSOLETE## see make.OSC.PLS.model -function to carry out PLS or orthogonal signal correction PLS (OSC-PLS), obsolete use make.OSC.PLS.model
 OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",progress=TRUE,cv.scale=FALSE,return.obj="stats",...){ 
 	
 	check.get.packages("pls")
@@ -14,7 +14,7 @@ OSC.correction<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO",pro
 	for(i in 1:(OSC.comp+1)){ 
 		
 		data<-OSC.results$data[[i]]
-		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,CV.scale=cv.scale,...)#
+		tmp.model<-mvr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,CV.scale=cv.scale,...)#
 		ww<-tmp.model$loading.weights[,1]
 		pp<-tmp.model$loadings[,1]
 		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
@@ -70,8 +70,9 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 	for(i in 1:(OSC.comp+1)){ 
 			
 		data<-OSC.results$data[[i]]
-		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale,...)#
-		ww<-tmp.model$loading.weights[,1]
+		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale,...)#,...
+		if(is.null(tmp.model$loading.weights)){tmp.model$loading.weights<-tmp.model$loadings}
+		ww<-tmp.model$loading.weights[,1] # does not exists for  simpls use loadings instead
 		pp<-tmp.model$loadings[,1]
 		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
 		t.ortho<- as.matrix(data) %*% w.ortho
@@ -94,7 +95,7 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 		
 		#store results
 		OSC.results$RMSEP[[i]]<-matrix(RMSEP(tmp.model)$val,ncol=2,byrow=TRUE) # multi Y RMSEP is bound by row 
-		OSC.results$rmsep[[i]]<- RMSEP(tmp.model)$val[2,,comp+1]# CV adjusted rmsep for each y by column
+		OSC.results$rmsep[[i]]<- RMSEP(tmp.model)$val[dim(RMSEP(tmp.model)$val)[1],,comp+1]# CV adjusted rmsep for each y by column 
 		OSC.results$Q2[[i]]<-matrix(R2(tmp.model)$val,ncol=ncol(pls.y),byrow=TRUE)
 		OSC.results$Xvar[[i]]<-drop(tmp.model$Xvar/tmp.model$Xtotvar)
 		OSC.results$fitted.values[[i]]<-tmp.model$fitted.values
@@ -1509,17 +1510,17 @@ pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
 color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 # color<-NULL
 scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
+scaled.data<-data.frame(data)
 #make OSC model
-mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=2, validation = "LOO",method="oscorespls", cv.scale=TRUE)
-switch(type,
-	osc.scores 			= 	plot.OSC.results(mods,plot="scores",groups=color),
-	osc.RMSEP			=	plot.OSC.results(mods,plot="RMSEP",groups=color),
-	osc.loadings 		= 	plot.OSC.results(mods,plot="loadings",groups=color),
-	osc.delta.weights 	=	plot.OSC.results(mods,plot="delta.weights",groups=color)
+mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=0, validation = "LOO",method="simpls", cv.scale=FALSE,return.obj="model")
+plot.OSC.results(mods,plot="scores",groups=color)
+plot.OSC.results(mods,plot="RMSEP",groups=color)
+plot.OSC.results(mods,plot="loadings",groups=color)
+plot.OSC.results(mods,plot="delta.weights",groups=color)
 )
 
 #make model visualization
-final<-results<-get.OSC.model(obj=mods,OSC.comp=2)
+final<-results<-get.OSC.model(obj=mods,OSC.comp=0)
 plot.PLS.results(obj=final,plot="scores",groups=color)
 plot.PLS.results(obj=final,plot="RMSEP",groups=color)
 plot.PLS.results(obj=final,plot="loadings",groups=color)
