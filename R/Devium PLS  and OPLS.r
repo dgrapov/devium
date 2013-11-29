@@ -1517,7 +1517,6 @@ plot.OSC.results(mods,plot="scores",groups=color)
 plot.OSC.results(mods,plot="RMSEP",groups=color)
 plot.OSC.results(mods,plot="loadings",groups=color)
 plot.OSC.results(mods,plot="delta.weights",groups=color)
-)
 
 #make model visualization
 final<-results<-get.OSC.model(obj=mods,OSC.comp=0)
