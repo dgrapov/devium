@@ -1091,7 +1091,7 @@ permute.OSC.PLS<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...
 			{
 				apply(y,2,gtools::permute)
 			})
-
+	
 	#generate permuted models		
 	model<-lapply(1:n,function(i)
 			{
@@ -1123,7 +1123,8 @@ OSC.validate.model<-function(model, perm, train= NULL) {
 #perm must be object generated with permute.OSC.PLS
 # if train = NULL perform a one-sample t-test to test if model stat comes from permuted distibution
 # else perform a two sample t-test to compare train/test to permuted stats
-
+	
+	
 	if(is.null(train)){
 		tmp<-c("Q2","Xvar","RMSEP")	
 		p.vals<-do.call("cbind",sapply(1:length(tmp), function(i) {	
@@ -1133,7 +1134,7 @@ OSC.validate.model<-function(model, perm, train= NULL) {
 				per.val<-tryCatch(perm$permuted.values[,tmp[i]], error=function(e) {"not found"}) 
 				data.frame(matrix(c(val,tryCatch(t.test(per.val,mu=val)$p.value, error=function(e) {1})),ncol=1)) #force error = insiginificant 
 		}))
-		
+		if(is.null(perm$summary)){perm$summary<-"not permuted"}
 		#make output in table form
 		res<-data.frame(rbind(signif(p.vals[1,],4),perm$summary,signif(p.vals[2,],4)))
 		dimnames(res)<-list(c("model","permuted model","p-value"), tmp)
@@ -1145,6 +1146,7 @@ OSC.validate.model<-function(model, perm, train= NULL) {
 				per.val<-tryCatch(perm$permuted.values[,tmp[i]], error=function(e) {"not found"}) 
 				tryCatch(t.test(per.val,val)$p.value, error=function(e) {1}) #force error = insiginificant 
 		})
+		if(is.null(perm$summary)){perm$summary<-rep("not permuted",3)}
 		res<-data.frame(rbind(train$summary,perm$summary[c(1,3)],signif(p.vals,4))) # don't include Xvar
 		dimnames(res)<-list(c("model","permuted model","p-value"), tmp)
 	}
@@ -1509,7 +1511,6 @@ pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
 color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 # color<-NULL
 scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
-scaled.data<-data.frame(data)
 #make OSC model
 mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=1, validation = "LOO",method="oscorespls", cv.scale=FALSE,return.obj="stats")
 plot.OSC.results(mods,plot="scores",groups=color)
@@ -1528,6 +1529,31 @@ plot.PLS(obj=final,plot="scores",groups=color)
 plot.PLS(obj=final,plot="RMSEP",groups=color)
 plot.PLS(obj=final,plot="loadings",groups=color)
 plot.PLS(obj=final,plot="biplot",groups=color)
+
+
+#single level model validation
+#generate train/test index
+ntests<-100
+strata<-if(levels(as.factor(join.columns(pls.y)))>=2){strata<-join.columns(pls.y)} else {strata<-NULL}
+train.test.index <- test.train.split(nrow(data), n = ntests, strata = strata, split.type = "duplex", data = data) # can also random splitts
+
+#permutation
+permuted.stats <- permute.OSC.PLS(data = scaled.data, y = pls.y, n = ntests, ncomp = 2, osc.comp = 1, progress = FALSE, train.test.index = train.test.index)
+# compare to model (single value)
+model.performance<-OSC.validate.model(model = mods, perm = permuted.stats)
+
+#training/testing to get robust model stats
+train.stats <- OSC.PLS.train.test(pls.data = scaled.data, pls.y = pls.y, train.test.index, comp = 2, OSC.comp = 1, cv.scale = TRUE, progress = FALSE)
+model.performance<-OSC.validate.model(model = mods, perm = NULL, train = train.stats)
+
+
+# partition data to get the trainning set
+tmp.data <- data[train.id, ]
+tmp.color<- color[train.id]
+tmp.y <- pls.y[train.id, ]
+
+#remodel
+scaled.data<-data.frame(prep(tmp.data,center=TRUE,scale="uv"))
 
 
 
