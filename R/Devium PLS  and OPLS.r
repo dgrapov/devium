@@ -70,7 +70,7 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 	for(i in 1:(OSC.comp+1)){ 
 			
 		data<-OSC.results$data[[i]]
-		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale)#,...,...
+		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale)#,...
 		ww<-tmp.model$loading.weights[,1] # does not exists for  simpls 
 		pp<-tmp.model$loadings[,1]
 		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
@@ -93,7 +93,7 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 		}
 		
 		#store results
-		OSC.results$RMSEP[[i]]<-matrix(RMSEP(tmp.model)$val,ncol=dim(RMSEP(tmp.model)$val)[1],byrow=TRUE) # multi Y RMSEP is bound by row 
+		OSC.results$RMSEP[[i]]<-matrix(t(RMSEP(tmp.model)$val[dim(RMSEP(tmp.model)$val)[1],,]),,ncol=ncol(pls.y)) #
 		OSC.results$rmsep[[i]]<- RMSEP(tmp.model)$val[dim(RMSEP(tmp.model)$val)[1],,comp+1]# CV adjusted rmsep for each y by column 
 		OSC.results$Q2[[i]]<-matrix(R2(tmp.model)$val,ncol=ncol(pls.y),byrow=TRUE)
 		OSC.results$Xvar[[i]]<-drop(tmp.model$Xvar/tmp.model$Xtotvar)
@@ -1008,7 +1008,7 @@ make.S.plot<-function(pls.data,pls.scores,pls.loadings, cut.off=0.05, FDR=TRUE,p
 
 #feature select using a combination of analyte correlation to scores (S-plot) and feature weights
 PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TRUE,p.value=0.05, FDR=TRUE,
-		cut.type="quantile",top=0.95,separate=TRUE,...){
+		cut.type="quantile",top=0.95,separate=TRUE,make.plot=TRUE,...){
 		#combined args from
 		#feature.cut() & make.S.plot()
 		#cuts is a single value which is a propability for type = quantile or integer for number
@@ -1025,29 +1025,30 @@ PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TR
 		combo.cut<-data.frame(model.weight=pls.weight,weight.cut.selected, cor.cut$feature.info)
 		combo.cut$combined.selection<-combo.cut$significant&combo.cut$selected.weights==1
 		
-		#create updated S-plot
-		#cut offs
-		plot.obj<-combo.cut
-		selected<-plot.obj$combined.selection==1
-		plot.title<- paste (sum(selected)," selected features or ",round(sum(selected)/length(pls.loadings)*100,0),"%",sep="")
+		if(make.plot){
+			#create updated S-plot
+			plot.obj<-combo.cut
+			selected<-plot.obj$combined.selection==1
+			plot.title<- paste (sum(selected)," selected features or ",round(sum(selected)/length(pls.loadings)*100,0),"%",sep="")
+			
+			#theme
+			.theme<- theme(
+							axis.line = element_line(colour = 'gray', size = .75), 
+							panel.background = element_blank(), 
+							legend.position = "none",
+							plot.background = element_blank()
+						 )
 		
-		#theme
-		.theme<- theme(
-						axis.line = element_line(colour = 'gray', size = .75), 
-						panel.background = element_blank(), 
-						legend.position = "none",
-						plot.background = element_blank()
-					 )
-	
-		
-		#make plot of variable and weight
-		p<-ggplot(data=plot.obj, aes(x=loadings,y=pcorr, color=combined.selection)) +
-		geom_point(stat = "identity",alpha=.75) + #geom_density2d(aes(group=groups))+
-		.theme + labs(title = plot.title, fill= "Selected")
-		
-		
-		#plot results
-		feature.bar.plot(feature.set=c(1:length(combo.cut$model.weight))[combo.cut$combined.selection],weights.set=combo.cut$model.weight, extra.plot=p)
+			
+			#make plot of variable and weight
+			p<-ggplot(data=plot.obj, aes(x=loadings,y=pcorr, color=combined.selection)) +
+			geom_point(stat = "identity",alpha=.75) + #geom_density2d(aes(group=groups))+
+			.theme + labs(title = plot.title, fill= "Selected")
+			
+			
+			#plot results
+			feature.bar.plot(feature.set=c(1:length(combo.cut$model.weight))[combo.cut$combined.selection],weights.set=combo.cut$model.weight, extra.plot=p)
+		}
 		
 		#return results
 		return(as.data.frame(combo.cut))
@@ -1091,7 +1092,8 @@ permute.OSC.PLS<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...
 			{
 				apply(y,2,gtools::permute)
 			})
-	
+	#collect correlation between y and permuted y
+	cor.with.y<-data.frame(correlation=abs(cor(cbind(y,do.call("cbind",perm.y))))[-1,1])
 	#generate permuted models		
 	model<-lapply(1:n,function(i)
 			{
@@ -1114,7 +1116,7 @@ permute.OSC.PLS<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...
 	means<-apply(tmp,2,mean)
 	sds<-apply(tmp,2,sd)
 	summary<-paste(signif(means,4),"±", signif(sds,3))
-	return(list(permuted.values=tmp, mean = means, standard.deviations = sds, summary = summary))
+	return(list(permuted.values=cbind(tmp,cor.with.y), mean = means, standard.deviations = sds, summary = summary))
 }	
 
 #statistical test to compare permuted distrubution to model performance
@@ -1505,21 +1507,22 @@ library(reshape2)
 library(pcaMethods)
 data(mtcars)
 data<-mtcars[,-c(8,9)]
-y<-data.frame(am=mtcars$am)
+y<-data.frame(am=mtcars$am,mtcars$mpg)
 pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
-
+comp<-2
+osc.comp<-1
 color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 # color<-NULL
 scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
 #make OSC model
-mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=2,OSC.comp=1, validation = "LOO",method="oscorespls", cv.scale=FALSE,return.obj="stats")
+mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, validation = "LOO",method="oscorespls", cv.scale=FALSE,return.obj="m")
 plot.OSC.results(mods,plot="scores",groups=color)
 plot.OSC.results(mods,plot="RMSEP",groups=color)
 plot.OSC.results(mods,plot="loadings",groups=color)
 plot.OSC.results(mods,plot="delta.weights",groups=color)
 
 #make model visualization
-final<-results<-get.OSC.model(obj=mods,OSC.comp=0)
+final<-results<-get.OSC.model(obj=mods,OSC.comp=osc.comp)
 plot.PLS.results(obj=final,plot="scores",groups=color)
 plot.PLS.results(obj=final,plot="RMSEP",groups=color)
 plot.PLS.results(obj=final,plot="loadings",groups=color)
@@ -1530,15 +1533,19 @@ plot.PLS(obj=final,plot="RMSEP",groups=color)
 plot.PLS(obj=final,plot="loadings",groups=color)
 plot.PLS(obj=final,plot="biplot",groups=color)
 
+#data summary for multi y model
+opls.model.text<-data.frame("Xvar"=c(0,final$Xvar),"Q2"=final$Q2,"RMSEP"= final$RMSEP)	
+		rownames(opls.model.text)<-c("intercept",paste0("LV ",1:comp))
+
 
 #single level model validation
 #generate train/test index
-ntests<-100
+ntests<-10
 strata<-if(levels(as.factor(join.columns(pls.y)))>=2){strata<-join.columns(pls.y)} else {strata<-NULL}
 train.test.index <- test.train.split(nrow(data), n = ntests, strata = strata, split.type = "duplex", data = data) # can also random splitts
 
 #permutation
-permuted.stats <- permute.OSC.PLS(data = scaled.data, y = pls.y, n = ntests, ncomp = 2, osc.comp = 1, progress = FALSE, train.test.index = train.test.index)
+permuted.stats <- permute.OSC.PLS(data = scaled.data, y = pls.y, n = ntests, ncomp = 2, osc.comp = 1, progress = FALSE, train.test.index =NULL)
 # compare to model (single value)
 model.performance<-OSC.validate.model(model = mods, perm = permuted.stats)
 
@@ -1555,6 +1562,26 @@ tmp.y <- pls.y[train.id, ]
 #remodel
 scaled.data<-data.frame(prep(tmp.data,center=TRUE,scale="uv"))
 
+#feature selection
+#carry out feature selection
+.scores<-results$scores[,]
+.loadings<-results$loadings[,]	
 
+selected.features<-PLS.feature.select(pls.data=scaled.data,pls.scores=.scores[,1],pls.loadings=.loadings[,1],pls.weight=.loadings[,1],
+				p.value=0.05, FDR=TRUE,cut.type="number",top=6,separate=TRUE,type="spearman")
+
+
+pls.data<-scaled.data[,selected.features$combined.selection]	
+
+#comparing density distributions
+# overlay histogram, empirical density and normal density
+# create some data to work with
+x = rnorm(1000);
+p0 = qplot(x, geom = 'blank') +   
+  geom_line(aes(y = ..density.., colour = 'Empirical'), stat = 'density') +  
+  stat_function(fun = dnorm, aes(colour = 'Normal')) +                       
+  geom_histogram(aes(y = ..density..), alpha = 0.4) +                        
+  scale_colour_manual(name = 'Density', values = c('red', 'blue')) + 
+  theme(legend.position = c(0.85, 0.85))
 
 }
