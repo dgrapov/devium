@@ -62,12 +62,12 @@ translate.index<-function(id, lookup){
 	lookup<-as.matrix(lookup)
 	#need to make sure values can be rownames	
 	#remove duplicates
-	keep<-!duplicated(lookup[,1])&!is.na(lookup[,1])
+	keep<-!duplicated(lookup[,1])
 	tmp.data<-lookup[keep,-1,drop=FALSE]
 	rownames(tmp.data)<-lookup[keep,1]
-	trans<-sapply(1:ncol(id),function(i){
+	trans<-do.call("cbind",lapply(1:ncol(id),function(i){
 		tmp.data[id[,i],]
-		})
+		}))
 	colnames(trans)<-colnames(id)
 	return(trans)	
 }
