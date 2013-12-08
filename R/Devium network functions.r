@@ -32,23 +32,40 @@ enrichR.IDEOM<-function(id, from="PubChem CID",IDEOM.DB=NULL){
 	return(tmp.res[order(tmp.id),][order(i.ord),])
 }
 
-# translate index based on lookup table 
+
+# # translate index based on lookup table 
+# # se faster version below
+# translate.index<-function(id, lookup){
+	# # lookup is a two column data.frame or matrix with 
+	# # column 1 containing index matching id and
+	# # column 2 containing translation
+	# # slow due to looping, but avoids having to match translated order to original query order 
+	# do.call("rbind",lapply(1:nrow(id), function(i,pb = txtProgressBar(min = 0, max = nrow(id), style = 3))
+		# {
+			# setTxtProgressBar(pb, i)
+			# tmp<-as.vector(unlist(id[i,,drop=T]))
+			# matrix(sapply(1:length(tmp), function(j)
+				# {
+					# tmp<-lookup[lookup[,1]%in%tmp[j],2]
+					# if(length(tmp)==0){tmp<-"no match"} # fill empty
+					# tmp[1]
+				# }),nrow=1)
+		# }))
+# }
+
+# # translate index based on lookup table 
 translate.index<-function(id, lookup){
 	# lookup is a two column data.frame or matrix with 
 	# column 1 containing index matching id and
-	# column 2 containing translation
-	# slow due to looping, but avoids having to match translated order to original query order 
-	do.call("rbind",lapply(1:nrow(id), function(i,pb = txtProgressBar(min = 0, max = nrow(id), style = 3))
-		{
-			setTxtProgressBar(pb, i)
-			tmp<-as.vector(unlist(id[i,,drop=T]))
-			matrix(sapply(1:length(tmp), function(j)
-				{
-					tmp<-lookup[lookup[,1]%in%tmp[j],2]
-					if(length(tmp)==0){tmp<-"no match"} # fill empty
-					tmp[1]
-				}),nrow=1)
-		}))
+	# columns >=2 containing translation(s)
+	id<-as.matrix(id) # needs 2 dims
+	tmp.data<-lookup[,-1,drop=FALSE]
+	rownames(tmp.data)<-lookup[,1]
+	trans<-sapply(1:ncol(id),function(i){
+		tmp.data[id[,i],]
+		})
+	colnames(trans)<-colnames(id)
+	return(trans)	
 }
 
 #get InchI Key based reaction pairs
@@ -397,28 +414,49 @@ mat.to.edge.list<-function(input,graph){
 	}
 
 #generic convert symmetric matrix to edge list (use the upper triangle) (shoud make a class)
-gen.mat.to.edge.list<-function(mat){
+# very slow see newer version using melt
+# gen.mat.to.edge.list<-function(mat){
 		
-		#accessory function
-		all.pairs<-function(r,type="one")
-                {       
-                        switch(type,
-                        one = list(first = rep(1:r,rep(r,r))[lower.tri(diag(r))], second = rep(1:r, r)[lower.tri(diag(r))]),
-                        two = list(first = rep(1:r, r)[lower.tri(diag(r))], second = rep(1:r,rep(r,r))[lower.tri(diag(r))]))
-                }
+		# #accessory function
+		# all.pairs<-function(r,type="one")
+                # {       
+                        # switch(type,
+                        # one = list(first = rep(1:r,rep(r,r))[lower.tri(diag(r))], second = rep(1:r, r)[lower.tri(diag(r))]),
+                        # two = list(first = rep(1:r, r)[lower.tri(diag(r))], second = rep(1:r,rep(r,r))[lower.tri(diag(r))]))
+                # }
 		
-		ids<-all.pairs(ncol(mat))
+		# ids<-all.pairs(ncol(mat))
 		
-		tmp<-as.data.frame(do.call("rbind",lapply(1:length(ids$first),function(i)
-			{
-				value<-mat[ids$first[i],ids$second[i]]
-				name<-c(colnames(mat)[ids$first[i]],colnames(mat)[ids$second[i]])
-				c(name,value)
-			})))
-		colnames(tmp)<-c("source","target","value")	
-		return(tmp)
-	}
+		# tmp<-as.data.frame(do.call("rbind",lapply(1:length(ids$first),function(i)
+			# {
+				# value<-mat[ids$first[i],ids$second[i]]
+				# name<-c(colnames(mat)[ids$first[i]],colnames(mat)[ids$second[i]])
+				# c(name,value)
+			# })))
+		# colnames(tmp)<-c("source","target","value")	
+		# return(tmp)
+	# }
 
+
+gen.mat.to.edge.list<-function(mat,symmetric=TRUE,diagonal=FALSE,text=FALSE){
+	#create edge list from matrix
+	# if symmetric duplicates are removed
+	check.get.packages("reshape2")
+	mat<-as.matrix(mat)
+	id<-is.na(mat) # used to allow missing
+	mat[id]<-"nna"
+	if(symmetric){mat[lower.tri(mat)]<-"na"} # use to allow missing values
+	if(!diagonal){diag(mat)<-"na"}
+	obj<-melt(mat)
+	colnames(obj)<-c("source","target","value")
+	obj<-obj[!obj$value=="na",]
+	obj$value[obj$value=="nna"]<-NA
+	if(!text){obj$value<-as.numeric(as.character(obj$value))}
+	return(obj)
+	# remove duplicates
+}	
+	
+	
 #trim edge list based on some reference index 
 edge.list.trim<-function(edge.list,index,cut,less.than=FALSE){
 			if(less.than==TRUE){

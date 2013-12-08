@@ -51,16 +51,16 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 	
 	#initialize
 	OSC.results<-list()
-	OSC.results$data[[1]]<-pls.data
+	OSC.results$data[[1]]<-pls.data # may need to 
 	OSC.results$y[[1]]<-pls.y<-as.matrix(pls.y)
 	if(!is.null(train.test.index)){ # objects fo predictions
 			OSC.results$test.data[[1]]<-OSC.results$data[[1]][train.test.index=="test",]
-			if(cv.scale==TRUE){
+			if(cv.scale==TRUE){ # the same?
 				OSC.results$test.y<-test.y<-as.matrix(OSC.results$y[[1]][train.test.index=="test",])
 			} else {
 				OSC.results$test.y<-test.y<-as.matrix(OSC.results$y[[1]][train.test.index=="test",])
 			}		
-			OSC.results$data[[1]]<-OSC.results$data[[1]][train.test.index=="train",]
+			OSC.results$data[[1]]<-OSC.results$data[[1]][train.test.index=="train",] # data may need to be a data.frame
 			OSC.results$y[[1]]<-as.matrix(OSC.results$y[[1]][train.test.index=="train",])
 	} 
 	
@@ -70,7 +70,7 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 	for(i in 1:(OSC.comp+1)){ 
 			
 		data<-OSC.results$data[[i]]
-		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale)#,...
+		tmp.model<-plsr(OSC.results$y[[1]]~., data = data, ncomp = comp, validation = validation ,scale=cv.scale,...)#,...
 		ww<-tmp.model$loading.weights[,1] # does not exists for  simpls 
 		pp<-tmp.model$loadings[,1]
 		w.ortho<- pp - crossprod(ww,pp)/crossprod(ww)*ww
@@ -1099,20 +1099,20 @@ permute.OSC.PLS<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...
 			{
 				# cat("permuting model",i,"\n")
 				if(!is.null(train.test.index)) {tmp.train.test.index<-train.test.index[,i,drop=FALSE]} else {tmp.train.test.index<-train.test.index}
-				model<-make.OSC.PLS.model(pls.y=as.matrix(perm.y[[i]]),pls.data=data,comp=ncomp,OSC.comp=OSC.comp,train.test.index=tmp.train.test.index,...) #,...
+				model<-make.OSC.PLS.model(pls.y=as.matrix(perm.y[[i]]),pls.data=data,comp=ncomp,OSC.comp=OSC.comp,train.test.index=tmp.train.test.index,...) #
 				#get stats
 				q2<-model$Q2[[OSC.comp+1]][ncomp+1,,drop=FALSE]# cv adjusted 
-				rx2<-model$Xvar[[OSC.comp+1]][ncomp]
+				rx2<-round(sum(model$Xvar[[OSC.comp+1]])*100,1)
 				pred.val<-as.matrix(model$fitted.values[[OSC.comp+1]][,,ncomp])
-				rmsep<-model$rmsep[[OSC.comp+1]]# take CV adjusted RMSEP (see true below RMSEP)
+				rmsep<-model$rmsep[[OSC.comp+1]]# take CV adjusted internal RMSEP (see true RMSEP below)
 				if(!is.null(train.test.index)) {
-					rmsep<-model$predicted.RMSEP 
+					rmsep<-model$predicted.RMSEP[[OSC.comp+1]] 
 				}
-				list(Q2=q2,RX2=rx2,RMSEP=rmsep)#,predicted=pred.val,actual=perm.y[[i]])
+				list(RX2=rx2,Q2=q2,RMSEP=rmsep)#,predicted=pred.val,actual=perm.y[[i]])
 			})
 	
 	tmp<-matrix(unlist(do.call("rbind",model)),ncol=3) 
-	colnames(tmp)<-c("Q2","Xvar","RMSEP")
+	colnames(tmp)<-c("Xvar","Q2","RMSEP")
 	means<-apply(tmp,2,mean)
 	sds<-apply(tmp,2,sd)
 	summary<-paste(signif(means,4),"±", signif(sds,3))
@@ -1128,11 +1128,15 @@ OSC.validate.model<-function(model, perm, train= NULL) {
 	
 	
 	if(is.null(train)){
-		tmp<-c("Q2","Xvar","RMSEP")	
+		tmp<-c("Xvar","Q2","RMSEP")	
 		p.vals<-do.call("cbind",sapply(1:length(tmp), function(i) {	
 				val<-model[[tmp[i]]]
 				val<-as.matrix(val[[length(val)]])
-				val<-val[nrow(val),ncol(val)]
+				if(tmp[i]=="Xvar"){
+						val<-round(sum(val)*100,1)
+					} else{
+						val<-val[nrow(val),ncol(val)]
+				}
 				per.val<-tryCatch(perm$permuted.values[,tmp[i]], error=function(e) {"not found"}) 
 				data.frame(matrix(c(val,tryCatch(t.test(per.val,mu=val)$p.value, error=function(e) {1})),ncol=1)) #force error = insiginificant 
 		}))
@@ -1141,7 +1145,7 @@ OSC.validate.model<-function(model, perm, train= NULL) {
 		res<-data.frame(rbind(signif(p.vals[1,],4),perm$summary,signif(p.vals[2,],4)))
 		dimnames(res)<-list(c("model","permuted model","p-value"), tmp)
 	} else {
-		tmp<-c("Q2","RMSEP")	
+		tmp<-c("Xvar","Q2","RMSEP")		
 		#need to summarize results from train objects
 		p.vals<-sapply(1:length(tmp), function(i) {	
 				val<-train$performance[,tmp[i]]
@@ -1149,10 +1153,22 @@ OSC.validate.model<-function(model, perm, train= NULL) {
 				tryCatch(t.test(per.val,val)$p.value, error=function(e) {1}) #force error = insiginificant 
 		})
 		if(is.null(perm$summary)){perm$summary<-rep("not permuted",3)}
-		res<-data.frame(rbind(train$summary,perm$summary[c(1,3)],signif(p.vals,4))) # don't include Xvar
+		res<-data.frame(rbind(train$summary,perm$summary,signif(p.vals,4))) # don't include Xvar
 		dimnames(res)<-list(c("model","permuted model","p-value"), tmp)
 	}
 	return(res)
+}
+
+#compare train stats between two models
+OSC.PLS.model.compare<-function(model1, model2){
+		#models must be object generated with OSC.PLS.train.test
+		
+		p.vals<-do.call("cbind",sapply(1:ncol(model1$performance), function(i) {	
+				data.frame(tryCatch(t.test(model1$performance[,i],model2$performance[,i])$p.value, error=function(e) {1}))}) #force error = insiginificant 
+		)
+		res<-data.frame(rbind(model1$summary,model2$summary,signif(p.vals,4))) # don't include Xvar
+		dimnames(res)<-list(c("model 1","model 2","p-value"),colnames(model1$summary))
+		return(res)
 }
 
 #conduct train/test validations on PLS model
@@ -1210,23 +1226,25 @@ OSC.PLS.train.test<-function(pls.data,pls.y,train.test.index,comp,OSC.comp,...)
 			train.pred<-test.pls.results$fitted.values[[OSC.comp+1]][,,comp]
 			test.pred<-test.pls.results$predicted.Y[[OSC.comp+1]]
 			RMSEP<-test.pls.results$predicted.RMSEP[[OSC.comp+1]]
+			Xvar<-round(sum(test.pls.results$Xvar[[OSC.comp+1]])*100,1)
+			
 			#results
 			predicted.y<-rbind(as.matrix(train.pred),as.matrix(test.pred))
 			actual.y<-rbind(as.matrix(train.real),as.matrix(test.real))
 			test.index<-pls.train.index
-			res<-list(predicted.y[back.sort,], actual.y[back.sort,], test.index,RMSEP,Q2,LVs=comp)
-			names(res)<-c("predicted.y","actual.y","pls.train.index","RMSEP","Q2","LVs")
+			res<-list(predicted.y[back.sort,], actual.y[back.sort,], test.index,RMSEP,Q2,Xvar,LVs=comp)
+			names(res)<-c("predicted.y","actual.y","pls.train.index","RMSEP","Q2","Xvar","LVs")
 			return(res)
 		})
 		
 		#need to summarize results
 		aggregated<-matrix(t(sapply(1:length(results),function(i){
-			c(results[[i]]$Q2, results[[i]]$RMSEP)
-		})),ncol=2)
-		colnames(aggregated)<-c("Q2","RMSEP")
+			c(results[[i]]$Xvar,results[[i]]$Q2, results[[i]]$RMSEP)
+		})),ncol=3)
+		colnames(aggregated)<-c("Xvar","Q2","RMSEP")
 		
 		aggregated.summary<-matrix(paste(signif(apply(aggregated,2,mean),4),"±",signif(apply(aggregated,2,sd),3)),nrow=1)
-		colnames(aggregated.summary)<-c("Q2","RMSEP")
+		colnames(aggregated.summary)<-c("Xvar","Q2","RMSEP")
 		list(full.results=results, performance=aggregated, summary=aggregated.summary)
 	}	
 
@@ -1507,7 +1525,7 @@ library(reshape2)
 library(pcaMethods)
 data(mtcars)
 data<-mtcars[,-c(8,9)]
-y<-data.frame(am=mtcars$am,mtcars$mpg)
+y<-data.frame(am=mtcars$am)
 pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
 comp<-2
 osc.comp<-1
@@ -1517,7 +1535,7 @@ scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
 #make OSC model
 mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, validation = "LOO",method="oscorespls", cv.scale=FALSE,return.obj="m")
 plot.OSC.results(mods,plot="scores",groups=color)
-plot.OSC.results(mods,plot="RMSEP",groups=color)
+plot.OSC.results(mods,plot="RMSEP",groups=color) # need to facet by Y
 plot.OSC.results(mods,plot="loadings",groups=color)
 plot.OSC.results(mods,plot="delta.weights",groups=color)
 
@@ -1534,9 +1552,8 @@ plot.PLS(obj=final,plot="loadings",groups=color)
 plot.PLS(obj=final,plot="biplot",groups=color)
 
 #data summary for multi y model
-opls.model.text<-data.frame("Xvar"=c(0,final$Xvar),"Q2"=final$Q2,"RMSEP"= final$RMSEP)	
-		rownames(opls.model.text)<-c("intercept",paste0("LV ",1:comp))
-
+ 
+opls.model.text
 
 #single level model validation
 #generate train/test index
@@ -1566,9 +1583,10 @@ scaled.data<-data.frame(prep(tmp.data,center=TRUE,scale="uv"))
 #carry out feature selection
 .scores<-results$scores[,]
 .loadings<-results$loadings[,]	
-
+type<-"number"
+top<-2
 selected.features<-PLS.feature.select(pls.data=scaled.data,pls.scores=.scores[,1],pls.loadings=.loadings[,1],pls.weight=.loadings[,1],
-				p.value=0.05, FDR=TRUE,cut.type="number",top=6,separate=TRUE,type="spearman")
+				p.value=0.05, FDR=TRUE,cut.type=type,top=top,separate=FALSE,type="spearman")
 
 
 pls.data<-scaled.data[,selected.features$combined.selection]	

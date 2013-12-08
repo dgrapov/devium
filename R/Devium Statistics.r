@@ -322,6 +322,47 @@ simple.lme<-function(data,factor,subject,FDR="BH", progress=TRUE){
 		return(out)
 } 
  
+#multi-LME with formula interface
+#simple mixed effects model for repeated measures
+formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
+		#data  = data.frame of values to test and test factors
+		#factor = object to be tested 
+		#subject = identifier for repeated measures
+		check.get.packages(c("lme4","car"))
+		#not sure how to ignore test factors in data, cause error in loop
+		
+		if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
+		lmer.p.values<-do.call("rbind",sapply(1:ncol(data), function(i){
+			if (progress == TRUE){setTxtProgressBar(pb, i)}
+			mod<-tryCatch(lmer(as.formula(paste0("data[,i]~", formula)), data=data),error=function(e){NULL})
+			if(is.null(mod)){1} else {
+				res<-Anova(mod)
+				tmp<-t(data.frame(res$"Pr(>Chisq)"))
+				colnames(tmp)<-rownames(res)
+				tmp
+			}
+		}))
+		if (progress == TRUE){close(pb)}
+		#FDR adjust 
+		p.vals<-as.matrix(lmer.p.values)
+		padj<-do.call("cbind",lapply(1:ncol(p.vals),function(i){
+			obj<-p.vals[,i]
+			as.data.frame(p.adjust(obj, method = FDR, n = length(obj)))
+		}))
+		#q value estimate
+		qval<-do.call("cbind",lapply(1:ncol(p.vals),function(i){
+			obj<-p.vals[,i]
+			FDR.adjust(obj,type="pvalue",return.all=TRUE)$qval
+		}))
+		
+		names<-c(paste(colnames(lmer.p.values),"lme","p.value",sep="_"),
+				paste(colnames(lmer.p.values),"lme",FDR,"adjusted.p.value",sep="_"),
+				paste(colnames(lmer.p.values),"lme","q.value",sep="_"))
+		out<-data.frame(lmer.p.values,padj,qval)
+		dimnames(out)<-list(colnames(data),names)
+		return(out)
+} 
+ 
 #calculate AUC for multiple treatments
  multi.group.AUC<-function(data,subject.id,sample.type, time){
 	library(pracma)
