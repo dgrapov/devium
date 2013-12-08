@@ -58,16 +58,18 @@ translate.index<-function(id, lookup){
 	# lookup is a two column data.frame or matrix with 
 	# column 1 containing index matching id and
 	# columns >=2 containing translation(s)
-	id<-as.matrix(id) # needs 2 dims
+	id<-as.matrix(id)# needs 2 dims
+	lookup<-as.matrix(lookup)
+	#need to make sure values can be rownames	
 	#remove duplicates
-	keep<-!duplicated(lookup[,1])
+	keep<-!duplicated(lookup[,1])&!is.na(lookup[,1])
 	tmp.data<-lookup[keep,-1,drop=FALSE]
 	rownames(tmp.data)<-lookup[keep,1]
 	trans<-sapply(1:ncol(id),function(i){
 		tmp.data[id[,i],]
 		})
 	colnames(trans)<-colnames(id)
-	return(as.matrix(trans))	
+	return(trans)	
 }
 
 #get InchI Key based reaction pairs
