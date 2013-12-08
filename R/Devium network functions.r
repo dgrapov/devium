@@ -53,7 +53,7 @@ enrichR.IDEOM<-function(id, from="PubChem CID",IDEOM.DB=NULL){
 		# }))
 # }
 
-# # translate index based on lookup table 
+# # translate index based on lookup table  
 translate.index<-function(id, lookup){
 	# lookup is a two column data.frame or matrix with 
 	# column 1 containing index matching id and
