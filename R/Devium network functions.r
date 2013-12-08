@@ -59,6 +59,8 @@ translate.index<-function(id, lookup){
 	# column 1 containing index matching id and
 	# columns >=2 containing translation(s)
 	id<-as.matrix(id) # needs 2 dims
+	#remove duplicates
+	id<-!duplicated(lookup[,1])
 	tmp.data<-lookup[,-1,drop=FALSE]
 	rownames(tmp.data)<-lookup[,1]
 	trans<-sapply(1:ncol(id),function(i){
