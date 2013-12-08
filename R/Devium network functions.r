@@ -67,7 +67,7 @@ translate.index<-function(id, lookup){
 		tmp.data[id[,i],]
 		})
 	colnames(trans)<-colnames(id)
-	return(trans)	
+	return(as.matrix(trans))	
 }
 
 #get InchI Key based reaction pairs
