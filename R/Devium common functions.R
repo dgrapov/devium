@@ -734,9 +734,18 @@ check.fix.names<-function(names,ok.chars=c(".","_",",","(",")",":"," "),replace.
 			
 #get top triangle of possible pairwise interactions
 #accessory function
-all.pairs<-function(r,type="one")
-		{       
+all.pairs<-function(r,type="one"){       
 				switch(type,
 				one = list(first = rep(1:r,rep(r,r))[lower.tri(diag(r))], second = rep(1:r, r)[lower.tri(diag(r))]),
 				two = list(first = rep(1:r, r)[lower.tri(diag(r))], second = rep(1:r,rep(r,r))[lower.tri(diag(r))]))
-		}
+}
+
+#source local directory to load devium fxns
+source.local.dir<-function(wd){
+	o.dir<-getwd()
+	setwd(wd)
+	files<-dir()[unique(c(agrep(".r",dir()),agrep(".R",dir())))]
+	lapply(1:length(files),function(i) {tryCatch(source(files[i]),error=function(e){paste0("can't load-->",files[i])})
+	})
+	setwd(o.dir)
+}

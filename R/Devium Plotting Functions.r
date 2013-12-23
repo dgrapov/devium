@@ -334,7 +334,7 @@ set.plot.legend<-function(obj,name="scatter.plot.legend",env=devium)
 			}
 	}
 						
-#combine multiple ggplots (no ref)
+#combine multiple ggplots (ref: R Cookbook?)
 multiplot <- function(..., plotlist=NULL, cols) {
     require(grid)
 
@@ -363,7 +363,7 @@ multiplot <- function(..., plotlist=NULL, cols) {
 }
 
 #~time series line plot for multiple groups
-time.series.plot<-function(variable,group,time,xlab="Time",color=NULL,alpha=0.9,size=3,text=20,legend="right",background=element_blank(),save=FALSE){
+time.series.plot<-function(variable,group,time,xlab="Time",color=NULL,line.type=NULL,alpha=0.9,size=3,text=20,legend="right",background=element_blank(),save=FALSE,file.name=NULL){
 	library(ggplot2)
 	
 	tmp.data<-data.frame(variable=variable,group=group,time=time)
@@ -400,13 +400,22 @@ time.series.plot<-function(variable,group,time,xlab="Time",color=NULL,alpha=0.9,
 				axis.ticks =        element_line(colour = "grey50"),
 				axis.title.x =      element_text(size = text, vjust = 0.5),
 				axis.title.y =      element_text(size = text, angle = 90, vjust = 0.5),
-				panel.background = background, 
-				plot.background = element_blank(),
-				legend.position= legend
+				panel.background = 	background, 
+				plot.background = 	element_blank(),
+				legend.key = 		element_blank(),
+				legend.position = 	legend
 			 )	
 		 }
 	
 	if (!is.null(color)) {other<-scale_colour_manual(values = color)} else { other <-NULL}
+	if (is.null(line.type)) {
+			other2<-scale_linetype_manual(values = rep(1,length(unique(group))))
+			other3<-NULL
+	} else { 
+			other2<-scale_linetype_manual(values = line.type) 
+			other3<-guides(color = guide_legend(keywidth = 2, keyheight = 1),linetype = guide_legend(keywidth = 2, keyheight = 1))
+			show=TRUE
+	}
 	
 	# factors for aesthetics
 	group<-factor(dfc[,1], levels=levels(group))
@@ -414,30 +423,39 @@ time.series.plot<-function(variable,group,time,xlab="Time",color=NULL,alpha=0.9,
 
 	# plot
 	if(save=="network"){ # hard coded polygon breaks fix later
-		p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group)) + 
+		p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group, linetype=group)) + 
 		geom_rect(aes(xmin=breaks[1], xmax=breaks[2], ymin=-Inf, ymax=Inf), fill='gray80', alpha=.1,linetype=0) +
 		geom_rect(aes(xmin=breaks[3], xmax=breaks[4], ymin=-Inf, ymax=Inf), fill='gray80', alpha=.1,linetype=0) + # need to make dynamic
 		geom_errorbar(aes(ymin=as.numeric(as.character(mean))-se, ymax=as.numeric(as.character(mean))+se), width = 0,size=1,alpha=alpha) +
 		geom_line(size=1.5,alpha=alpha) +
-		scale_x_continuous(breaks =breaks) + .theme + other
+		scale_x_continuous(breaks =breaks) + .theme + other + other2
 		
 		#save to file to use as node images in network visualizations
-		filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
+		if(is.null(file.name)){
+			filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
+		} else {
+			filename<-file.name
+		}
+		
 		png(file = filename,pointsize=1,width=60,height=60) # or 60 X 60 and 1 pt 
 		print(p)
 		dev.off()
 	
 	} else {
-		p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group)) + 
-					geom_errorbar(aes(ymin=as.numeric(as.character(mean))-se, ymax=as.numeric(as.character(mean))+se), width = size+1,size=size,alpha=alpha) +
-					geom_line(size=size,alpha=alpha) +
+		p<-ggplot(dfc, aes(x = as.numeric(as.character(time)), y = as.numeric(as.character(mean)), color = group,linetype=group)) + 
+					geom_errorbar(aes(ymin=as.numeric(as.character(mean))-se, ymax=as.numeric(as.character(mean))+se), width = size+1,size=size,alpha=alpha,linetype=1,show_guide=FALSE) +
+					geom_line(size=size,alpha=alpha) + # line + 
 					scale_x_continuous(breaks = breaks) +
 					ylab(colnames(variable)) +
-					xlab(xlab) + .theme + other
+					xlab(xlab) + .theme + other + other2 + other3
 	}
 			
 	if(save==TRUE){
-			filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
+			if(is.null(file.name)){
+				filename<-paste(tryCatch(colnames(variable), error=function(e){gsub(":","_",strsplit(as.character(unlist(Sys.time()))," ")[[1]][2])}),".png",sep="")
+			} else {
+				filename<-paste0(file.name,".png")
+			}
 			ggsave(filename,p)
 		} 
 	

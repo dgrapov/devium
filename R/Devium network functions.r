@@ -1430,6 +1430,7 @@ plot.nodes.and.edges<-function(edge.list,index=NULL,.threshold=c(0,0.05), levels
 
 #convert mass spectra input as m/z:intensity string to matrix
 spectra.string.to.matrix<-function(spectra, encode.char = ":"){
+		library(plyr)
 		#get m/z intensity pairs 
 		tmp<-lapply(1:length(spectra),function(i){
 			strsplit(fixlc(strsplit(fixlc(spectra[i])," ")),encode.char)
@@ -1448,12 +1449,12 @@ spectra.string.to.matrix<-function(spectra, encode.char = ":"){
 		return(tmp)
 }
 
-#get cosine correllations from mz/intensity strings
-get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = max(1:length(spectra))){
+#get cosine correlations from mz/intensity strings
+get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = max(1:length(spectra)),retention.index=NULL,retention.cutoff=100){
 	#spectra = encoded mass spectar of type "mz : intensity" string
 	#known = row index for "known" metabolites to allow unknown connections too
 	#cutoff = cosine correlation coefficient >= to accept 
-	#edge.limit = maximum nunber of connections
+	#edge.limit = maximum number of connections between each unknown and known(s)
 	# library(lsa) # when cannnot load library like on shiny server due to JAVA dependancie mismatch
 	cosine<-function (x, y = NULL) 
 		{
@@ -1528,6 +1529,19 @@ get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = 
 		results<-do.call("rbind",top.edges)
 		results<-data.frame(results[!is.na(results[,1]),])
 		colnames(results)<-c("source", "target", "weight")
+		
+		#filter connections based retention time
+		if(!is.null(retention.index)) {
+			tr1<-retention.index[results[,1]]
+			tr2<-retention.index[results[,2]]
+			delta<-abs(tr1-tr2)
+			#add to results for output--breaking pattern of 3 column edge list output
+			results$delta.retention.time<-delta
+			selected<-delta<=retention.cutoff
+			if(sum(selected	)>=1){
+				results<-results[selected,]
+			} else { message("No edges met criteria");results<-NULL}		
+		}
 		
 	} else {message("No edges met criteria");results<-NULL}	
 		

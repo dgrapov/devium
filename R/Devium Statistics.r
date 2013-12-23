@@ -412,6 +412,62 @@ formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
 	do.call("rbind",group.AUC)
 }
 
+#trying to generalize baseline adjustment
+ two.factor.adj<-function(data,factor1,factor2,adj.factor,level=0,fxn="-"){
+	#too lazy to rename objects from older fxns getting ugly
+	# too lazy (no time) to generalize further
+	factor1<-as.factor(factor1)	
+	factor2<-as.factor(factor2)
+	#sample type factor
+	tme<-as.factor(adj.factor)	#adj.factor	
+	
+	#split objects
+	tmp.data<-split(data,factor1)
+	tmp.adj.factor<-split(tme,factor1)
+	tmp.subs<-split(as.character(factor2),factor1)
+	
+	group.adj<-lapply(1:nlevels(factor1),function(i){
+		ddata<-tmp.data[[i]]
+		ttime<-tmp.adj.factor[[i]]
+		subs<-tmp.subs[[i]]
+		
+		
+		#calculate 
+		results<-lapply(1:length(ddata),function(i)
+		{
+			tmp2.adj.factor<-split(ttime,subs)
+			obj<-split(as.data.frame(ddata[[i]]),subs)
+			#subtract baseline for correct negative AUC
+			adj.obj<-matrix(unlist(lapply(1:length(obj),function(j)
+				{
+					id<-c(1:length(tmp2.adj.factor))[tmp2.adj.factor[[j]]==level]
+					tmp<-as.numeric(as.matrix(unlist(obj[[j]])))
+					do.call(fxn,list(tmp,tmp[id]))
+				})),,1)
+			colnames(adj.obj)<-colnames(data[i])
+			adj.obj
+		})	
+		# results.meta<-do.call("cbind",lapply(1:length(ddata),function(i)
+		# {
+			# tmp2.adj.factor<-split(ttime,subs)
+			# obj<-split(as.data.frame(ddata[[i]]),subs)
+			#get meta data
+			obj<-split(as.data.frame(ddata[[i]]),subs) # redundant from above
+			tmp2.adj.factor<-split(ttime,subs) # redundant from above
+			n1<-rep(names(tmp.adj.factor)[i],length(unlist(obj)))
+			n2<-rep(names(tmp2.adj.factor),times=sapply(obj,dim)[1,])
+			adj.n<-matrix(unlist(tmp2.adj.factor),,1)
+			tmp.res<-data.frame(n1,n2,adj.n)
+			r.names<-join.columns(tmp.res,"_")
+			
+		# }))
+		tmp<-do.call("cbind",results)
+		rownames(tmp)<-r.names
+		tmp
+	})	
+	out<-do.call("rbind",group.adj)
+}
+
 #calculating qvalue and local FDR
 FDR.adjust<-function(obj,type="pvalue",return.all=FALSE){
 	check.get.packages("fdrtool")

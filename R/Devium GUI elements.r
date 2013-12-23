@@ -1053,7 +1053,7 @@ devium.qplot<- function(container=NULL)
 	return(mainWin)
 	}
 	
-#function to make gui to lad data from csv or google docs
+#function to make gui to load data from csv or google docs
 devium.data.import<-function (container = NULL) 
 {
 		#container=gwindow()
