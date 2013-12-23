@@ -750,15 +750,66 @@ filter.edges<-function(edge.list,filter,cut.off=NULL){
 		return(out)
 	}
 
+# #limit to X top edges per node 
+# edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreasing=TRUE){
+	# # edge list a two column data frame defining connections
+	# # value vector of values to select from 
+	# # max.edges maximum number of allowed edges
+	# # separate  should positive and negative values be tested together
+	# # top select top edges values based on magnitude of value
+	# # result is a row index for edges meeting criteria
+	
+	# nodes<-unique(matrix(unlist(edge.list), ncol=1))
+	# id<-c(1:nrow(edge.list))
+	
+	# if(separate){
+		# tmp<-split(as.data.frame(cbind(edge.list, value)), as.factor(value>0))
+		# #max.edges<-floor(max.edges/2) # allow equal influence of both positive an negative edges
+		
+		# out<-lapply(1:length(tmp), function(j){
+		
+				# edge.list<-tmp[[j]][,-3]
+				# value<-tmp[[j]][,3]
+				# sapply(1:length(nodes), function(i){
+					# index<-id[edge.list[,1]%in%nodes[i]|edge.list[,2]%in%nodes[i]]
+					# values<-value[index]
+					# vals<-na.omit(index[order(values, decreasing=decreasing)][1:max.edges])
+					# if(length(vals)==0){vals<-max(id)+1 } # dummy index to avoid empty
+					# vals
+				# })
+		# })
+		
+		# #combine separated results 
+		# tmp<-join.columns(data.frame(do.call("rbind",out[[1]]),do.call("rbind",out[[2]])),",")
+		# tmp2<-sapply(1:length(tmp), function(i){
+				# as.numeric(unique(unlist(strsplit(tmp[i],","))))
+			# })
+		# edge.id<-unique(unlist(tmp2))
+		
+		
+	# } else {
+	
+		# out<-sapply(1:length(nodes), function(i){
+			# index<-id[edge.list[,1]%in%nodes[i]|edge.list[,2]%in%nodes[i]]
+			# values<-value[index]
+			# vals<-na.omit(index[order(values, decreasing=decreasing)][1:max.edges])
+			# if(length(vals)==0){vals<-max(id)+1 } # dummy index to avoid empty
+			# vals
+		# })
+		
+		# edge.id<-unique(unlist(out))
+	# }
+	# return(edge.id)
+# }
+
 #limit to X top edges per node 
 edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreasing=TRUE){
 	# edge list a two column data frame defining connections
 	# value vector of values to select from 
 	# max.edges maximum number of allowed edges
-	# separate  should positive and negative values be tested to gether
+	# separate  should positive and negative values be tested together
 	# top select top edges values based on magnitude of value
 	# result is a row index for edges meeting criteria
-	
 	
 	nodes<-unique(matrix(unlist(edge.list), ncol=1))
 	id<-c(1:nrow(edge.list))
@@ -780,12 +831,13 @@ edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreas
 				})
 		})
 		
-		#combine separated results 
-		tmp<-join.columns(data.frame(do.call("rbind",out[[1]]),do.call("rbind",out[[2]])),",")
-		tmp2<-sapply(1:length(tmp), function(i){
-				as.numeric(unique(unlist(strsplit(tmp[i],","))))
-			})
-		edge.id<-unique(unlist(tmp2))
+		#combine separated results (not sure why)
+		# tmp<-join.columns(data.frame(do.call("rbind",out[1]),do.call("rbind",out[2])),",")
+		# tmp2<-sapply(1:length(tmp), function(i){
+				# as.numeric(unique(unlist(strsplit(tmp[i],","))))
+			# })
+		# edge.id<-unique(unlist(tmp2))
+		edge.id<-unique(unlist(out))	
 		
 		
 	} else {
@@ -1519,14 +1571,17 @@ get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = 
 			edges<-edge.list
 		}
 
-		tmp2<-split(data.frame(edges),as.factor(edges[,1]))
-		#limit top edges per node
-		top.edges<-lapply(1:length(tmp2),function(i){
-			obj<-tmp2[[i]][order(tmp2[[i]][,3],decreasing=TRUE),]
-			obj[c(1:nrow(obj))<=edge.limit,]
-		})
-
-		results<-do.call("rbind",top.edges)
+		# tmp2<-split(data.frame(edges),as.factor(edges[,1]))
+		# #limit top edges per node 
+		# #need to fix, not working properly
+		# top.edges<-lapply(1:length(tmp2),function(i){
+			# obj<-tmp2[[i]][order(tmp2[[i]][,3],decreasing=TRUE),]
+			# obj[c(1:nrow(obj))<=edge.limit,]
+		# })
+		top.id<-edge.list.filter(edge.list=edges[,1:2],value=abs(fixln(edges[,3])), max.edges=1, separate=FALSE, decreasing=TRUE)
+		results<-edges[top.id,]
+		
+		# results<-do.call("rbind",top.edges)
 		results<-data.frame(results[!is.na(results[,1]),])
 		colnames(results)<-c("source", "target", "weight")
 		
