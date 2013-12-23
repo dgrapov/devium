@@ -1578,7 +1578,7 @@ get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = 
 			# obj<-tmp2[[i]][order(tmp2[[i]][,3],decreasing=TRUE),]
 			# obj[c(1:nrow(obj))<=edge.limit,]
 		# })
-		top.id<-edge.list.filter(edge.list=edges[,1:2],value=abs(fixln(edges[,3])), max.edges=1, separate=FALSE, decreasing=TRUE)
+		top.id<-edge.list.filter(edge.list=edges[,1:2],value=abs(fixln(edges[,3])), max.edges=edge.limit, separate=FALSE, decreasing=TRUE)
 		results<-edges[top.id,]
 		
 		# results<-do.call("rbind",top.edges)
