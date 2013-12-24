@@ -750,59 +750,9 @@ filter.edges<-function(edge.list,filter,cut.off=NULL){
 		return(out)
 	}
 
-# #limit to X top edges per node 
-# edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreasing=TRUE){
-	# # edge list a two column data frame defining connections
-	# # value vector of values to select from 
-	# # max.edges maximum number of allowed edges
-	# # separate  should positive and negative values be tested together
-	# # top select top edges values based on magnitude of value
-	# # result is a row index for edges meeting criteria
 	
-	# nodes<-unique(matrix(unlist(edge.list), ncol=1))
-	# id<-c(1:nrow(edge.list))
 	
-	# if(separate){
-		# tmp<-split(as.data.frame(cbind(edge.list, value)), as.factor(value>0))
-		# #max.edges<-floor(max.edges/2) # allow equal influence of both positive an negative edges
-		
-		# out<-lapply(1:length(tmp), function(j){
-		
-				# edge.list<-tmp[[j]][,-3]
-				# value<-tmp[[j]][,3]
-				# sapply(1:length(nodes), function(i){
-					# index<-id[edge.list[,1]%in%nodes[i]|edge.list[,2]%in%nodes[i]]
-					# values<-value[index]
-					# vals<-na.omit(index[order(values, decreasing=decreasing)][1:max.edges])
-					# if(length(vals)==0){vals<-max(id)+1 } # dummy index to avoid empty
-					# vals
-				# })
-		# })
-		
-		# #combine separated results 
-		# tmp<-join.columns(data.frame(do.call("rbind",out[[1]]),do.call("rbind",out[[2]])),",")
-		# tmp2<-sapply(1:length(tmp), function(i){
-				# as.numeric(unique(unlist(strsplit(tmp[i],","))))
-			# })
-		# edge.id<-unique(unlist(tmp2))
-		
-		
-	# } else {
-	
-		# out<-sapply(1:length(nodes), function(i){
-			# index<-id[edge.list[,1]%in%nodes[i]|edge.list[,2]%in%nodes[i]]
-			# values<-value[index]
-			# vals<-na.omit(index[order(values, decreasing=decreasing)][1:max.edges])
-			# if(length(vals)==0){vals<-max(id)+1 } # dummy index to avoid empty
-			# vals
-		# })
-		
-		# edge.id<-unique(unlist(out))
-	# }
-	# return(edge.id)
-# }
-
-#limit to X top edges per node 
+#limit to X top edges per node( not correct see edge.list.filter2) 
 edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreasing=TRUE){
 	# edge list a two column data frame defining connections
 	# value vector of values to select from 
@@ -831,13 +781,12 @@ edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreas
 				})
 		})
 		
-		#combine separated results (not sure why)
-		# tmp<-join.columns(data.frame(do.call("rbind",out[1]),do.call("rbind",out[2])),",")
-		# tmp2<-sapply(1:length(tmp), function(i){
-				# as.numeric(unique(unlist(strsplit(tmp[i],","))))
-			# })
-		# edge.id<-unique(unlist(tmp2))
-		edge.id<-unique(unlist(out))	
+		#combine separated results 
+		tmp<-join.columns(data.frame(do.call("rbind",out[[1]]),do.call("rbind",out[[2]])),",")
+		tmp2<-sapply(1:length(tmp), function(i){
+				as.numeric(unique(unlist(strsplit(tmp[i],","))))
+			})
+		edge.id<-unique(unlist(tmp2))
 		
 		
 	} else {
@@ -853,6 +802,68 @@ edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreas
 		edge.id<-unique(unlist(out))
 	}
 	return(edge.id)
+}
+
+#limit to X top edges per node (leave only the strongest pairwise connections disconnected from all others)
+edge.list.filter.full<-function(edge.list,weight,max.edges=1){
+
+	tmp<-data.frame(rbind(edge.list,edge.list[,2:1]),weight=c(weight,weight))
+	colnames(tmp)<-c("source","target","weight")
+	mat<-dcast(tmp,source ~ target,value.var="weight")
+	mat[,1]<-as.factor(mat[,1])
+	
+	# get top edges (need to run twice to get row and column top ids)
+	len<-1:nrow(mat)
+	tmp.mat<-as.matrix(mat[,-1])
+	keep.mat<-do.call("rbind",lapply(1:(nrow(tmp.mat)),function(i) {
+		id<-len[order(tmp.mat[i,],decreasing=TRUE)][1:max.edges]
+		tmp.mat[i,id]<-"keep"
+		tmp.mat[i,]
+	}))
+	keep.mat1<-do.call("cbind",lapply(1:(ncol(tmp.mat)),function(i) {
+		id<-len[order(tmp.mat[,i],decreasing=TRUE)][1:max.edges]
+		tmp.mat[id,i]<-"keep"
+		tmp.mat[,i]
+	}))
+	
+	dimnames(keep.mat)<-dimnames(keep.mat1)<-list(mat[,1],colnames(mat)[-1])
+	#merge objects to make selection
+	kept<-melt(keep.mat)
+	kept<-kept[!is.na(kept[,3]),]
+	kept1<-melt(keep.mat1)
+	kept1<-kept1[!is.na(kept1[,3]),]
+	# kept1<-kept1[order(kept1[,1]),]
+	
+	kept<-kept[kept[,3]=="keep"&kept1[,3]=="keep",]
+	
+	#need to map back to original edge list order
+	len<-1:nrow(edge.list)
+	back.order<-sapply(1:nrow(kept),function(i){
+		pos1<-len[as.character(edge.list[,1])%in%fixlc(kept[i,1])&as.character(edge.list[,2])%in%fixlc(kept[i,2])]
+		pos2<-len[as.character(edge.list[,2])%in%fixlc(kept[i,1])&as.character(edge.list[,1])%in%fixlc(kept[i,2])]
+		unique(c(pos1,pos2))
+		})
+	#row index for kept terms
+	unique(unlist(back.order))
+}
+
+#allow more than max.nodes to connect otherwise disconnected nodes with strongest relationship
+edge.list.filter.partial<-function(edge.list,weight,max.edges=1){
+	nodes<-unique(fixlc(edge.list))
+	id<-fixlc(edge.list[,2])%in%nodes
+	#flip source target (expecting undirected edges) to get all of one index on one side
+	#test what happens when source nodes are connected
+	tmp<-as.data.frame(edge.list)
+	#add index
+	tmp$tmp.id<-c(1:nrow(tmp))
+	tmp$tmp.weight<-weight
+	filter<-lapply(1:length(nodes),function(i){
+		id<-tmp[,1]%in%nodes[i] | tmp[,2]%in%nodes[i]
+		obj<-tmp[id,]
+		obj<-obj[order(obj[,3],decreasing=TRUE),]
+		obj[c(1:nrow(obj))<=max.edges,]
+	})
+	unique(do.call("rbind",filter)[,3])
 }
 
 #create edge list and network attributes file from meta.data with CID keys
@@ -1561,12 +1572,14 @@ get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = 
 		
 		# scan edge.list looking for known to unknown connections
 		known.id1<-edge.list[,1]%in%known & !edge.list[,2]%in%known
-		known.id2<-edge.list[,2]%in%known & !edge.list[,1]%in%known
+		known.id2<-edge.list[,2]%in%known & !edge.list[,1]%in%known 
 		known.id<-known.id1|known.id2
 		
 		if(sum(known.id)>0){
 			query.index<-c(1:nrow(edge.list))[known.id] # position in list for knowns
 			edges<-edge.list[query.index,]
+			#make sure known is listed as source
+			edge.list[known.id2,1:2]<-edge.list[known.id2,2:1]
 		}	else {
 			edges<-edge.list
 		}
@@ -1578,7 +1591,9 @@ get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = 
 			# obj<-tmp2[[i]][order(tmp2[[i]][,3],decreasing=TRUE),]
 			# obj[c(1:nrow(obj))<=edge.limit,]
 		# })
-		top.id<-edge.list.filter(edge.list=edges[,1:2],value=abs(fixln(edges[,3])), max.edges=edge.limit, separate=FALSE, decreasing=TRUE)
+		
+		top.id<-edge.list.filter.partial(edge.list=edges[,1:2],weight=abs(fixln(edges[,3])),max.edges=edge.limit)
+		#could use edge.list.full for more extreme filtering
 		results<-edges[top.id,]
 		
 		# results<-do.call("rbind",top.edges)
