@@ -121,9 +121,10 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 			SSW <- sweep(object$loading.weights^2, 2, SS / Wnorm2, "*")
 			t(sqrt(nrow(SSW) * apply(SSW, 1, cumsum) / cumsum(SS)))[,comp,drop=FALSE]
 		}
-		OSC.results$VIP<-tryCatch(VIP(object),error=function(e){NULL})
-			
+		OSC.results$VIP<-tryCatch(VIP(object),error=function(e){NULL})	
 	}
+	#coefficients
+	OSC.results$coefficients<-coefficients(tmp.model)
 	if (return.obj=="model"){return(tmp.model)} else {	return(OSC.results)	}
 }
 
@@ -711,6 +712,8 @@ get.OSC.model<-function(obj,OSC.comp){
 	out$total.LVs<-obj$total.LVs[[id]]
 	out$OSC.LVs<-obj$OSC.LVs[[id]]
 	out$VIP<-obj$VIP
+	out$coefficients<-data.frame(obj$coefficients)
+	colnames(out$coefficients)<-"coefficients"
 	return(out)
 }
 	
