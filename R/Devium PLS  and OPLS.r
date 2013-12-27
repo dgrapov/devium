@@ -111,6 +111,19 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 		}
 	
 	if (progress == TRUE){close(pb)}
+	#calculate VIP if single Y and oscorespls
+	#based on http://mevik.net/work/software/VIP.R 
+	if(ncol(pls.y)==1){
+		object<-tmp.model
+		VIP<-function(object){
+			SS <- c(object$Yloadings)^2 * colSums(object$scores^2)
+			Wnorm2 <- colSums(object$loading.weights^2)
+			SSW <- sweep(object$loading.weights^2, 2, SS / Wnorm2, "*")
+			t(sqrt(nrow(SSW) * apply(SSW, 1, cumsum) / cumsum(SS)))[,comp,drop=FALSE]
+		}
+		OSC.results$VIP<-tryCatch(VIP(object),error=function(e){NULL})
+			
+	}
 	if (return.obj=="model"){return(tmp.model)} else {	return(OSC.results)	}
 }
 
@@ -685,6 +698,10 @@ get.OSC.model<-function(obj,OSC.comp){
 	out<-list()
 	out$data<-obj$data[[id]]
 	out$y<-obj$y
+	out$fitted.values<-data.frame(obj$fitted.values[[id]][,,dim(obj$fitted.values[[id]])[3],drop=FALSE])
+	colnames(out$fitted.values)<-paste0("Y_",c(1:ncol(out$y[[1]])),"_fitted.values")
+	out$residuals<-data.frame(out$fitted.values-out$y[[1]])
+	colnames(out$residuals)<-paste0("Y_",c(1:ncol(out$y[[1]])),"_residuals")
 	out$RMSEP<-obj$RMSEP[[id]]
 	out$Q2<-obj$Q2[[id]]
 	out$Xvar<-obj$Xvar[[id]]
@@ -693,6 +710,7 @@ get.OSC.model<-function(obj,OSC.comp){
 	out$loading.weights<-obj$loading.weights[[id]]
 	out$total.LVs<-obj$total.LVs[[id]]
 	out$OSC.LVs<-obj$OSC.LVs[[id]]
+	out$VIP<-obj$VIP
 	return(out)
 }
 	
@@ -1533,7 +1551,7 @@ color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 # color<-NULL
 scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
 #make OSC model
-mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, validation = "LOO",method="oscorespls", cv.scale=FALSE,return.obj="m")
+mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, method="kernelpls",validation = "LOO", cv.scale=FALSE,return.obj="stats")
 plot.OSC.results(mods,plot="scores",groups=color)
 plot.OSC.results(mods,plot="RMSEP",groups=color) # need to facet by Y
 plot.OSC.results(mods,plot="loadings",groups=color)
