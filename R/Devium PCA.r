@@ -121,15 +121,16 @@ make.scree.plot.bar<-function(eigenvalues){
 }
 
 
-plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5){
+plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),group.bounds="ellipse",size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,alpha=.75,g.alpha=0.2,...){
 	
 	library(ggplot2)
 	library(reshape2)
+	library(grid) # arrows
 	#results<-match.args(results) #
 	local<-switch(results[1],
 
 		"screeplot" 	= function(pca,...){make.scree.plot.bar(pca$pca.eigenvalues)},
-		"scores"		= function(pca,color,size){
+		"scores"		= function(pca,color,size,...){
 								obj<-pca$pca.scores[,c(xaxis,yaxis)]	
 								tmp<-data.frame(obj,id = rownames(obj))
 								#plot 
@@ -149,22 +150,35 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								}
 								
 								points<-if(all(tmp$color=="gray")) { 
-									geom_point(color="gray",size=size,alpha=.75,show_guide = FALSE) 
+									geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
-									geom_point(aes(color=color),size=size,alpha=.5)  
+									geom_point(aes(color=color),size=size,alpha=alpha)  
 								}
 								#labels
 								tmp$lab.offset<-tmp[,2]-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
 								labels<-if(label==TRUE){geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="id"),color="black",show_guide = FALSE)} else { NULL }
 								
-								#Hoettellings T2 ellipse	 
-								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
-								polygons<-if(is.null(color)){
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+								#grouping visualizations
+								polygons<-NULL
+								#Hoettellings T2 ellipse
+								if(group.bounds=="ellipse"){		
+									ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 									} else {
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 									}
-								
+								}
+								#convex hull
+								if(group.bounds=="polygon"){
+									ell<-get.polygon.coords(data.frame(cbind(obj[,1],obj[,2])),tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+										geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
+									} else {
+										geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
+									}
+								}
+				
 								#making the actual plot 
 								p<-ggplot(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2])) + 
 								geom_vline(xintercept = 0,linetype=2, size=.5, alpha=.5) + 
@@ -179,7 +193,7 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								print(p)
 							},
 							
-		"loadings"		= function(pca,color,size){
+		"loadings"		= function(pca,color,size,...){
 								obj<-pca$pca.loadings[,c(xaxis,yaxis)]	
 								tmp<-data.frame(obj,id = rownames(obj))
 								#plot 
@@ -199,21 +213,34 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								}
 								
 								points<-if(all(tmp$color=="gray")) { 
-									geom_point(color="gray",size=size,alpha=.75,show_guide = FALSE) 
+									geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
-									geom_point(aes(color=color),size=size,alpha=.5)  
+									geom_point(aes(color=color),size=size,alpha=alpha)  
 								}
 								#labels
 								tmp$lab.offset<-tmp[,2]-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
 								labels<-if(label==TRUE){geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="id"),color="black",show_guide = FALSE)} else { NULL }
 								
-								#Hoettellings T2 ellipse	 
-								ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
-								polygons<-if(is.null(color)){
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+								#grouping visualizations
+								polygons<-NULL
+								#Hoettellings T2 ellipse
+								if(group.bounds=="ellipse"){		
+									ell<-get.ellipse.coords(cbind(obj[,1],obj[,2]), group=tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 									} else {
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 									}
+								}
+								#convex hull
+								if(group.bounds=="polygon"){
+									ell<-get.polygon.coords(data.frame(cbind(obj[,1],obj[,2])),tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+										geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
+									} else {
+										geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
+									}
+								}
 								
 								#making the actual plot 
 								p<-ggplot(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2])) + 
@@ -261,40 +288,62 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								tmp.loadings[,2]<-rescale(loadings[,2], range(scores[,2]))
 								tmp.loadings<-data.frame(tmp.loadings,label=rownames(loadings))
 								
-								#Adding Hoettellings T2 ellipse
+								#Adding grouping visualizations
 								tmp<-scores[,1:2]
 								if(is.null(color)){
 										tmp$color<-"gray"
 									}else{
 										tmp$color<-as.factor(color[,])
 										if(is.null(legend.name)){legend.name<-colnames(color)}
-								}								
-								ell<-get.ellipse.coords(cbind(tmp[,1],tmp[,2]), group=tmp$color)# group visualization via 
-								polygons<-if(is.null(color)){
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+								}	
+								#grouping visualizations
+								polygons<-NULL
+								#Hoettellings T2 ellipse
+								if(group.bounds=="ellipse"){		
+									ell<-get.ellipse.coords(cbind(tmp[,1],tmp[,2]), group=tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 									} else {
-										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+										geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 									}
-								points<-if(all(tmp$color=="gray")) { 
-									geom_point(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2]),color="gray",size=size,alpha=.75,show_guide = FALSE) 
-								} else { 
-									geom_point(data=tmp, aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2],color="color"),size=size,alpha=.5)  
 								}
-								 p<-ggplot()+
-								 points +
-								 polygons+
-								 geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=arrow(length=unit(0.05,"cm")), alpha=0.25)+
-								 geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
-								 scale_colour_discrete("Variety")+
+								#convex hull
+								if(group.bounds=="polygon"){
+									ell<-get.polygon.coords(cbind(tmp[,1],tmp[,2]),tmp$color)# group visualization via 
+									polygons<-if(is.null(color)){
+										geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
+									} else {
+										geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
+									}
+								}
+								# ell<-get.ellipse.coords(cbind(tmp[,1],tmp[,2]), group=tmp$color)# group visualization via 
+								# polygons<-if(is.null(color)){
+										# geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+									# } else {
+										# geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+									# }
+									
+								points<-if(all(tmp$color=="gray")) { 
+									geom_point(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2]),color="gray",size=size,alpha=alpha,show_guide = FALSE) 
+								} else { 
+									geom_point(data=tmp, aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2],color="color"),size=size,alpha=alpha)  
+								}
+								
+								p<-ggplot()+
+								points +
+								polygons+
+								geom_segment(data=tmp.loadings, aes_string(x=0, y=0, xend=colnames(tmp.loadings)[1], yend=colnames(tmp.loadings)[2]), arrow=arrow(length=unit(0.05,"cm")), alpha=0.25)+
+								geom_text(data=tmp.loadings, aes_string(x=colnames(tmp.loadings)[1], y=colnames(tmp.loadings)[2], label="label"), alpha=0.5, size=font.size)+
+								scale_colour_discrete("Variety")+
 								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
 								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) +
-								 .theme2
-								 if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
-								 print(p)
+								.theme2
+								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
+								print(p)
 							}
 	)
 	
-	local(pca=pca,color=color,size=size)
+	local(pca=pca,color=color,size=size,alpha=alpha,group.bounds=group.bounds,...)
 
 }
 
@@ -313,13 +362,14 @@ pca.inputs<-tmp
 
 res<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
-results<-"biplot"#"biplot"#"scores","loadings","biplot")"screeplot"
+results<-"scores"#"biplot"#"scores","loadings","biplot")"screeplot"
 color<-data.frame(am=mtcars$am,vs=mtcars$vs)#NULL#data.frame(am=mtcars$am)
 color<-data.frame(color=join.columns(color))
+color=NULL
 xaxis<-1
 yaxis=2
+group.bounds="polygon"
 
-plot.PCA(pca=res,results=results,yaxis=yaxis,xaxis=xaxis,size=3,color=color, label=TRUE, legend.name =  NULL)
-
+plot.PCA(pca=res,results=results,yaxis=yaxis,xaxis=xaxis,size=1,color=color, label=TRUE, legend.name =  "poop",font.size=.1,group.bounds,alpha=.75)
 
 }

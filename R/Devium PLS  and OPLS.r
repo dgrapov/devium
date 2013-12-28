@@ -404,8 +404,10 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 	}	
 	
 #recreating plots based on plot.PCA options with slight modifications (good example of a place to use oob, need to have helper function to switch top level inputs based on class and use generic plotter)
-plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis=1,yaxis=2,size=3,groups=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse"){
+plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis=1,yaxis=2,size=3,groups=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse",alpha=.5,g.alpha=.2,...){
 	require(ggplot2)
+	require(grid)
+	#obj is the results of type get.OSC.model
 	#plot = one of: c("screeplot","scores","loadings","biplot","multi")
 	#groups is a factor to show group visualization in scores plot
 	
@@ -444,7 +446,7 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 									print(p)
 								
 							},
-		scores 			=	function(obj,color,size){
+		scores 			=	function(obj,color,size,alpha,...){
 								comps<-obj$total.LVs[1]
 								tmp.obj<-tryCatch(obj$scores[[comps]][,c(xaxis,yaxis)],error=function(e){obj$scores[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce to data.frame
 					
@@ -466,9 +468,9 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 								}
 								
 								points<-if(all(tmp$color=="gray")) { 
-									geom_point(color="gray",size=size,alpha=.75,show_guide = FALSE) 
+									geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
-									geom_point(aes(color=color),size=size,alpha=.5)  
+									geom_point(aes(color=color),size=size,alpha=alpha)  
 								}
 								#labels
 								tmp$lab.offset<-tmp[,2]-abs(range(tmp.obj[,2])[1]-range(tmp.obj[,2])[2])/50						
@@ -480,18 +482,18 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 								if(group.bounds=="ellipse"){		
 									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp$color)# group visualization via 
 									polygons<-if(is.null(color)){
-											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.2, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										} else {
-											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.2, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										}
 								}
 								
 								if(group.bounds=="polygon"){
 									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
 									polygons<-if(is.null(color)){
-											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										} else {
-											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										}
 								}
 								#making the actual plot 
@@ -507,7 +509,7 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								print(p)
 							},
-		"loadings"		= function(obj,color,size){
+		"loadings"		= function(obj,color,size,alpha,...){
 							comps<-obj$total.LVs[1]
 							tmp.obj<-tryCatch(obj$loadings[[comps]][,c(xaxis,yaxis)],error=function(e){obj$loadings[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce to data.frame
 							tmp<-data.frame(tmp.obj,id = rownames(tmp.obj))
@@ -531,9 +533,9 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 							}
 							
 							points<-if(all(tmp$color=="gray")) { 
-								geom_point(color="gray",size=size,alpha=.75,show_guide = FALSE) 
+								geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 							} else { 
-								geom_point(aes(color=color),size=size,alpha=.5)  
+								geom_point(aes(color=color),size=size,alpha=alpha)  
 							}
 							#labels
 							tmp$lab.offset<-tmp[,2]-abs(range(tmp.obj[,2])[1]-range(tmp.obj[,2])[2])/50						
@@ -545,18 +547,18 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 								if(group.bounds=="ellipse"){		
 									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp$color)# group visualization via 
 									polygons<-if(all(tmp$color=="gray")){
-											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.2, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										} else {
-											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.2, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										}
 								}
 								
 								if(group.bounds=="polygon"){
 									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
 									polygons<-if(all(tmp$color=="gray")){
-											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										} else {
-											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										}
 								}
 							
@@ -573,7 +575,7 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 							if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 							print(p)
 						},				
-		"biplot"		= function(obj,color,size){
+		"biplot"		= function(obj,color,size,alpha,...){
 								comps<-obj$total.LVs[1]
 								loadings<-tmp.loadings<-tryCatch(obj$loadings[[comps]][,c(xaxis,yaxis)],error=function(e){obj$loadings[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce
 								scores<-tmp.obj<-data.frame(tryCatch(obj$scores[[comps]][,c(xaxis,yaxis)],error=function(e){obj$scores[,c(xaxis,yaxis)]})) # not sure how to simply unclass and coerce to data.frame
@@ -602,25 +604,25 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 								if(group.bounds=="ellipse"){		
 									ell<-get.ellipse.coords(cbind(tmp.obj[,1],tmp.obj[,2]), group=tmp.obj$color)# group visualization via 
 									polygons<-if(all(tmp.obj$color=="gray")){
-											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.2, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										} else {
-											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=.2, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell$coords),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										}
 								}
 								
 								if(group.bounds=="polygon"){
 									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
 									polygons<-if(all(tmp.obj$color=="gray")){
-											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=.1, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										} else {
-											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=.1, show_guide = FALSE) 
+											geom_polygon(data=data.frame(ell),aes(x=x,y=y, fill=group),linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										}
 								}
 									
 								points<-if(all(tmp.obj$color=="gray")) { 
-									geom_point(data=data.frame(tmp.obj),aes_string(x=colnames(tmp.obj)[1], y=colnames(tmp.obj)[2]),color="gray",size=size,alpha=.75,show_guide = FALSE) 
+									geom_point(data=data.frame(tmp.obj),aes_string(x=colnames(tmp.obj)[1], y=colnames(tmp.obj)[2]),color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
-									geom_point(data=data.frame(tmp.obj), aes_string(x=colnames(tmp.obj)[1], y=colnames(tmp.obj)[2],color="color"),size=size,alpha=.5)  
+									geom_point(data=data.frame(tmp.obj), aes_string(x=colnames(tmp.obj)[1], y=colnames(tmp.obj)[2],color="color"),size=size,alpha=alpha)  
 								}
 								#plot
 								p<-ggplot()+
@@ -637,7 +639,7 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 							}
 		)
 							
-		local(obj,color=groups,size)
+		local(obj,color=groups,size=size,alpha=alpha,...)
 	}		
 	
 #create PLS model
@@ -1567,7 +1569,8 @@ plot.PLS.results(obj=final,plot="RMSEP",groups=color)
 plot.PLS.results(obj=final,plot="loadings",groups=color)
 
 #new plotting function
-plot.PLS(obj=final,plot="scores",groups=color)
+
+plot.PLS(obj=final,plot="scores",groups=color,group.bounds="polygon")
 plot.PLS(obj=final,plot="RMSEP",groups=color)
 plot.PLS(obj=final,plot="loadings",groups=color)
 plot.PLS(obj=final,plot="biplot",groups=color)
