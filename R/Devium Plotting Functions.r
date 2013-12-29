@@ -229,7 +229,7 @@ image.scale <- function(z, zlim, col = heat.colors(12),breaks, horiz=TRUE, ylim=
  }
 }
 
-#map object to a color (save object to a legend "scatter.plot.legend" in envir = devium, eventually make this defineable)
+#map object to a color (save object to a legend "scatter.plot.legend" in envir = devium, eventually make this definable)
 convert.to.color<-function(object,pallet="rainbow",alpha=.5,legend="color")
 	{
 		
