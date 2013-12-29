@@ -404,7 +404,7 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 	}	
 	
 #recreating plots based on plot.PCA options with slight modifications (good example of a place to use oob, need to have helper function to switch top level inputs based on class and use generic plotter)
-plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis=1,yaxis=2,size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse",alpha=.5,g.alpha=.2,...){
+plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xaxis=1,yaxis=2,size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse",alpha=.5,g.alpha=.2,...){
 	require(ggplot2)
 	require(grid)
 	#obj is the results of type get.OSC.model
@@ -413,7 +413,7 @@ plot.PLS<-function(obj, plot = c("screeplot","scores","loadings","biplot"),xaxis
 	
 	
 	
-	local<-switch(plot, # only looks right for single Y models!
+	local<-switch(results, # somethings may only work for single Y models!
 		RMSEP 			=  function(obj,...){
 									
 									.theme<- theme(
