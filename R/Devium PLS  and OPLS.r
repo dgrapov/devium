@@ -412,7 +412,6 @@ plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xa
 	#color is a factor to show group visualization of scores based on color
 	
 	
-	
 	local<-switch(results, # somethings may only work for single Y models!
 		RMSEP 			=  function(obj,...){
 									
@@ -611,7 +610,7 @@ plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xa
 								}
 								
 								if(group.bounds=="polygon"){
-									ell<-get.polygon.coords(data.frame(tmp.obj),tmp$color)# group visualization via 
+									ell<-get.polygon.coords(data.frame(tmp.obj[,1:2]),tmp.obj$color)# group visualization via 
 									polygons<-if(all(tmp.obj$color=="gray")){
 											geom_polygon(data=data.frame(ell),aes(x=x,y=y), fill="gray", color="gray",linetype=2,alpha=g.alpha, show_guide = FALSE) 
 										} else {
@@ -1569,10 +1568,10 @@ plot.PLS.results(obj=final,plot="loadings",groups=color)
 
 #new plotting function
 
-plot.PLS(obj=final,plot="scores",groups=color,group.bounds="polygon")
-plot.PLS(obj=final,plot="RMSEP",groups=color)
-plot.PLS(obj=final,plot="loadings",groups=color)
-plot.PLS(obj=final,plot="biplot",groups=color)
+plot.PLS(obj=final,plot="scores",color=color,group.bounds="polygon")
+plot.PLS(obj=final,plot="RMSEP",color=color)
+plot.PLS(obj=final,plot="loadings",color=color)
+plot.PLS(obj=final,plot="biplot",color=color)
 
 #data summary for multi y model
  
