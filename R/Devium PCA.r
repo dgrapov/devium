@@ -362,7 +362,7 @@ pca.inputs<-tmp
 
 res<-devium.pca.calculate(pca.inputs,return="list",plot=FALSE)
 
-results<-"scores"#"biplot"#"scores","loadings","biplot")"screeplot"
+results<-"biplot"#"biplot"#"scores","loadings","biplot")"screeplot"
 color<-data.frame(am=mtcars$am,vs=mtcars$vs)#NULL#data.frame(am=mtcars$am)
 color<-data.frame(color=join.columns(color))
 color=NULL
@@ -370,6 +370,6 @@ xaxis<-1
 yaxis=2
 group.bounds="polygon"
 
-plot.PCA(pca=res,results=results,yaxis=yaxis,xaxis=xaxis,size=1,color=color, label=TRUE, legend.name =  "poop",font.size=.1,group.bounds,alpha=.75)
+plot.PCA(pca=res,results=results,yaxis=yaxis,xaxis=xaxis,size=1,color=color, label=TRUE, legend.name =  NULL,font.size=.1,group.bounds,alpha=.75)
 
 }

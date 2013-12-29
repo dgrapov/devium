@@ -535,11 +535,11 @@ get.ellipse.coords<-function(obj,group=NULL, ellipse.level=.95){
 #get polygon coordinates for each group
 get.polygon.coords<-function(obj,group){ 
 		require(plyr)
-		fct<-if(is.null(group)) as.factor(rep(1,nrow(obj))) else factor(join.columns(group))
+		fct<-if(is.null(group)) data.frame(fct=as.factor(rep(1,nrow(obj)))) else data.frame(fct=factor(join.columns(group)))
+		obj<-cbind(obj,fct)
 		chull.bounds <- ddply(obj, .(fct), function(x) data.frame(x[chull(as.matrix(x)),]))
 		
-		
-		colnames(chull.bounds)<-c("group","x","y")	
+		colnames(chull.bounds)<-c("x","y","group")	
 		return(chull.bounds)	
 }
 

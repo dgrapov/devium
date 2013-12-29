@@ -1541,7 +1541,6 @@ duplex.select<-function(data,ken.sto2.obj,percent.in.test)
 			 `Chosen calibration row number` = `Chosen calibration row number`)
 }
 
-
 #various tests
 test<-function(){
 library(reshape2)
