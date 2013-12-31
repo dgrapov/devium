@@ -22,6 +22,7 @@ calc.stat<-function(data,factor,stat,...)
 							obj<-d.list[[i]]
 							apply(obj,2,get(stat),...) #to avoid NA's in stats
 						})
+					out<-data.frame(matrix(out,ncol=length(d.list)))	
 					colnames(out)<-paste(stat, "-",names(d.list), sep="")	
 					out
 					}
