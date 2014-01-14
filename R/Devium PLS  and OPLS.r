@@ -426,7 +426,7 @@ plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xa
 									
 									RMSEP<-obj$RMSEP[,ncol(obj$RMSEP)] # get for all LVs and optionally CV version
 									Q2<-obj$Q2[,ncol(obj$Q2)]
-									Xvar<-c(0,obj$Xvar) # 
+									Xvar<-cumsum(c(0,obj$Xvar)) # 
 									
 									
 									LV<-paste0("",0:(length(RMSEP)-1))
@@ -1552,7 +1552,7 @@ comp<-2
 osc.comp<-1
 color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 # color<-NULL
-scaled.data<-data.frame(prep(data,center=TRUE,scale="uv"))
+scaled.data<-data.frame(pcaMethods:::prep(data,center=TRUE,scale="uv"))
 #make OSC model
 mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, method="kernelpls",validation = "LOO", cv.scale=FALSE,return.obj="stats")
 plot.OSC.results(mods,plot="scores",groups=color)
@@ -1567,7 +1567,6 @@ plot.PLS.results(obj=final,plot="RMSEP",groups=color)
 plot.PLS.results(obj=final,plot="loadings",groups=color)
 
 #new plotting function
-
 plot.PLS(obj=final,plot="scores",color=color,group.bounds="polygon")
 plot.PLS(obj=final,plot="RMSEP",color=color)
 plot.PLS(obj=final,plot="loadings",color=color)

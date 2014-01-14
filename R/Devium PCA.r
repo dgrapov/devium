@@ -4,7 +4,7 @@ devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return=NULL, plot=TRUE)
 	{
 		#port of imDEV source code optimized for GUI use
 		#accepts list with the following arguments
-		#pca.data<- character name of the data object (samples as rows)
+		#pca.data<- data object (samples as rows)
 		#pca.components numeric number of number of principal components
 		#pca.algorithm see pcaMethods::pca for options
 		#pca.center logical, mean center the data
@@ -33,15 +33,15 @@ devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return=NULL, plot=TRUE)
 		
 		if(pca.cv=="q2"){
 				# account for unequal r2 and q2 lengths 
-				q2<-tryCatch(Q2(pca.results), error=function(e) {0} )#some versions of pcaMEthods don't have this?
+				q2<-tryCatch( pcaMethods:::Q2(pca.results), error=function(e) {0} )#some versions of pcaMEthods don't have this?
 				q2<-c(q2,rep(q2[length(q2)],nrow(eigenvalues)-length(q2)))
 				eigenvalues<-data.frame(eigenvalues,q2=q2)
 			}
 
 		#add leverage and dmodX
 		#bind between scores and loadings
-		lev<-tryCatch(as.matrix(leverage(pca.results)),error=function(e){"can not calculate"})
-		dmodx<-tryCatch(as.matrix(DModX(pca.results)),error=function(e){"can not calculate"})
+		lev<-tryCatch(as.matrix( pcaMethods:::leverage(pca.results)),error=function(e){"can not calculate"})
+		dmodx<-tryCatch(as.matrix( pcaMethods:::DModX(pca.results)),error=function(e){"can not calculate"})
 		diagnostics<-tryCatch(data.frame(leverage=lev,DmodX=dmodx),error=function(e){data.frame(Error="not applicable")})
 
 		#scree plot

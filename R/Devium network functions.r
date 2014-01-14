@@ -66,7 +66,7 @@ translate.index<-function(id, lookup){
 	tmp.data<-lookup[keep,-1,drop=FALSE]
 	rownames(tmp.data)<-lookup[keep,1]
 	trans<-do.call("cbind",lapply(1:ncol(id),function(i){
-		tmp.data[id[,i],]
+		tmp.data[fixlc(id[,i]),] # needs to be a character to get correct rowname
 		}))
 	colnames(trans)<-colnames(id)
 	return(trans)	
@@ -1655,4 +1655,16 @@ kgml.to.edgelist<-function(kgml){
 		cbind(data.frame(source = rep(source,length(target)), target=rep(target,each=length(source)) ), data.frame(reaction=rtype[1],direction=rtype[2]))
 
 	}))
+}	
+#
+#relic needs to be replaced elsewhere
+make.edge.list.index<-function(edge.names, edge.list){
+	names<-colnames(edge.list)
+	edge.list<-do.call("cbind",lapply(1:ncol(edge.list),function(i) fixlc(edge.list[,i])))
+	colnames(edge.list)<-names
+	tmp<-data.frame(translate.index(id = edge.list[,1:2,drop=FALSE], lookup = edge.names))
+	tmp[,1]<-fixln(tmp[,1])
+	tmp[,2]<-fixln(tmp[,2])
+	colnames(tmp)<-c("source","target")
+	return(as.matrix(tmp)) #
 }
