@@ -3,19 +3,22 @@ DEVIUM
 
 <b>D</b>ynamic Multivariat<b>E</b> Data Analysis and <b>VI</b>s<b>U</b>alization Platfor<b>M</b>
 
-Interactive plotting and analysis of multivariate data using Shiny or GTK based GUIs.
 
-[Shiny] (http://www.rstudio.com/shiny/)
+[DeviumWeb] (https://github.com/dgrapov/DeviumWeb)
 ======
-Prototypes for some of the analyses implemented in ```Devium``` can be viewed in the browser using the ```Shiny``` framework. 
+[Browser-based GUI for devium](https://github.com/dgrapov/DeviumWeb) implemented in [R](http://cran.us.r-project.org/) and [Shiny](http://www.rstudio.com/shiny/) (under development).
+
+Examples 
+======
+Check out some prototypes and examples of the analyses implemented in ```Devium``` on the demo server. 
 - [Heirarchical Cluster Analysis](http://spark.rstudio.com/dgrapov/Heatmap/)
 - [Basic Plotting] (http://spark.rstudio.com/dgrapov/Plotting/)
 - [Principal Components Analysis Diagnostics] (http://spark.rstudio.com/dgrapov/PCA/)
 - [Metabolomic Network Generation](http://spark.rstudio.com/dgrapov/MetaMapR)
 
-
-[GTK] (http://www.gtk.org/)
+[GTK] (http://www.gtk.org/) 
 ======
+(obsolete see [DeviumWeb](https://github.com/dgrapov/DeviumWeb))
   - GUI using RGtk2 toolkit implemented with gWidgests 
  
   - Dynamic plotting - base and ggplot2 
