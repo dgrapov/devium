@@ -275,7 +275,8 @@ multi.t.test<-function(data, factor,mu=NULL,paired=FALSE,progress=TRUE,FDR="BH",
 				if(is.nan(val)|is.na(val)){val<-1}
 				val
 			} else {
-				val<-tryCatch(t.test(data[,i],mu=mu)$p.value ,error=function(e){1})
+				if(!length(mu)==ncol(data)){mu<-unlist(matrix(mu,ncol(data),1));warning("mu didn't match the number of tests and was recycled")}
+				val<-tryCatch(t.test(data[,i],mu=mu[i])$p.value ,error=function(e){warning("error in test");1})
 				if(is.nan(val)|is.na(val)){val<-1}
 				val
 			}

@@ -846,6 +846,44 @@ feature.cut<-function(obj,type="quantile",cuts=seq(0.05,.95,.01),separate=FALSE,
 			
 }
 
+
+#function to select upper boundaries of a vector based on quantile or number
+#returns row id of positions (or logical)
+feature.cut2<-function(obj,type="quantile",thresh=.9,separate=FALSE){
+	# type can be one of c("number", "quantile")
+	# thresh = select values above quantile or number of largest values
+	# separate = value tested separately based on sign
+
+	obj<-fixln(obj) # make a vector of type numeric
+	#get position of selections
+	tmp<-data.frame(id=1:length(obj),obj=obj)
+	if(separate==TRUE){
+			tmp.l<-split(abs(tmp),sign(tmp$obj))
+		} else {
+			tmp.l<-list(abs(tmp))
+	}
+	
+	if(type=="quantile"){
+		filter<-lapply(1:length(tmp.l),function(i){
+			cut.point<-quantile(tmp.l[[i]][,2],prob=thresh)
+			tmp.l[[i]][tmp.l[[i]][,2]>=cut.point,1]
+		})
+	}
+	
+	if(type=="number"){
+		filter<-lapply(1:length(tmp.l),function(i){
+			cut.point<-thresh
+			x<-tmp.l[[i]][order(tmp.l[[i]][,2],decreasing=TRUE),]
+			x[1:nrow(x)<=cut.point,1]
+		})
+	}
+	
+	#a logical vector
+	# return(c(1:length(obj))%in%unlist(filter))
+	
+	#return row
+	return(unlist(filter))
+}
 #function to bootstrap many models
 multi.boot.model<-function(algorithm="pcr",data=data,y,
 							feature.subset=NULL,ncomp=4,return="pred.error",R=10,
@@ -1036,7 +1074,8 @@ PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TR
 		#cuts is a single value which is a propability for type = quantile or integer for number
 		
 		#first selection criteria based on magnitude of model weight
-		weight.cut<-feature.cut(obj=pls.weight,type=cut.type,cuts=top,separate=separate,plot=FALSE)
+		# weight.cut<-feature.cut(obj=pls.weight,type=cut.type,cuts=top,separate=separate,plot=FALSE)
+		weight.cut<-feature.cut2(obj=pls.weight,type=cut.type,thresh=top,separate=separate)
 		weight.cut.selected<-data.frame(selected.weights=rep(0,length(pls.weight)))
 		weight.cut.selected[unlist(weight.cut),]<-1
 		
@@ -1046,6 +1085,9 @@ PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TR
 		#combine and plot
 		combo.cut<-data.frame(model.weight=pls.weight,weight.cut.selected, cor.cut$feature.info)
 		combo.cut$combined.selection<-combo.cut$significant&combo.cut$selected.weights==1
+		
+		#return results!!! check
+		# invisible(as.data.frame(combo.cut))
 		
 		if(make.plot){
 			#create updated S-plot
@@ -1073,7 +1115,8 @@ PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TR
 		}
 		
 		#return results
-		return(as.data.frame(combo.cut))
+		# return(as.data.frame(combo.cut))
+		return(invisible(as.data.frame(combo.cut)))
 	}	
 
 #permute PLS model
