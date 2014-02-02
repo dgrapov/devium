@@ -35,6 +35,12 @@ afixlc<-function(a){
 		return(obj)
 }
 
+#check data.frame and remove or return factor or character columns
+fixlr<-function(a,.remove=TRUE){
+	id<-sapply(a,is.character)|sapply(a,is.factor)
+	if(.remove){a[,!id,drop=FALSE]} else {a[,id,drop=FALSE]}
+}
+
 #import from clipboard
 read.excel <- function(type="with.dimnames") {
 						  #assume row and colnames are included but may not be unique

@@ -183,10 +183,10 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								p<-ggplot(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2])) + 
 								geom_vline(xintercept = 0,linetype=2, size=.5, alpha=.5) + 
 								geom_hline(yintercept = 0,linetype=2, size=.5, alpha=.5) +
-								points +
-								.theme2 + 
-								labels +
 								polygons +
+								points +
+								labels +
+								.theme2 + 
 								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
 								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
