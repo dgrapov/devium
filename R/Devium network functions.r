@@ -66,7 +66,7 @@ translate.index<-function(id, lookup){
 	tmp.data<-lookup[keep,-1,drop=FALSE]
 	rownames(tmp.data)<-lookup[keep,1]
 	trans<-do.call("cbind",lapply(1:ncol(id),function(i){
-		tmp.data[fixlc(id[,i]),] # needs to be a character to get correct rowname
+		tmp.data[fixlc(id[,i]),] # needs to be a character to get correct rownames
 		}))
 	colnames(trans)<-colnames(id)
 	return(trans)	

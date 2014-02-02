@@ -14,7 +14,7 @@ devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return=NULL, plot=TRUE)
 		tmp<-pca.inputs
 		# data.obj<-as.data.frame(get(tmp$pca.data))
 		# data.obj<-data.obj[sapply(1:ncol(data.obj), function(i) {class(data.obj[,i])=="numeric"|class(data.obj[,i])=="integer"})] # has to be better way to avoid factors
-		 data.obj<-tmp$pca.data
+		 data.obj<-afixln(tmp$pca.data) # converts factors or characters to numeric
 		
 		if(is.null(tmp$pca.cv)){pca.cv<-"none"} else {pca.cv<-tmp$pca.cv} #avoid issues elsewhere
 		

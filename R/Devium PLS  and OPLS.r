@@ -95,7 +95,7 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 		#store results
 		OSC.results$RMSEP[[i]]<-matrix(t(RMSEP(tmp.model)$val[dim(RMSEP(tmp.model)$val)[1],,]),,ncol=ncol(pls.y)) #
 		OSC.results$rmsep[[i]]<- RMSEP(tmp.model)$val[dim(RMSEP(tmp.model)$val)[1],,comp+1]# CV adjusted rmsep for each y by column 
-		OSC.results$Q2[[i]]<-matrix(R2(tmp.model)$val,ncol=ncol(pls.y),byrow=TRUE)
+		OSC.results$Q2[[i]]<-matrix(pls::R2(tmp.model)$val,ncol=ncol(pls.y),byrow=TRUE)
 		OSC.results$Xvar[[i]]<-drop(tmp.model$Xvar/tmp.model$Xtotvar)
 		OSC.results$fitted.values[[i]]<-tmp.model$fitted.values
 		OSC.results$scores[[i]]<-tmp.model$scores
@@ -404,7 +404,7 @@ plot.PLS.results<-function(obj,plot="RMSEP",groups=data.frame(rep("NULL",nrow(ob
 	}	
 	
 #recreating plots based on plot.PCA options with slight modifications (good example of a place to use oob, need to have helper function to switch top level inputs based on class and use generic plotter)
-plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xaxis=1,yaxis=2,size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse",alpha=.5,g.alpha=.2,...){
+plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xaxis=1,yaxis=2,size=3,color=NULL, shape=NULL, label=TRUE, legend.name =  NULL, font.size=5,group.bounds="ellipse",alpha=.5,g.alpha=.2,...){
 	require(ggplot2)
 	require(grid)
 	#obj is the results of type get.OSC.model
@@ -445,7 +445,7 @@ plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xa
 									print(p)
 								
 							},
-		scores 			=	function(obj,color,size,alpha,...){
+		scores 			=	function(obj,color,size,alpha,shape,...){
 								comps<-obj$total.LVs[1]
 								tmp.obj<-tryCatch(obj$scores[[comps]][,c(xaxis,yaxis)],error=function(e){obj$scores[,c(xaxis,yaxis)]}) # not sure how to simply unclass and coerce to data.frame
 					
@@ -466,10 +466,16 @@ plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xa
 										if(is.null(legend.name)){legend.name<-colnames(color)}
 								}
 								
+								if(is.null(shape)){
+										tmp$shape<-21
+									}else{
+										tmp$shape<-as.factor(shape[,])
+								}
+								
 								points<-if(all(tmp$color=="gray")) { 
 									geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
-									geom_point(aes(color=color),size=size,alpha=alpha)  
+									geom_point(aes(color=color,shape=shape),size=size,alpha=alpha)  
 								}
 								#labels
 								tmp$lab.offset<-tmp[,2]-abs(range(tmp.obj[,2])[1]-range(tmp.obj[,2])[2])/50						
@@ -638,7 +644,7 @@ plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xa
 							}
 		)
 							
-		local(obj,color=color,size=size,alpha=alpha,...)
+		local(obj,color=color,size=size,alpha=alpha,shape,...)
 	}		
 	
 #create PLS model
@@ -769,7 +775,7 @@ boot.model<-function(algorithm="pcr",data=tmp.data,y,ncomp=2,return="pred.error"
 	.local()	
 }
 
-#function to evaluate performance at various thresholds based on bootstrapped results for full model for feature selection
+#OBSOLETE see feature.cut2
 feature.cut<-function(obj,type="quantile",cuts=seq(0.05,.95,.01),separate=FALSE, plot=TRUE, parallel=FALSE){
 	# type can be one of c("number", "quantile")
 	# cuts are used to split feature set for model evaluation 
@@ -845,7 +851,6 @@ feature.cut<-function(obj,type="quantile",cuts=seq(0.05,.95,.01),separate=FALSE,
 		return(out)
 			
 }
-
 
 #function to select upper boundaries of a vector based on quantile or number
 #returns row id of positions (or logical)
@@ -1178,8 +1183,8 @@ permute.OSC.PLS<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...
 	
 	tmp<-matrix(unlist(do.call("rbind",model)),ncol=3) 
 	colnames(tmp)<-c("Xvar","Q2","RMSEP")
-	means<-apply(tmp,2,mean)
-	sds<-apply(tmp,2,sd)
+	means<-apply(tmp,2,mean, na.rm=TRUE)
+	sds<-apply(tmp,2,sd,na.rm=TRUE)
 	summary<-paste(signif(means,4),"±", signif(sds,3))
 	return(list(permuted.values=cbind(tmp,cor.with.y), mean = means, standard.deviations = sds, summary = summary))
 }	
@@ -1585,6 +1590,10 @@ duplex.select<-function(data,ken.sto2.obj,percent.in.test)
 
 #various tests
 test<-function(){
+
+#test feature selection using feature.cut2
+feature.cut2(obj=.loadings[,1],type="quantile",thresh=.99,separate=separate)
+
 library(reshape2)
 library(pcaMethods)
 data(mtcars)

@@ -2,7 +2,38 @@
 fixlc<-function(obj){as.character(unlist(obj))}
 
 #list to numeric
-fixln<-function(obj){as.numeric(as.character(unlist(obj)))}
+fixln<-function(obj){as.numeric(as.character(unlist(obj)))} # should encode text as factors first
+
+#convert all columns of a data.frame or matrix to numeric (encoding characters)
+afixln<-function(a){
+	obj<-do.call("cbind",lapply(1:ncol(a),function(i){
+				tmp<-a[,i]
+				if(is.factor(tmp)|is.character(tmp)){
+					fixln(as.factor(tmp))
+				} else {
+					tmp
+				}
+			})
+		)	
+		#maintain object class and dimnames
+		pclass<-paste0("as.",class(a))
+		obj<-do.call(pclass,list(obj))
+		dimnames(obj)<-dimnames(a)
+		return(obj)
+}
+
+#convert all columns of a data.frame or matrix to character 
+afixlc<-function(a){
+	obj<-do.call("cbind",lapply(1:ncol(a),function(i){
+				fixlc(as.factor(a[,i]))
+			})				
+		)	
+		#maintain object class and dimnames
+		pclass<-paste0("as.",class(a))
+		obj<-do.call(pclass,list(obj))
+		dimnames(obj)<-dimnames(a)
+		return(obj)
+}
 
 #import from clipboard
 read.excel <- function(type="with.dimnames") {
