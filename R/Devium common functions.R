@@ -9,7 +9,7 @@ afixln<-function(a){
 	obj<-do.call("cbind",lapply(1:ncol(a),function(i){
 				tmp<-a[,i]
 				if(is.factor(tmp)|is.character(tmp)){
-					fixln(as.factor(tmp))
+					as.numeric(as.factor(tmp))
 				} else {
 					tmp
 				}
