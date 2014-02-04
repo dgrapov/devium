@@ -13,7 +13,7 @@ rename <- function(x, pattern, replace="_")
 
 # relative standard deviation
 #redo calc.stat using dplyr
-calc.rsd<-function(data,factor,stat,sig.figs=2){
+calc.rsd<-function(data,factor,sig.figs=2){
 	d.list<-split(data,as.factor(factor))
 	res<-do.call("cbind",lapply(1:length(d.list),function(i){
 		obj<-d.list[[i]]
@@ -26,7 +26,7 @@ calc.rsd<-function(data,factor,stat,sig.figs=2){
 }
 
 #fold change of means
-calc.FC<-function(data,factor,stat,denom=levels(factor)[1],sig.figs=1,log=FALSE){
+calc.FC<-function(data,factor,denom=levels(factor)[1],sig.figs=1,log=FALSE){
 	#rel is the order of the level which will be in the denominator
 	d.list<-split(data,as.factor(factor))
 	res<-do.call("cbind",lapply(1:length(d.list),function(i){
