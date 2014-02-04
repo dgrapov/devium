@@ -22,7 +22,7 @@ calc.rsd<-function(data,factor,sig.figs=2){
 		signif(sd/means,sig.figs)*100
 	}))
 	colnames(res)<-paste0(names(d.list),"-RSD")
-	return(res)
+	return(as.data.frame(res))
 }
 
 #fold change of means
@@ -37,7 +37,7 @@ calc.FC<-function(data,factor,denom=levels(factor)[1],sig.figs=1,log=FALSE){
 	rel=match(denom,colnames(res))
 	fc<-fold.change(res,log=log,rel=rel)
 	colnames(fc)<-paste(colnames(fc),rep(denom,ncol(fc)), sep="/")
-	return(round(fc[,-rel,drop=FALSE],sig.figs))
+	return(as.data.frame(round(fc[,-rel,drop=FALSE],sig.figs)))
 }
 
 
