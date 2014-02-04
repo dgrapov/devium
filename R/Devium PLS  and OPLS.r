@@ -1071,6 +1071,80 @@ make.S.plot<-function(pls.data,pls.scores,pls.loadings, cut.off=0.05, FDR=TRUE,p
 	return(list(plot=p,selected.data=pls.data[,plot.obj$significant==1],feature.info=plot.obj))
 }
 
+#create S-plot based on PLS.feature select results
+plot.S.plot<-function(obj){
+	
+	check.get.packages(c("ggplot2","gridExtra"))
+	
+	#model.weight 			= x cut
+	#pcorr 					= correlation between scores and variables (y cut)
+	#combined.selection 	= selected features
+	
+
+	#make plot	
+	plot.obj<-data.frame(pcorr=obj$pcorr,loadings=obj$model.weight, significant=obj$combined.selection)
+	
+	.theme<- theme(
+						axis.line = element_line(colour = 'gray', size = .75), 
+						panel.background = element_blank(), 
+						#legend.position = "none",
+						plot.background = element_blank()
+					 )
+		
+	#cut offs
+	selected<-plot.obj$significant==1
+	plot.title<- paste (sum(selected)," selected features or ",round(sum(selected)/length(plot.obj$loadings)*100,0),"%",sep="")
+		
+		
+	#make S plot of variable and weights
+	p1<-ggplot(data=plot.obj, aes(x=loadings,y=pcorr, color=significant)) +
+	geom_point(stat = "identity",alpha=.75,show_guide=FALSE) + #geom_density2d(aes(group=groups))+
+	.theme + labs(title = plot.title, fill= "Selected") 
+	
+	#
+	#feature.set = index for selected features
+	#all weights to plot as a bar graph
+	#show.all determines if only selected or all features are ploted
+	
+	#plotting data
+	bound<-data.frame(weights=plot.obj$loadings,
+					variable=c(1:length(plot.obj$loadings)),
+					show = plot.obj$significant )
+		
+	#cut offs
+	cuts<-range(bound$weights[!bound$show])
+	plot.title<- paste ("upper/lower bounds = ", signif(cuts[2],4), " / " ,signif(cuts[1],4))
+	#plot.colors<-scale_fill_brewer(palette="Blues")
+	
+	#make plot of variable and weight
+	p2<-ggplot(data=bound, aes(x=variable,y=weights, fill=show)) +
+	geom_bar(stat = "identity") + #geom_density2d(aes(group=groups))+
+	.theme +geom_hline(yintercept = cuts,lty=2,col="red") +
+	 labs(title = plot.title, fill= "Selected") #+
+		#plot.colors
+	
+		
+	# sorted weight
+	sorted.bound<-bound[order(bound$weights),]
+	sorted.bound$variable<-c(1:length(bound$weights))
+	
+	#theme
+	.theme2<- theme(
+		axis.line = element_line(colour = 'gray', size = .75), 
+		panel.background = element_blank(), 
+		legend.position = "none",
+		plot.background = element_blank()
+	 )		
+						 
+	p3<-ggplot(data=sorted.bound, aes(x=variable,y=weights, fill=show)) +
+	geom_bar(stat = "identity") + xlab(" ") + #geom_density2d(aes(group=groups))+
+	.theme2 + geom_hline(yintercept = cuts,lty=2,col="red")# +
+		
+	#plot
+	print(grid.arrange(p1,p2,p3, ncol = 1))	
+}
+
+
 #feature select using a combination of analyte correlation to scores (S-plot) and feature weights
 PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TRUE,p.value=0.05, FDR=TRUE,
 		cut.type="quantile",top=0.95,separate=TRUE,make.plot=TRUE,...){
@@ -1661,6 +1735,7 @@ top<-2
 selected.features<-PLS.feature.select(pls.data=scaled.data,pls.scores=.scores[,1],pls.loadings=.loadings[,1],pls.weight=.loadings[,1],
 				p.value=0.05, FDR=TRUE,cut.type=type,top=top,separate=FALSE,type="spearman")
 
+plot.S.plot(obj=selected.features)
 
 pls.data<-scaled.data[,selected.features$combined.selection]	
 
