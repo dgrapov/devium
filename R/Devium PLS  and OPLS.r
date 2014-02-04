@@ -122,7 +122,8 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 			t(sqrt(nrow(SSW) * apply(SSW, 1, cumsum) / cumsum(SS)))[,comp,drop=FALSE]
 		}
 		OSC.results$VIP<-tryCatch(VIP(object),error=function(e){NULL})	
-	}
+	} else (OSC.results$VIP<-rep(1,nrow(tmp.model$loadings)))
+	
 	#coefficients
 	OSC.results$coefficients<-coefficients(tmp.model)
 	if (return.obj=="model"){return(tmp.model)} else {	return(OSC.results)	}
@@ -698,7 +699,6 @@ get.OSC.model<-function(obj,OSC.comp){
 	#obj = results from OSC.correction()
 	#OSC.comp = number of orthogonally corrected components
 	
-	
 	index<-c(1:length(obj$OSC.LVs))
 	id<-index[obj$OSC.LVs==OSC.comp]
 	
@@ -1098,7 +1098,7 @@ plot.S.plot<-function(obj){
 		
 	#make S plot of variable and weights
 	p1<-ggplot(data=plot.obj, aes(x=loadings,y=pcorr, color=significant)) +
-	geom_point(stat = "identity",alpha=.75,show_guide=FALSE) + #geom_density2d(aes(group=groups))+
+	geom_point(stat = "identity",alpha=.75,show_guide=FALSE,size=5) + #geom_density2d(aes(group=groups))+
 	.theme + labs(title = plot.title, fill= "Selected") 
 	
 	#
@@ -1143,7 +1143,6 @@ plot.S.plot<-function(obj){
 	#plot
 	print(grid.arrange(p1,p2,p3, ncol = 1))	
 }
-
 
 #feature select using a combination of analyte correlation to scores (S-plot) and feature weights
 PLS.feature.select<-function(pls.data,pls.scores,pls.loadings,pls.weight,plot=TRUE,p.value=0.05, FDR=TRUE,
@@ -1680,7 +1679,7 @@ color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 # color<-NULL
 scaled.data<-data.frame(pcaMethods:::prep(data,center=TRUE,scale="uv"))
 #make OSC model
-mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, method="kernelpls",validation = "LOO", cv.scale=FALSE,return.obj="stats")
+mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, method="oscorespls",validation = "LOO", cv.scale=FALSE,return.obj="stats")
 plot.OSC.results(mods,plot="scores",groups=color)
 plot.OSC.results(mods,plot="RMSEP",groups=color) # need to facet by Y
 plot.OSC.results(mods,plot="loadings",groups=color)
@@ -1730,10 +1729,17 @@ scaled.data<-data.frame(prep(tmp.data,center=TRUE,scale="uv"))
 #carry out feature selection
 .scores<-results$scores[,]
 .loadings<-results$loadings[,]	
-type<-"number"
-top<-2
+.loadings<-results$loading.weights[,2,drop=FALSE]
+.loadings<-results$loading.weights[,2,drop=FALSE]
+type<-"quantile"#"number"
+top<-.1
+p.value=1
+FDR=FALSE
+separate=TRUE
 selected.features<-PLS.feature.select(pls.data=scaled.data,pls.scores=.scores[,1],pls.loadings=.loadings[,1],pls.weight=.loadings[,1],
-				p.value=0.05, FDR=TRUE,cut.type=type,top=top,separate=FALSE,type="spearman")
+				p.value=p.value, FDR=FDR,cut.type=type,top=top,separate=separate,type="spearman")
+
+feature.cut2(obj=.loadings,type="number",thresh="3",separate=TRUE)
 
 plot.S.plot(obj=selected.features)
 
