@@ -11,7 +11,37 @@ rename <- function(x, pattern, replace="_")
 		return(x)	
 }
 
-# wrapper to compute functions on subsets of data specified by the factor
+# relative standard deviation
+#redo calc.stat using dplyr
+calc.rsd<-function(data,factor,stat,sig.figs=2){
+	d.list<-split(data,as.factor(factor))
+	res<-do.call("cbind",lapply(1:length(d.list),function(i){
+		obj<-d.list[[i]]
+		means<-apply(obj,2,mean,na.rm=T)
+		sd<-apply(obj,2,sd,na.rm=T)
+		signif(sd/means,sig.figs)*100
+	}))
+	colnames(res)<-paste0(names(d.list),"-RSD")
+	return(res)
+}
+
+#fold change of means
+calc.FC<-function(data,factor,stat,denom=levels(factor)[1],sig.figs=1,log=FALSE){
+	#rel is the order of the level which will be in the denominator
+	d.list<-split(data,as.factor(factor))
+	res<-do.call("cbind",lapply(1:length(d.list),function(i){
+		obj<-d.list[[i]]
+		apply(obj,2,mean,na.rm=T)
+	}))
+	colnames(res)<-names(d.list)
+	rel=match(denom,colnames(res))
+	fc<-fold.change(res,log=log,rel=rel)
+	colnames(fc)<-paste(colnames(fc),rep(denom,ncol(fc)), sep="/")
+	return(round(fc[,-rel,drop=FALSE],sig.figs))
+}
+
+
+# redo using dplyr!
 calc.stat<-function(data,factor,stat,...)
 	{
 		d.list<-split(data,as.factor(factor))
@@ -49,13 +79,13 @@ str.get<- function(obj, sep="±",get=1)
 #calculate fold change relative to column
 fold.change<-function(obj,rel=1,log=FALSE)
 	{
-	if(log==FALSE){
-		rel<-obj[,rel]
-		obj/rel
-	} else {
-		rel<-obj[,rel]
-		obj-rel
-	}
+		if(log==FALSE){
+			rel<-obj[,rel]
+			obj/rel
+		} else {
+			rel<-obj[,rel]
+			obj-rel
+		}
 	}
 
 # function to extract data based on non-missing in index

@@ -413,7 +413,7 @@ plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xa
 	#color is a factor to show group visualization of scores based on color
 	
 	
-	local<-switch(results, # somethings may only work for single Y models!
+	local<-switch(results, # only tested for single Y models!
 		RMSEP 			=  function(obj,...){
 									
 									.theme<- theme(
@@ -1014,6 +1014,7 @@ feature.bar.plot<-function(feature.set,weights.set,extra.plot=NULL){
 	}
 
 #create S-plot for variable loadings and conduct significance testing woth FDR to determine optimal feature selection cut off
+#use plot.S.plot to plot the results of PLS.feature.select
 make.S.plot<-function(pls.data,pls.scores,pls.loadings, cut.off=0.05, FDR=TRUE,plot=TRUE,...){
 	
 	check.get.packages("ggplot2")
@@ -1072,7 +1073,7 @@ make.S.plot<-function(pls.data,pls.scores,pls.loadings, cut.off=0.05, FDR=TRUE,p
 }
 
 #create S-plot based on PLS.feature select results
-plot.S.plot<-function(obj){
+plot.S.plot<-function(obj,names=NULL){
 	
 	check.get.packages(c("ggplot2","gridExtra"))
 	
@@ -1082,7 +1083,7 @@ plot.S.plot<-function(obj){
 	
 
 	#make plot	
-	plot.obj<-data.frame(pcorr=obj$pcorr,loadings=obj$model.weight, significant=obj$combined.selection)
+	plot.obj<-data.frame(names=rownames(obj),pcorr=obj$pcorr,loadings=obj$model.weight, significant=obj$combined.selection)
 	
 	.theme<- theme(
 						axis.line = element_line(colour = 'gray', size = .75), 
@@ -1106,10 +1107,10 @@ plot.S.plot<-function(obj){
 	#all weights to plot as a bar graph
 	#show.all determines if only selected or all features are ploted
 	
-	#plotting data
-	bound<-data.frame(weights=plot.obj$loadings,
+	#plotting data (redundant object!, need to stay consistent with names to avoid this idiocy)
+	bound<-data.frame(name=plot.obj$name,weights=plot.obj$loadings,
 					variable=c(1:length(plot.obj$loadings)),
-					show = plot.obj$significant )
+					show = plot.obj$significant)
 		
 	#cut offs
 	cuts<-range(bound$weights[!bound$show])
@@ -1124,21 +1125,13 @@ plot.S.plot<-function(obj){
 		#plot.colors
 	
 		
-	# sorted weight
-	sorted.bound<-bound[order(bound$weights),]
-	sorted.bound$variable<-c(1:length(bound$weights))
-	
-	#theme
-	.theme2<- theme(
-		axis.line = element_line(colour = 'gray', size = .75), 
-		panel.background = element_blank(), 
-		legend.position = "none",
-		plot.background = element_blank()
-	 )		
-						 
-	p3<-ggplot(data=sorted.bound, aes(x=variable,y=weights, fill=show)) +
-	geom_bar(stat = "identity") + xlab(" ") + #geom_density2d(aes(group=groups))+
-	.theme2 + geom_hline(yintercept = cuts,lty=2,col="red")# +
+	# sorted weight and show names in vertical bar plot
+	sorted.bound<-bound[order(bound$weights,decreasing=FALSE),]
+	sorted.bound$index<-1:nrow(sorted.bound)
+	p3<-ggplot(sorted.bound, aes(x = index, y = weights, fill = show))+
+	geom_bar(stat = "identity",show_guide=FALSE) + xlab(" ") + #geom_density2d(aes(group=groups))+
+	.theme2 + geom_hline(yintercept = cuts,lty=2,col="red") + coord_flip() +
+	scale_x_continuous(breaks=c(1:length(sorted.bound$name)),labels=fixlc(sorted.bound$name))	
 		
 	#plot
 	print(grid.arrange(p1,p2,p3, ncol = 1))	
@@ -1671,7 +1664,7 @@ library(reshape2)
 library(pcaMethods)
 data(mtcars)
 data<-mtcars[,-c(8,9)]
-y<-data.frame(am=mtcars$am)
+y<-data.frame(am=mtcars$am,vs=mtcars$vs)
 pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
 comp<-2
 osc.comp<-1
@@ -1692,10 +1685,10 @@ plot.PLS.results(obj=final,plot="RMSEP",groups=color)
 plot.PLS.results(obj=final,plot="loadings",groups=color)
 
 #new plotting function
-plot.PLS(obj=final,plot="scores",color=color,group.bounds="polygon")
-plot.PLS(obj=final,plot="RMSEP",color=color)
-plot.PLS(obj=final,plot="loadings",color=color)
-plot.PLS(obj=final,plot="biplot",color=color)
+plot.PLS(obj=final,results="scores",color=color,group.bounds="polygon")
+plot.PLS(obj=final,results="RMSEP",color=color)
+plot.PLS(obj=final,results="loadings",color=color)
+plot.PLS(obj=final,results="biplot",color=color)
 
 #data summary for multi y model
  
