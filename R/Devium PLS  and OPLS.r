@@ -1730,7 +1730,7 @@ scaled.data<-data.frame(prep(tmp.data,center=TRUE,scale="uv"))
 .scores<-results$scores[,]
 .loadings<-results$loadings[,]	
 .loadings<-results$loading.weights[,2,drop=FALSE]
-.loadings<-results$loading.weights[,2,drop=FALSE]
+.loadings<-as.matrix(results$VIP[,1,drop=F])
 type<-"quantile"#"number"
 top<-.1
 p.value=1
