@@ -21,7 +21,7 @@ calc.rsd<-function(data,factor,sig.figs=2){
 		sd<-apply(obj,2,sd,na.rm=T)
 		signif(sd/means,sig.figs)*100
 	}))
-	colnames(res)<-paste0("RSD-"names(d.list))
+	colnames(res)<-paste0("RSD-",names(d.list))
 	return(as.data.frame(res))
 }
 
