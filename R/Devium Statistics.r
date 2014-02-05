@@ -21,7 +21,7 @@ calc.rsd<-function(data,factor,sig.figs=2){
 		sd<-apply(obj,2,sd,na.rm=T)
 		signif(sd/means,sig.figs)*100
 	}))
-	colnames(res)<-paste0(names(d.list),"-RSD")
+	colnames(res)<-paste0("RSD-"names(d.list))
 	return(as.data.frame(res))
 }
 
@@ -36,7 +36,7 @@ calc.FC<-function(data,factor,denom=levels(factor)[1],sig.figs=1,log=FALSE){
 	colnames(res)<-names(d.list)
 	rel=match(denom,colnames(res))
 	fc<-fold.change(res,log=log,rel=rel)
-	colnames(fc)<-paste(colnames(fc),rep(denom,ncol(fc)), sep="/")
+	colnames(fc)<-paste0("FC-",colnames(fc),"/",rep(denom,ncol(fc)))
 	return(as.data.frame(round(fc[,-rel,drop=FALSE],sig.figs)))
 }
 
