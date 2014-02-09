@@ -121,8 +121,8 @@ make.OSC.PLS.model<-function(pls.y,pls.data,comp=5,OSC.comp=4,validation = "LOO"
 			SSW <- sweep(object$loading.weights^2, 2, SS / Wnorm2, "*")
 			t(sqrt(nrow(SSW) * apply(SSW, 1, cumsum) / cumsum(SS)))[,comp,drop=FALSE]
 		}
-		OSC.results$VIP<-tryCatch(VIP(object),error=function(e){NULL})	
-	} else (OSC.results$VIP<-rep(1,nrow(tmp.model$loadings)))
+		OSC.results$VIP<-tryCatch(VIP(object),error=function(e){data.frame(VIP=matrix(1,nrow(tmp.model$loadings[,]),1))})	
+	} else { OSC.results$VIP<-data.frame(VIP=matrix(1,nrow(tmp.model$loadings[,]),ncol(pls.y)))}
 	
 	#coefficients
 	OSC.results$coefficients<-coefficients(tmp.model)
@@ -1656,16 +1656,19 @@ duplex.select<-function(data,ken.sto2.obj,percent.in.test)
 
 #various tests
 test<-function(){
-
-#test feature selection using feature.cut2
-feature.cut2(obj=.loadings[,1],type="quantile",thresh=.99,separate=separate)
-
 library(reshape2)
 library(pcaMethods)
+
+#local test data 
+data<-read.csv("C:\\Users\\dgrapov\\Dropbox\\Metabolomics Core\\WCMC Workshops\\Winter 2014 LC-MS Course\\Data\\Pumpkin data 1.csv")
+y<-data.frame(data[,"Extraction_Treatment",drop=FALSE])
+pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixlf(y[,i])}))
+
+#multi Y test 
 data(mtcars)
 data<-mtcars[,-c(8,9)]
-y<-data.frame(am=mtcars$am,vs=mtcars$vs)
-pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixln(y[,i])}))
+y<-data.frame(mtcars[,c(8,9)])
+pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){as.numeric(y[,i])}))
 comp<-2
 osc.comp<-1
 color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
@@ -1673,13 +1676,9 @@ color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
 scaled.data<-data.frame(pcaMethods:::prep(data,center=TRUE,scale="uv"))
 #make OSC model
 mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, method="oscorespls",validation = "LOO", cv.scale=FALSE,return.obj="stats")
-plot.OSC.results(mods,plot="scores",groups=color)
-plot.OSC.results(mods,plot="RMSEP",groups=color) # need to facet by Y
-plot.OSC.results(mods,plot="loadings",groups=color)
-plot.OSC.results(mods,plot="delta.weights",groups=color)
-
-#make model visualization
+#extract model
 final<-results<-get.OSC.model(obj=mods,OSC.comp=osc.comp)
+
 plot.PLS.results(obj=final,plot="scores",groups=color)
 plot.PLS.results(obj=final,plot="RMSEP",groups=color)
 plot.PLS.results(obj=final,plot="loadings",groups=color)

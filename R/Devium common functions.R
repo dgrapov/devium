@@ -4,6 +4,9 @@ fixlc<-function(obj){as.character(unlist(obj))}
 #list to numeric
 fixln<-function(obj){as.numeric(as.character(unlist(obj)))} # should encode text as factors first
 
+#factor to numeric
+fixlf<-function(obj){as.numeric(as.factor(unlist(obj)))} # should encode text as factors first
+
 #convert all columns of a data.frame or matrix to numeric (encoding characters)
 afixln<-function(a){
 	obj<-do.call("cbind",lapply(1:ncol(a),function(i){
