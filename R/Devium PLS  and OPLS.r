@@ -1125,12 +1125,16 @@ plot.S.plot<-function(obj,names=NULL){
 		#plot.colors
 	
 		
-	# sorted weight and show names in vertical bar plot
+	# sorted weight and show names in vertical bar plot (selected only)
 	sorted.bound<-bound[order(bound$weights,decreasing=FALSE),]
+	sorted.bound$index<-1:nrow(sorted.bound)
+	#remove unused factor levels
+	sorted.bound<-sorted.bound[sorted.bound$show==TRUE,,drop=FALSE]
+	sorted.bound$name<-fixlc(sorted.bound$name)
 	sorted.bound$index<-1:nrow(sorted.bound)
 	p3<-ggplot(sorted.bound, aes(x = index, y = weights, fill = show))+
 	geom_bar(stat = "identity",show_guide=FALSE) + xlab(" ") + #geom_density2d(aes(group=groups))+
-	.theme2 + geom_hline(yintercept = cuts,lty=2,col="red") + coord_flip() +
+	.theme + geom_hline(yintercept = cuts,lty=2,col="red") + coord_flip() +
 	scale_x_continuous(breaks=c(1:length(sorted.bound$name)),labels=fixlc(sorted.bound$name))	
 		
 	#plot
