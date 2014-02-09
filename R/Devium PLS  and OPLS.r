@@ -1222,14 +1222,22 @@ permute.PLS<-function(data,y,n=10,ncomp,...){# could be made parallel
 #permute OSC-PLS model
 permute.OSC.PLS<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...){ # should be made parallel
 	
-	
+	#only using first Y
+	# message("Only first Y permuted")
 	#permuted Y
 	perm.y<-lapply(1:n,function(i)
 			{
-				apply(y,2,gtools::permute)
+				apply(y[,1,drop=FALSE],2,gtools::permute)
 			})
+			
 	#collect correlation between y and permuted y
-	cor.with.y<-data.frame(correlation=abs(cor(cbind(y,do.call("cbind",perm.y))))[-1,1])
+	# disabled for multi y 
+	if(ncol(y)==1){
+		cor.with.y<-data.frame(correlation=abs(cor(cbind(y,do.call("cbind",perm.y))))[-1,1])
+	} else {
+		cor.with.y<-NULL
+	}	
+	
 	#generate permuted models		
 	model<-lapply(1:n,function(i)
 			{
@@ -1244,11 +1252,54 @@ permute.OSC.PLS<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...
 				if(!is.null(train.test.index)) {
 					rmsep<-model$predicted.RMSEP[[OSC.comp+1]] 
 				}
-				list(RX2=rx2,Q2=q2,RMSEP=rmsep)#,predicted=pred.val,actual=perm.y[[i]])
+				list(RX2=rep(rx2,length(q2)),Q2=q2,RMSEP=rmsep)#,predicted=pred.val,actual=perm.y[[i]])
 			})
 	
 	tmp<-matrix(unlist(do.call("rbind",model)),ncol=3) 
 	colnames(tmp)<-c("Xvar","Q2","RMSEP")
+	means<-apply(tmp,2,mean, na.rm=TRUE)
+	sds<-apply(tmp,2,sd,na.rm=TRUE)
+	summary<-paste(signif(means,4),"±", signif(sds,3))
+	return(list(permuted.values=cbind(tmp,cor.with.y), mean = means, standard.deviations = sds, summary = summary))
+}	
+
+#permute OSC-PLS model (in progress version for multiple Ys)
+permute.OSC.PLS2<-function(data,y,n=10,ncomp,OSC.comp=1,train.test.index=NULL,...){ # should be made parallel
+	
+	
+	#permuted Y
+	perm.y<-lapply(1:n,function(i)
+			{
+				apply(y,2,gtools::permute)
+			})
+			
+	#collect correlation between y and permuted y\
+	# disa bled for multi y until main fxn can handle these correctly
+	if(ncol(y)==1){
+		cor.with.y<-data.frame(correlation=abs(cor(cbind(y,do.call("cbind",perm.y))))[-1,1])
+	} else {
+		cor.with.y<-NULL
+	}	
+	
+	#generate permuted models		
+	model<-lapply(1:n,function(i)
+			{
+				# cat("permuting model",i,"\n")
+				if(!is.null(train.test.index)) {tmp.train.test.index<-train.test.index[,i,drop=FALSE]} else {tmp.train.test.index<-train.test.index}
+				model<-make.OSC.PLS.model(pls.y=as.matrix(perm.y[[i]]),pls.data=data,comp=ncomp,OSC.comp=OSC.comp,train.test.index=tmp.train.test.index,...) #
+				#get stats
+				q2<-model$Q2[[OSC.comp+1]][ncomp+1,,drop=FALSE]# cv adjusted 
+				rx2<-round(sum(model$Xvar[[OSC.comp+1]])*100,1)
+				pred.val<-as.matrix(model$fitted.values[[OSC.comp+1]][,,ncomp])
+				rmsep<-model$rmsep[[OSC.comp+1]]# take CV adjusted internal RMSEP (see true RMSEP below)
+				if(!is.null(train.test.index)) {
+					rmsep<-model$predicted.RMSEP[[OSC.comp+1]] 
+				}
+				list(RX2=rep(rx2,length(q2)),Q2=q2,RMSEP=rmsep)#,predicted=pred.val,actual=perm.y[[i]])
+			})
+	
+	tmp<-matrix(unlist(do.call("rbind",model)),ncol=ncol(y)*3 )
+	colnames(tmp)<-paste0("Y.",1:ncol(y),"_",rep(c("Xvar","Q2","RMSEP"),each=ncol(y)))
 	means<-apply(tmp,2,mean, na.rm=TRUE)
 	sds<-apply(tmp,2,sd,na.rm=TRUE)
 	summary<-paste(signif(means,4),"±", signif(sds,3))
@@ -1679,10 +1730,6 @@ mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp,
 #extract model
 final<-results<-get.OSC.model(obj=mods,OSC.comp=osc.comp)
 
-plot.PLS.results(obj=final,plot="scores",groups=color)
-plot.PLS.results(obj=final,plot="RMSEP",groups=color)
-plot.PLS.results(obj=final,plot="loadings",groups=color)
-
 #new plotting function
 plot.PLS(obj=final,results="scores",color=color,group.bounds="polygon")
 plot.PLS(obj=final,results="RMSEP",color=color)
@@ -1690,17 +1737,16 @@ plot.PLS(obj=final,results="loadings",color=color)
 plot.PLS(obj=final,results="biplot",color=color)
 
 #data summary for multi y model
- 
-opls.model.text
 
 #single level model validation
 #generate train/test index
-ntests<-10
+ntests<-1
 strata<-if(levels(as.factor(join.columns(pls.y)))>=2){strata<-join.columns(pls.y)} else {strata<-NULL}
 train.test.index <- test.train.split(nrow(data), n = ntests, strata = strata, split.type = "duplex", data = data) # can also random splitts
 
 #permutation
 permuted.stats <- permute.OSC.PLS(data = scaled.data, y = pls.y, n = ntests, ncomp = 2, osc.comp = 1, progress = FALSE, train.test.index =NULL)
+
 # compare to model (single value)
 model.performance<-OSC.validate.model(model = mods, perm = permuted.stats)
 
