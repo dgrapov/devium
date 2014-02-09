@@ -476,7 +476,7 @@ plot.PLS<-function(obj, results = c("screeplot","scores","loadings","biplot"),xa
 								points<-if(all(tmp$color=="gray")) { 
 									geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
-									geom_point(aes(color=color,shape=shape),size=size,alpha=alpha)  
+									geom_point(aes(color=color,),size=size,alpha=alpha)  # shape disabled
 								}
 								#labels
 								tmp$lab.offset<-tmp[,2]-abs(range(tmp.obj[,2])[1]-range(tmp.obj[,2])[2])/50						
@@ -1713,14 +1713,15 @@ library(reshape2)
 library(pcaMethods)
 
 #local test data 
-data<-read.csv("C:\\Users\\dgrapov\\Dropbox\\Metabolomics Core\\WCMC Workshops\\Winter 2014 LC-MS Course\\Data\\Pumpkin data 1.csv")
+data<-read.csv("C:\\Users\\D\\Dropbox\\Metabolomics Core\\WCMC Workshops\\Winter 2014 LC-MS Course\\Data\\Pumpkin data 1.csv")
 y<-data.frame(data[,"Extraction_Treatment",drop=FALSE])
-pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){fixlf(y[,i])}))
+pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){as.numeric(y[,i])}))
+data<-data[,-c(1:4)]
 
 #multi Y test 
 data(mtcars)
 data<-mtcars[,-c(8,9)]
-y<-data.frame(mtcars[,c(8,9)])
+y<-data.frame(mtcars[,c(9)])
 pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){as.numeric(y[,i])}))
 comp<-2
 osc.comp<-1
