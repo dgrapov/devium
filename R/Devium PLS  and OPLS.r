@@ -1361,6 +1361,8 @@ OSC.PLS.model.compare<-function(model1, model2){
 #conduct train/test validations on PLS model
 PLS.train.test<-function(pls.data,pls.y,pls.train.index,comp,...) 
 	{
+		#only test first Y
+		
 		pls.y<-as.matrix(pls.y)
 		#order for merging test with train stats in one object
 		new.order<-c(c(1:nrow(pls.data))[pls.train.index=="train"],c(1:nrow(pls.data))[pls.train.index=="test"])
@@ -1722,7 +1724,7 @@ y<-data.frame(mtcars[,c(8,9)])
 pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){as.numeric(y[,i])}))
 comp<-2
 osc.comp<-1
-color<-data.frame(am=sapply(1:ncol(y),function(i){factor(fixlc(y[,i]))}))
+color<-data.frame(join.columns(pls.y))
 # color<-NULL
 scaled.data<-data.frame(pcaMethods:::prep(data,center=TRUE,scale="uv"))
 #make OSC model
@@ -1769,8 +1771,8 @@ scaled.data<-data.frame(prep(tmp.data,center=TRUE,scale="uv"))
 .loadings<-results$loadings[,]	
 .loadings<-results$loading.weights[,2,drop=FALSE]
 .loadings<-as.matrix(results$VIP[,1,drop=F])
-type<-"quantile"#"number"
-top<-.1
+type<-"number"#"quantile"#"number"
+top<-12
 p.value=1
 FDR=FALSE
 separate=TRUE
