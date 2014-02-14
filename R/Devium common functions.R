@@ -1,4 +1,4 @@
-#list to characte1r
+#list to character
 fixlc<-function(obj){as.character(unlist(obj))}
 
 #list to numeric
@@ -42,6 +42,17 @@ afixlc<-function(a){
 fixlr<-function(a,.remove=TRUE){
 	id<-sapply(a,is.character)|sapply(a,is.factor)
 	if(.remove){a[,!id,drop=FALSE]} else {a[,id,drop=FALSE]}
+}
+
+#transpose data and fix numeric/factors
+fixlt<-function(obj) {
+	tmp<-t(obj)
+	#check what can be numeric
+	fct<-apply(apply(apply(tmp,2,as.numeric),2,is.na),2,all) # a better way must exist
+	#set everything else to factor
+	tmp2<-data.frame(apply(sapply(data.frame(tmp),as.character),2,as.numeric))
+	tmp2[,fct]<-sapply(tmp[,fct,drop=FALSE],factor)
+	return(tmp2)
 }
 
 #import from clipboard
