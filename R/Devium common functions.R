@@ -51,7 +51,7 @@ fixlt<-function(obj) {
 	fct<-apply(apply(apply(tmp,2,as.numeric),2,is.na),2,all) # a better way must exist
 	#set everything else to factor
 	tmp2<-data.frame(apply(sapply(data.frame(tmp),as.character),2,as.numeric))
-	tmp2[,fct]<-sapply(tmp[,fct,drop=FALSE],factor)
+	tmp2[,fct]<-sapply(tmp[,fct,drop=FALSE],as.factor)
 	return(tmp2)
 }
 
