@@ -583,12 +583,12 @@ summary.boxplot<-function(data,group){
 				plot.background = element_blank()
 				 )	 
 	
-	p1<-ggplot(melted,aes(x=variable,y=value))+geom_boxplot(aes(fill=fct.name))+ 
+	p1<-ggplot(melted,aes(x=variable,y=value))+geom_boxplot(aes(fill=get(fct.name)))+ 
 		scale_fill_discrete(guide = guide_legend(title = fct.name)) + 
 		.theme + coord_flip() +xlab("")+ylab("")
 		
 	#make density plot of all variables
-	p2<-ggplot(tmp2,aes(x=value))+ geom_density(aes(fill=group),show_guide=F)	+ .theme +facet_grid(group~.) +ylab("") +xlab("")
+	p2<-ggplot(tmp2,aes(x=value))+ geom_density(aes(fill=group),show_guide=F)	+ .theme +facet_grid(group~.) +ylab("") + xlab("")
 	print(grid.arrange(p1,p2,ncol = 1))
 }
 
