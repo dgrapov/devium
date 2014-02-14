@@ -583,7 +583,7 @@ summary.boxplot<-function(data,group){
 				plot.background = element_blank()
 				 )	 
 	
-	p1<-ggplot(melted,aes(x=variable,y=value))+geom_boxplot(aes(fill=get(fct.name)))+ 
+	p1<-ggplot(melted,aes(x=variable,y=value))+geom_boxplot(aes(fill=fct.name))+ 
 		scale_fill_discrete(guide = guide_legend(title = fct.name)) + 
 		.theme + coord_flip() +xlab("")+ylab("")
 		
