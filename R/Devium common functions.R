@@ -48,11 +48,13 @@ fixlr<-function(a,.remove=TRUE){
 fixlt<-function(obj) {
 	tmp<-t(obj)
 	#check what can be numeric
-	fct<-apply(apply(apply(tmp,2,as.numeric),2,is.na),2,all) # a better way must exist
+	# fct<-apply(apply(apply(tmp,2,as.numeric),2,is.na),2,all) # a better way must exist?
+	fct<-sapply(1:ncol(tmp),function(i){all(is.na(as.numeric(tmp[,i])))})
+
 	#set everything else to factor
 	tmp2<-data.frame(apply(sapply(data.frame(tmp),as.character),2,as.numeric))
 	tmp2[,fct]<-sapply(tmp[,fct,drop=FALSE],as.factor)
-	return(tmp2)
+	return(data.frame(tmp2))
 }
 
 #import from clipboard
