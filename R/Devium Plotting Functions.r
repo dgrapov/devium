@@ -565,8 +565,7 @@ get.polygon.coords<-function(obj,group){
 
 #make summary plot for all variables as boxplot
 # data(mtcars)
-# data<-mtcars
-# test.obj<-data[,"am",drop=F]
+# summary.boxplot(data=mtcars,group=mtcars[,c("am","vs")])
 summary.boxplot<-function(data,group){
 	fct.name<-as.character(join.columns(data.frame(matrix(colnames(group),ncol=length(colnames(group)))),"."))
 	fct<-data.frame(as.factor(join.columns(group)))
@@ -583,7 +582,7 @@ summary.boxplot<-function(data,group){
 				plot.background = element_blank()
 				 )	 
 	
-	p1<-ggplot(melted,aes(x=variable,y=value))+geom_boxplot(aes(fill=get(fct.name)))+ 
+	p1<-ggplot(melted,aes(x=variable,y=value))+geom_boxplot(aes_string(fill=fct.name))+ 
 		scale_fill_discrete(guide = guide_legend(title = fct.name)) + 
 		.theme + coord_flip() +xlab("")+ylab("")
 		
