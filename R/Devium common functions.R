@@ -25,11 +25,12 @@ afixln<-function(a,keep.factors=FALSE){
 		return(obj)
 }
 
+
 #convert all columns of a data.frame or matrix to numeric (encoding characters) optional preserving factors
 afixlnf<-function(a,factors=TRUE){
 		
 		tmp<-a
-		is.num<-sapply(a,function(i){all(is.na(as.numeric(i)))})
+		is.num<-sapply(1:ncol(a),function(i){all(is.na(as.numeric(as.character(a[,i]))))})
 		tmp<-data.frame(do.call("cbind",lapply(tmp,function(i) {as.numeric(i)}))) # make sure dims are maintained
 		if(factors){
 			tmp[,is.num]<-data.frame(sapply(a[,is.num,drop=FALSE],function(i) {factor(i)}))
