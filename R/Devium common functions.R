@@ -45,8 +45,7 @@ fixlr<-function(a,.remove=TRUE){
 }
 
 #transpose data and fix numeric/factors
-fixlt<-function(obj) {
-	tmp<-t(obj)
+fixfactors<-function(tmp) {
 	#check what can be numeric
 	# fct<-apply(apply(apply(tmp,2,as.numeric),2,is.na),2,all) # a better way must exist?
 	fct<-sapply(1:ncol(tmp),function(i){all(is.na(as.numeric(tmp[,i])))})
