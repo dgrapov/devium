@@ -53,8 +53,8 @@ fixlt<-function(obj) {
 
 	#set everything else to factor
 	tmp2<-data.frame(apply(sapply(data.frame(tmp),as.character),2,as.numeric))
-	tmp2[,fct]<-sapply(tmp[,fct,drop=FALSE],as.factor)
-	return(data.frame(tmp2))
+	tmp2[,fct]<-data.frame(tmp[,fct,drop=FALSE])
+	return(tmp2)
 }
 
 #import from clipboard

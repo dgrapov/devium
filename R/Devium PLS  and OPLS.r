@@ -1113,7 +1113,9 @@ plot.S.plot<-function(obj,names=NULL){
 					show = plot.obj$significant)
 		
 	#cut offs
-	cuts<-range(bound$weights[!bound$show])
+	tmp<-bound$weights[bound$show]
+	tmp<-split(tmp,sign(tmp))
+	cuts<-c(max(tmp[[1]]),min(tmp[[2]]))
 	plot.title<- paste ("upper/lower bounds = ", signif(cuts[2],4), " / " ,signif(cuts[1],4))
 	#plot.colors<-scale_fill_brewer(palette="Blues")
 	
@@ -1133,7 +1135,7 @@ plot.S.plot<-function(obj,names=NULL){
 	sorted.bound$name<-fixlc(sorted.bound$name)
 	sorted.bound$index<-1:nrow(sorted.bound)
 	p3<-ggplot(sorted.bound, aes(x = index, y = weights, fill = show))+
-	geom_bar(stat = "identity",show_guide=FALSE) + xlab(" ") + #geom_density2d(aes(group=groups))+
+	geom_bar(stat = "identity",show_guide=FALSE,fill="gray") + xlab(" ") + #geom_density2d(aes(group=groups))+
 	.theme + geom_hline(yintercept = cuts,lty=2,col="red") + coord_flip() +
 	scale_x_continuous(breaks=c(1:length(sorted.bound$name)),labels=fixlc(sorted.bound$name))	
 		
@@ -1717,8 +1719,9 @@ library(reshape2)
 library(pcaMethods)
 
 #local test data 
-data<-read.csv("C:\\Users\\D\\Dropbox\\Metabolomics Core\\WCMC Workshops\\Winter 2014 LC-MS Course\\Data\\Pumpkin data 1.csv")
-y<-data.frame(data[,"Extraction_Treatment",drop=FALSE])
+obj<-read.csv("C:\\Users\\D\\Dropbox\\CDS\\grape data.csv",header=TRUE,row.names=1)
+data<-fixlt(obj)
+y<-data.frame(data[,"grape",drop=FALSE])
 pls.y<-do.call("cbind",lapply(1:ncol(y),function(i){as.numeric(y[,i])}))
 data<-data[,-c(1:4)]
 
@@ -1731,7 +1734,7 @@ comp<-2
 osc.comp<-1
 color<-data.frame(join.columns(pls.y))
 # color<-NULL
-scaled.data<-data.frame(pcaMethods:::prep(data,center=TRUE,scale="uv"))
+scaled.data<-data.frame(pcaMethods:::prep(afixln(data),center=TRUE,scale="uv"))
 #make OSC model
 mods<-make.OSC.PLS.model(pls.y,pls.data=scaled.data,comp=comp,OSC.comp=osc.comp, method="oscorespls",validation = "LOO", cv.scale=FALSE,return.obj="stats")
 #extract model
@@ -1776,13 +1779,13 @@ scaled.data<-data.frame(prep(tmp.data,center=TRUE,scale="uv"))
 .loadings<-results$loadings[,]	
 .loadings<-results$loading.weights[,2,drop=FALSE]
 .loadings<-as.matrix(results$VIP[,1,drop=F])
-type<-"number"#"quantile"#"number"
-top<-12
-p.value=1
+type<-"quantile"#"number"
+top<-1
+p.value=0.05
 FDR=FALSE
-separate=TRUE
+separate=FALSE
 selected.features<-PLS.feature.select(pls.data=scaled.data,pls.scores=.scores[,1],pls.loadings=.loadings[,1],pls.weight=.loadings[,1],
-				p.value=p.value, FDR=FDR,cut.type=type,top=top,separate=separate,type="spearman")
+				p.value=p.value, FDR=FDR,cut.type=type,top=top,separate=separate,type="spearman",plot=FALSE)
 
 feature.cut2(obj=.loadings,type="number",thresh="3",separate=TRUE)
 
