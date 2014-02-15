@@ -30,11 +30,7 @@ afixlnf<-function(a,factors=TRUE){
 		
 		tmp<-a
 		is.num<-sapply(a,function(i){all(is.na(as.numeric(i)))})
-<<<<<<< HEAD
 		tmp<-data.frame(do.call("cbind",lapply(tmp,function(i) {as.numeric(i)}))) # make sure dims are maintained
-=======
-		tmp<-data.frame(sapply(tmp,function(i) {as.numeric(i)}))
->>>>>>> 6cf042af7d334e5faecbfb5fde154e2932acdc95
 		if(factors){
 			tmp[,is.num]<-data.frame(sapply(a[,is.num,drop=FALSE],function(i) {factor(i)}))
 		} else {
