@@ -8,7 +8,7 @@ fixln<-function(obj){as.numeric(as.character(unlist(obj)))} # should encode text
 fixlf<-function(obj){as.numeric(as.factor(unlist(obj)))} # should encode text as factors first
 
 #convert all columns of a data.frame or matrix to numeric (encoding characters)
-afixln<-function(a){
+afixln<-function(a,keep.factors=FALSE){
 	obj<-do.call("cbind",lapply(1:ncol(a),function(i){
 				tmp<-a[,i]
 				if(is.factor(tmp)|is.character(tmp)){
@@ -21,6 +21,25 @@ afixln<-function(a){
 		#maintain object class and dimnames
 		pclass<-paste0("as.",class(a))
 		obj<-do.call(pclass,list(obj))
+		dimnames(obj)<-dimnames(a)
+		return(obj)
+}
+
+#convert all columns of a data.frame or matrix to numeric (encoding characters) optional preserving factors
+afixlnf<-function(a,factors=TRUE){
+		
+		tmp<-a
+		is.num<-sapply(a,function(i){all(is.na(as.numeric(i)))})
+		tmp<-data.frame(sapply(tmp,function(i) {as.numeric(i)}))
+		if(factors){
+			tmp[,is.num]<-data.frame(sapply(a[,is.num,drop=FALSE],function(i) {factor(i)}))
+		} else {
+			tmp[,is.num]<-data.frame(sapply(a[,is.num,drop=FALSE],function(i) {as.numeric(factor(i))}))
+		}
+			
+		#maintain object class and dimnames
+		pclass<-paste0("as.",class(a))
+		obj<-do.call(pclass,list(tmp))
 		dimnames(obj)<-dimnames(a)
 		return(obj)
 }
