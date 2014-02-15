@@ -33,7 +33,8 @@ afixlnf<-function(a,factors=TRUE){
 		is.num<-sapply(1:ncol(a),function(i){all(is.na(as.numeric(as.character(a[,i]))))})
 		tmp<-data.frame(do.call("cbind",lapply(tmp,function(i) {as.numeric(as.character(i))}))) # make sure dims are maintained
 		if(factors){
-			tmp[,is.num]<-data.frame(sapply(a[,is.num,drop=FALSE],function(i) {as.factor(i)}))
+			tmp2<-a[,is.num,drop=FALSE]
+			tmp[,is.num]<-data.frame(do.call("cbind",lapply(1:ncol(tmp2),function(i) {data.frame(factor(tmp2[,i]))})))
 		} else {
 			tmp[,is.num]<-data.frame(sapply(a[,is.num,drop=FALSE],function(i) {as.numeric(factor(i))}))
 		}
