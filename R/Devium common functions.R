@@ -45,7 +45,8 @@ fixlr<-function(a,.remove=TRUE){
 }
 
 #transpose data and fix numeric/factors
-fixfactors<-function(tmp) {
+fixlt<-function(obj) {
+	tmp<-t(obj)
 	#check what can be numeric
 	# fct<-apply(apply(apply(tmp,2,as.numeric),2,is.na),2,all) # a better way must exist?
 	fct<-sapply(1:ncol(tmp),function(i){all(is.na(as.numeric(tmp[,i])))})
@@ -55,6 +56,20 @@ fixfactors<-function(tmp) {
 	tmp2[,fct]<-data.frame(tmp[,fct,drop=FALSE])
 	return(tmp2)
 }
+
+#remove unused levels in factors
+fixfactors<-function(obj) {
+	#check what can be numeric
+	# fct<-apply(apply(apply(tmp,2,as.numeric),2,is.na),2,all) # a better way must exist?
+	fct<-sapply(obj,is.factor)
+	tmp<-obj[,fct,drop=FALSE]
+	#set everything else to factor
+	tmp2<-data.frame(apply(sapply(data.frame(tmp),as.character),2,as.factor))
+	obj[,fct]<-data.frame(tmp2)
+	return(obj)
+}
+
+
 
 #import from clipboard
 read.excel <- function(type="with.dimnames") {
