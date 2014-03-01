@@ -876,7 +876,7 @@ unique.obj<-function(data, index){
 	}
 
 #look up KEGG reactant pairs 
-get.KEGG.pairs<-function(type="main",url="https://gist.github.com/dgrapov/5548641/raw/befdaa0fd8a9c2204afa52ab79cee0714a2710fa/KEGG+RPairs"){ 
+get.KEGG.pairs<-function(type="main",url="https://gist.githubusercontent.com/dgrapov/5548641/raw/6b297fe117b412d733cd217316eb5a3c55b5fb2c/KEGG+RPairs"){ 
 		#older repo: "https://gist.github.com/dgrapov/4964564/raw/aec1a5097a3265d22109c9b34edd99a28f4012a3/KEGG+reaction+pairs"
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
