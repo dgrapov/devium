@@ -11,6 +11,8 @@ rename <- function(x, pattern, replace="_")
 		return(x)	
 }
 
+
+
 # relative standard deviation
 #redo calc.stat using dplyr
 calc.rsd<-function(data,factor,sig.figs=2){
@@ -67,7 +69,7 @@ calc.stat<-function(data,factor,stat,...)
 	}
 
 # break string and get object into colummns by position in original string position 
-str.get<- function(obj, sep="±",get=1)
+str.get<- function(obj, sep="ï¿½",get=1)
 	{
 		do.call("cbind",lapply(1:ncol(obj),function(i)
 			{
@@ -89,6 +91,7 @@ fold.change<-function(obj,rel=1,log=FALSE)
 	}
 
 # function to extract data based on non-missing in index
+
 sub.data<-function(data,index)
 	{
 		#input = data object with rows the dimension to be split
@@ -149,15 +152,15 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,...)
 					fct<-factor(as.character(unlist(tmp[1]))) # breaks ordered factors
 					tmp.data<-data.frame(tmp[[2]])
 						
-					# get means ± sd, fold change
+					# get means ï¿½ sd, fold change
 					means<-calc.stat(tmp.data,factor=fct,stat=c("mean"),...)
 					sds<-calc.stat(tmp.data,factor=fct,stat=c("sd"),...)
 					fc<-fold.change(means,log=log,rel)
 					colnames(fc)<-paste(colnames(fc),rep(colnames(fc)[rel],ncol(fc)), sep="/")
 
 					#format output from means and sd
-					names<-paste(unlist(as.data.frame(strsplit(colnames(means),"-"))[2,])," mean ± std dev" , sep="")
-					mean.sd<-matrix(paste(unlist(signif(means,sigfigs)), " ± ", unlist(signif(sds,sigfigs-1)),sep=""), ncol=ncol(means))
+					names<-paste(unlist(as.data.frame(strsplit(colnames(means),"-"))[2,])," mean ï¿½ std dev" , sep="")
+					mean.sd<-matrix(paste(unlist(signif(means,sigfigs)), " ï¿½ ", unlist(signif(sds,sigfigs-1)),sep=""), ncol=ncol(means))
 					colnames(mean.sd)<-names
 					#bind with fold change
 					cbind(mean.sd,round(fc[,-rel,drop=FALSE],2))
