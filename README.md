@@ -3,6 +3,10 @@ DEVIUM
 
 <b>D</b>ynamic Multivariat<b>E</b> Data Analysis and <b>VI</b>s<b>U</b>alization Platfor<b>M</b>
 
+## Source all devium R functions from github
+```r
+source("http://pastebin.com/raw.php?i=UyDBTA57")
+```
 
 [DeviumWeb] (https://github.com/dgrapov/DeviumWeb)
 ======
