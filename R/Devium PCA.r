@@ -1,4 +1,7 @@
 
+# TODO add control for polygon plot order (https://github.com/hadley/ggplot2/wiki/plotting-polygon-shapefiles)
+# open addition of pallets, themes,add group labels to plot, ... 
+
 #trying to debug issue in shiny, pca.data is now an object instead of its name as a character
 devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return=NULL, plot=TRUE)
 	{
@@ -45,30 +48,14 @@ devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return=NULL, plot=TRUE)
 		diagnostics<-tryCatch(data.frame(leverage=lev,DmodX=dmodx),error=function(e){data.frame(Error="not applicable")})
 
 		#scree plot
-		if(plot==TRUE){ make.scree.plot(eigenvalues) }
+		if(plot==TRUE){ make.scree.plot.bar(eigenvalues) }
 	
-		
-		#Determine placement of output for EXCEL
-		if(!return=="list"){
-			data.list<-list(eigenvalues,scores,diagnostics,loadings)
-			list.names<-matrix(c("eigenvalues","scores","diagnostics","loadings"))
-			start.row<-1;spacer<-1;start.col<-1
-			direction<-"horizontal"
-
-			#assign complete object to envir = devium
-			assign("devium.pca.results",list(eigenvalues=eigenvalues, scores=scores, loadings=loadings, diagnostics=diagnostics,
-			placement=list.placement.full(data.list,list.names,direction="horizontal",start.col,start.row,spacer)),envir=devium)
-		}
 		
 		#get the name of the data
 		if(return=="list"){
-				return(list(pca.scores = scores, pca.loadings =  loadings,pca.eigenvalues = eigenvalues, pca.diagnostics = diagnostics))
-			} else {
-				name<-tmp$pca.data
-				assign(paste(name,"pca.scores",sep="."),scores,envir=.GlobalEnv)
-				assign(paste(name,"pca.diagnostics",sep="."),diagnostics,envir=.GlobalEnv)
-				assign(paste(name,"pca.loadings",sep="."),loadings,envir=.GlobalEnv)
-		}
+				return(list(pca.scores = scores, pca.loadings =  loadings,pca.eigenvalues = eigenvalues, pca.diagnostics = diagnostics))} 
+		
+		if(return=="model"){return(pca.results)}
 	}
 	
 # generate a scree plot base
@@ -97,6 +84,10 @@ make.scree.plot<-function(eigenvalues)
 	}
 
 make.scree.plot.bar<-function(eigenvalues){
+	
+	library(ggplot2)
+	library(reshape2)
+	
 	check.get.packages("gridExtra")
 	.theme<- theme(
 					axis.line = element_line(colour = 'gray', size = .75), 
@@ -116,12 +107,12 @@ make.scree.plot.bar<-function(eigenvalues){
 	.theme + geom_hline(yintercept=.8,linetype=2) +xlab("Principal Component")
 	
 	#multiple plot out put
-	grid.arrange(p1, p2, ncol=1)
+	grid.arrange(p1, p2, ncol=1) 
 	
 }
 
 
-plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),group.bounds="ellipse",size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,alpha=.75,g.alpha=0.2,...){
+plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),group.bounds="ellipse",size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,alpha=.75,g.alpha=0.2,theme=NULL, point.labels=NULL,extra=NULL,...){
 	
 	library(ggplot2)
 	library(reshape2)
@@ -134,6 +125,7 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								obj<-pca$pca.scores[,c(xaxis,yaxis)]	
 								tmp<-data.frame(obj,id = rownames(obj))
 								#plot 
+								if(is.null(theme)){
 								.theme2<- theme(
 											axis.line = element_line(colour = 'gray', size = .75), 
 											panel.background = element_blank(), 
@@ -141,7 +133,8 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 											legend.background=element_rect(fill='white'),
 											legend.key = element_blank()
 										 )
-										 
+								} else {.theme2<-theme}	
+								
 								if(is.null(color)){
 										tmp$color<-"gray"
 									}else{
@@ -156,7 +149,14 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								}
 								#labels
 								tmp$lab.offset<-tmp[,2]-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
-								labels<-if(label==TRUE){geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="id"),color="black",show_guide = FALSE)} else { NULL }
+								labels<-if(label==TRUE){
+									if(is.null(point.labels)){
+										geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="id"),color="black",show_guide = FALSE)
+									} else {
+										tmp$custom.label<-point.labels
+										geom_text(size=font.size,aes_string(x=colnames(tmp)[1], y="lab.offset",label="custom.label"),color="black",show_guide = FALSE)
+									}	
+								} else { NULL }
 								
 								#grouping visualizations
 								polygons<-NULL
@@ -190,6 +190,7 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
 								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
+								p<-p+extra
 								print(p)
 							},
 							
@@ -197,6 +198,7 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								obj<-pca$pca.loadings[,c(xaxis,yaxis)]	
 								tmp<-data.frame(obj,id = rownames(obj))
 								#plot 
+								if(is.null(theme)){
 								.theme2<- theme(
 											axis.line = element_line(colour = 'gray', size = .75), 
 											panel.background = element_blank(), 
@@ -204,6 +206,7 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 											legend.background=element_rect(fill='white'),
 											legend.key = element_blank()
 										 )
+								} else {.theme2<-theme}	
 										 
 								if(is.null(color)){
 										tmp$color<-"gray"
@@ -276,11 +279,14 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								  cat("\twhere x is a numeric object and newrange is the min and max of the new range\n")
 								 }
 								}
+								if(is.null(theme)){
 								.theme2<- theme(
 												axis.line = element_line(colour = 'gray', size = .75), 
 												panel.background = element_blank(), 
 												plot.background = element_blank()
 											 )
+								} else {.theme2<-theme}	
+								
 								#based on https://groups.google.com/forum/#!topic/ggplot2/X-o2VXjDkQ8
 								scores<-pca$pca.scores[,c(xaxis,yaxis)]
 								loadings<-tmp.loadings<-pca$pca.loadings[,c(xaxis,yaxis)]

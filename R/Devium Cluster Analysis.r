@@ -2,7 +2,7 @@
 devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.color = NULL, border.color=NULL, match.dim=2, type=c("none","z.scale", "spearman", "pearson","biweight"),
                          cluster.method = c("none","ward", "single", "complete", "average", "mcquitty", "median" , "centroid"),
                          distance.method = c("none","euclidean", "maximum", "manhattan", "canberra", "binary" ,"minkowski"),
-                         alpha = NULL,font.size = 12,show.names=F, ncolors = 100){
+                         alpha = NULL,font.size = 12,show.names=F, ncolors = 100, level.limit=10){
   check.get.packages("pheatmap")
   type<-match.arg(type)
   cluster.method<-match.arg(cluster.method)
@@ -68,7 +68,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
       #test if factor is continuous or discrete
       fct.type<-sapply(1:ncol(annotation),function(i){
         obj<-as.factor(annotation[,i])
-        nlevels(obj)>10
+        nlevels(obj)>level.limit
       })
       
       annotation.color<-lapply(1:ncol(class.factor), function(i){
@@ -141,7 +141,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
 }
 
 # slight modification of  on "http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R"
-# fix for the case where labels are numeric
+# fix for the case where labels are numeric and add color, digit length and size control
 devium.dendrogram<-function( 
   x ,             # an hclust object to draw
   k        = 2,   # the number of groups
@@ -160,6 +160,9 @@ devium.dendrogram<-function(
   main     = paste("Colored Dendrogram (",k," groups)"),
   boxes    = TRUE,
   members,
+  color.text = FALSE,
+  text.length = 10,
+  text.cex=.5,
   ...
 ){
 
@@ -270,15 +273,23 @@ devium.dendrogram<-function(
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Name of the observations (3)
     par(mar=c(0,0,0,4))
     par(srt=90)
-    obs.labels <- toupper(substr(x$labels[x$order],1,6))
+    obs.labels <- toupper(substr(x$labels[x$order],1,text.length))
     if(is.null(members)) {
       plot(0,type="n",xlim=c(0.5,n.indiv+.5), ylim=c(0,1), xaxs="i", axes=FALSE, xlab="",ylab="") 
-      text(1:n.indiv    , 0, obs.labels, pos=4, col=col.down[groups.o])
+      if(color.text){
+		 text(1:n.indiv    , 0, obs.labels, pos=4, col=col.down[groups.o],cex=text.cex)
+		} else {
+		 text(1:n.indiv    , 0, obs.labels, pos=4,cex=text.cex)
+	  }
     }
     else{
       plot(0,type="n",xlim=c(0.5,sum(members)+.5), ylim=c(0,1), xaxs="i", axes=FALSE, xlab="",ylab="") 
       xo <-   members[x$order]
-      text(cumsum(xo)-xo/2, 0, obs.labels, pos=4, col=col.down[groups.o])
+	  if(color.text){
+		text(cumsum(xo)-xo/2, 0, obs.labels, pos=4, col=col.down[groups.o],cex=text.cex) 
+		} else {
+		text(cumsum(xo)-xo/2, 0, obs.labels, pos=4,cex=text.cex)
+	  }
     }
     par(srt=0)
     if(boxes){
@@ -286,12 +297,12 @@ devium.dendrogram<-function(
     }
   
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Labels (4)
-    par(mar=c(0,0,0,0))
-    plot(0,type="n",xlim=c(0,1), ylim=c(0,1), xaxs="i", axes=FALSE, xlab="",ylab="") 
-    text(.5,.5,"Labels")
-    if(boxes){
-      box()
-    }
+    # par(mar=c(0,0,0,0))
+    # plot(0,type="n",xlim=c(0,1), ylim=c(0,1), xaxs="i", axes=FALSE, xlab="",ylab="") 
+    # text(.5,.5,"Labels")
+    # if(boxes){
+      # box()
+    # }
       
   }
   

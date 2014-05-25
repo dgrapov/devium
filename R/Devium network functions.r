@@ -417,31 +417,6 @@ mat.to.edge.list<-function(input,graph){
 		return(edge.cor)
 	}
 
-#generic convert symmetric matrix to edge list (use the upper triangle) (shoud make a class)
-# very slow see newer version using melt
-# gen.mat.to.edge.list<-function(mat){
-		
-		# #accessory function
-		# all.pairs<-function(r,type="one")
-                # {       
-                        # switch(type,
-                        # one = list(first = rep(1:r,rep(r,r))[lower.tri(diag(r))], second = rep(1:r, r)[lower.tri(diag(r))]),
-                        # two = list(first = rep(1:r, r)[lower.tri(diag(r))], second = rep(1:r,rep(r,r))[lower.tri(diag(r))]))
-                # }
-		
-		# ids<-all.pairs(ncol(mat))
-		
-		# tmp<-as.data.frame(do.call("rbind",lapply(1:length(ids$first),function(i)
-			# {
-				# value<-mat[ids$first[i],ids$second[i]]
-				# name<-c(colnames(mat)[ids$first[i]],colnames(mat)[ids$second[i]])
-				# c(name,value)
-			# })))
-		# colnames(tmp)<-c("source","target","value")	
-		# return(tmp)
-	# }
-
-
 gen.mat.to.edge.list<-function(mat,symmetric=TRUE,diagonal=FALSE,text=FALSE){
 	#create edge list from matrix
 	# if symmetric duplicates are removed
@@ -459,7 +434,6 @@ gen.mat.to.edge.list<-function(mat,symmetric=TRUE,diagonal=FALSE,text=FALSE){
 	return(obj)
 	# remove duplicates
 }	
-	
 	
 #trim edge list based on some reference index 
 edge.list.trim<-function(edge.list,index,cut,less.than=FALSE){
@@ -749,8 +723,6 @@ filter.edges<-function(edge.list,filter,cut.off=NULL){
 			}
 		return(out)
 	}
-
-	
 	
 #limit to X top edges per node( not correct see edge.list.filter2) 
 edge.list.filter<-function(edge.list,value, max.edges=10, separate=TRUE, decreasing=TRUE){
@@ -809,7 +781,7 @@ edge.list.filter.full<-function(edge.list,weight,max.edges=1){
 
 	tmp<-data.frame(rbind(edge.list,edge.list[,2:1]),weight=c(weight,weight))
 	colnames(tmp)<-c("source","target","weight")
-	mat<-dcast(tmp,source ~ target,value.var="weight")
+	mat<-dcast(tmp,source ~ target,mean,value.var="weight") # make adjacency matrix should be better fxn for this
 	mat[,1]<-as.factor(mat[,1])
 	
 	# get top edges (need to run twice to get row and column top ids)
@@ -1009,7 +981,7 @@ get.Reaction.pairs<-function(index,reaction.DB,index.translation.DB,translate=TR
 	}
 
 #get various Database IDs and pathway information (from IDEOM)
-IDEOMgetR<-function(url="https://gist.github.com/dgrapov/5548790/raw/399f0958306c1018a6be846f58fd076ae83f1b78/IDEOM+small+list"){
+IDEOMgetR<-function(url="https://gist.githubusercontent.com/dgrapov/5548790/raw/399f0958306c1018a6be846f58fd076ae83f1b78/IDEOM+small+list"){
 		options(warn=-1)
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
 		DB<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
@@ -1083,14 +1055,78 @@ devium.calculate.correlations<-function(data,type="pearson", results = "matrix")
 		return(res)			
 	}
 
-#get tanimoto distances from cids
+# #(using ChemmineR API)get tanimoto distances from cids 
+# CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"){
+	# #used cids = PUBCHEM CIDS to calculate tanimoto distances
+	# need<-c("snow","doSNOW","foreach","ChemmineR") # need to use others for mac
+	# for(i in 1:length(need)){check.get.packages(need[i])}
+	# #get fingerprint for calcs
+	# data(pubchemFPencoding)
+	# # cid.objects<-na.omit(unique(as.numeric(as.character(unlist(cids))))) # need to report excluded NA
+	
+	# #remove and print to screen error vars
+	# #removal ids
+	# objc<-as.character(unlist(cids))
+	# objn<-as.numeric(unlist(cids))
+	# dup.id<-duplicated(objn)
+	# na.id<-is.na(objn)
+	# if(sum(c(dup.id,na.id))>0){
+			
+			# objc<-as.character(unlist(cids))
+			# objn<-as.numeric(unlist(cids))
+			
+			# #remove duplicated
+			# cat(paste("The following duplicates were removed:","\n"))
+			# cat(paste(objc[dup.id]),sep="\n")
+			# # remove NA
+			# cat(paste("Bad inputs were removed:","\n"))
+			# cat(paste(objc[na.id]),sep="\n")
+			
+			# cid.objects<-objn[!(na.id | dup.id)]
+		# } else { cid.objects<-objn }
+	# cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n")
+	
+	# compounds <- getIds(cid.objects) # get sdfset
+	# cid(compounds) <- sdfid(compounds)
+	
+	# # Convert base 64 encoded fingerprints to character vector, matrix or FPset object
+	# fpset <- fp2bit(compounds, type=2)
+	
+	# if(parallel==TRUE)
+		# {
+				# #change this later
+				# cl.tmp = makeCluster(rep("localhost",Sys.getenv('NUMBER_OF_PROCESSORS')), type="SOCK") 
+				# registerDoSNOW(cl.tmp) 
+				# out<-foreach(j=c(1:length(rownames(fpset))),.combine="cbind") %dopar% ChemmineR::fpSim(fpset[j,], fpset)#length(codes)
+				# stopCluster(cl.tmp)	
+		# } else {
+					# out<-sapply(rownames(fpset), function(x) ChemmineR::fpSim(x=fpset[x,], fpset,sorted=FALSE)) 
+		# }
+		
+	# #edgelist
+	# #colnames(out)<-unlist(dimnames(out)[1])1
+	
+	# #optionally filter based on score based on score
+	# obj<-as.matrix(out)
+	
+	# if(return=="edge list"){
+		# e.list<-gen.mat.to.edge.list(obj)
+		# final<-edge.list.trim(e.list,index=fixln(e.list[,3]),cut=cut.off,less.than=FALSE)
+	# }else{
+		# obj[obj<cut.off]<-0
+		# final<-obj
+	# }
+	# return(final)
+# }
+
+
+#get tanimoto distances from cids (using PUG REST instead of Chemminer web api to get sdf)
 CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"){
 	#used cids = PUBCHEM CIDS to calculate tanimoto distances
 	need<-c("snow","doSNOW","foreach","ChemmineR") # need to use others for mac
 	for(i in 1:length(need)){check.get.packages(need[i])}
 	#get fingerprint for calcs
 	data(pubchemFPencoding)
-	# cid.objects<-na.omit(unique(as.numeric(as.character(unlist(cids))))) # need to report excluded NA
 	
 	#remove and print to screen error vars
 	#removal ids
@@ -1105,20 +1141,61 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 			
 			#remove duplicated
 			cat(paste("The following duplicates were removed:","\n"))
-			cat(paste(objc[dup.id]),sep="\n")
+			cat(paste(unique(objc[dup.id])),sep="\n")
 			# remove NA
 			cat(paste("Bad inputs were removed:","\n"))
-			cat(paste(objc[na.id]),sep="\n")
+			cat(paste(unique(objc[na.id])),sep="\n")
 			
 			cid.objects<-objn[!(na.id | dup.id)]
 		} else { cid.objects<-objn }
 	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n")
 	
-	compounds <- getIds(cid.objects) # get sdfset
-	cid(compounds) <- sdfid(compounds)
+	#custom read sdf, avoid class for latter combining of PUG queries
+	read.sdf<-function (sdfstr) 
+		{
+			if (length(sdfstr) > 1) {
+				mysdf <- sdfstr
+			}
+			else {
+				mysdf <- readLines(sdfstr)
+			}
+			y <- regexpr("^\\${4,4}", mysdf, perl = TRUE)
+			index <- which(y != -1)
+			indexDF <- data.frame(start = c(1, index[-length(index)] + 
+				1), end = index)
+			mysdf_list <- lapply(seq(along = indexDF[, 1]), function(x) mysdf[seq(indexDF[x, 
+				1], indexDF[x, 2])])
+			if (class(mysdf_list) != "list") {
+				mysdf_list <- list(as.vector(mysdf_list))
+			}
+			names(mysdf_list) <- 1:length(mysdf_list)
+			#mysdf_list <- new("SDFstr", a = mysdf_list)
+			return(mysdf_list)
+		}
+	
+	#due to url string size limit query 25 sdf obj at a time
+	blocks<-c(seq(1,length(cid.objects),by=25),length(cid.objects))
+	compounds<-list() #breaks=ceiling(length(cids)/25),include.lowest = TRUE)
+	for(i in 1:(length(blocks)-1)){
+		url<-paste0("http://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/",paste(cid.objects[blocks[i]:blocks[(i+1)]],collapse=","),"/SDF")
+		compounds[[i]]<-read.sdf(url) # add class after combing all sdf new("SDFstr", a = mysdf_list)
+		# compounds[[i]]<-read.SDFstr(url)
+	}
+	#reformat to unnested list for conversion to sdfset 
+	cmpd.list<-list()
+	names<-paste0("CMP",1:length(cid.objects))
+	for(i in 1:length(compounds)){
+		tmp<-unclass(compounds[[i]])
+		names(tmp)<-names[blocks[i]:blocks[(i+1)]]
+		cmpd.list<-c(cmpd.list,tmp)
+	}
+	cmpd.list2<-new("SDFstr", a = cmpd.list)
+	sd.list<-as(cmpd.list2, "SDFset")
+	cid(sd.list) <- sdfid(sd.list)
+	
 	
 	# Convert base 64 encoded fingerprints to character vector, matrix or FPset object
-	fpset <- fp2bit(compounds, type=2)
+	fpset <- fp2bit(sd.list, type=2)
 	
 	if(parallel==TRUE)
 		{
@@ -1385,7 +1462,7 @@ devium.igraph.plot<-function(edge.list,graph.par.obj=NULL,plot.type="static",add
 		names(graph.par)<-names(defaults)
 		
 		#calculate layout to be shared by all plots
-		cat("Calculating layout","\n") 
+		message(cat("Calculating layout","\n") )
 		
 		# test layout to see if it is matrix
 		# else calculate and replace

@@ -40,7 +40,6 @@ calc.FC<-function(data,factor,denom=levels(factor)[1],sig.figs=1,log=FALSE){
 	return(as.data.frame(round(fc[,-rel,drop=FALSE],sig.figs)))
 }
 
-
 # redo using dplyr!
 calc.stat<-function(data,factor,stat,...)
 	{
@@ -134,7 +133,7 @@ anova.formula.list<-function(data,formula,meta.data)
 			}
 }
 
-#get summary statistics
+#get summary statistics should separate anova from summary
 stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,...)
 	{
 		#summarise and make ANOVA from data based on formula 
@@ -200,7 +199,6 @@ covar.adjustment<-function(data,formula)
 	names(data)<-colnames(data)
 	output<-list()
 	n<-ncol(data)
-	i<-1
 	output<-lapply(1:n,function(i)
 		{
 			tryCatch(tmp<-as.formula(c(paste(paste("data$'",colnames(data)[i],"'~",sep=""),paste(formula,sep="+"),sep=""))),
@@ -208,8 +206,8 @@ covar.adjustment<-function(data,formula)
 			fit<-lm(tmp,data=data)$residuals
 			matrix(fit,,1)
 		})
-	out<-as.data.frame(do.call("cbind",output))
-	dimnames(out)<-dimnames(data)
+	out<-data.frame(do.call("cbind",output))
+	tryCatch(dimnames(out)<-dimnames(data), error=function(e){NULL}) # no clue why this throws errors randomly
 	#add back pre-adjustment column min to all
 	min<-apply(out,2,min, na.rm=T)
 	adj.out<-do.call("cbind",sapply(1:ncol(out),function(i)
@@ -328,34 +326,71 @@ multi.t.test<-function(data, factor,mu=NULL,paired=FALSE,progress=TRUE,FDR="BH",
 	return(out)
 } 
 
-#simple mixed effects model for repeated measures
-simple.lme<-function(data,factor,subject,FDR="BH", progress=TRUE){
-		#data  = data.frame of values to test
-		#factor = object to be tested 
-		#subject = identifier for repeated measures
-		library("lme4")
-		library(car)
-		tmp.data<-data.frame(data,factor=factor,subject=subject)
-		
-		if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
-		lmer.p.values<-sapply(1:ncol(data), function(i){
-			if (progress == TRUE){setTxtProgressBar(pb, i)}
-			mod<-lmer(data[,i]~ factor + (1|subject), data=tmp.data)
-			res<-Anova(mod)
-			res$"Pr(>Chisq)"
+#carry mann-whitney U test and FDR for data frames
+multi.mann.whitney<-function(data,factor,progress=TRUE,FDR="BH",qvalue="story"){
+		#mann-whitney U test with FDR for many variables
+
+		check.get.packages(c("qvalue","fdrtool"))
+	
+	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
+		p.vals<-sapply(1:ncol(data), function(i){
+				if (progress == TRUE){setTxtProgressBar(pb, i)}
+				
+					val<-tryCatch(wilcox.test(data[,i]~unlist(factor))$p.value ,error=function(e){1})
+					if(is.nan(val)|is.na(val)){val<-1}
+					val
 		})
-		if (progress == TRUE){close(pb)}
-		#FDR adjust 
-		adj.p<-as.data.frame(p.adjust(as.matrix(lmer.p.values), method = FDR, n = length(lmer.p.values)))
-		adjusted.q<-FDR.adjust(as.matrix(lmer.p.values),type="pvalue",return.all=TRUE)$qval
-		names<-paste("mixed.effect",c("p.value",paste(FDR,"adjusted.p.value",sep="."),"q.value"),sep="_")
-		out<-data.frame(lmer.p.values,adj.p,adjusted.q)
-		colnames(out)<-names
-		return(out)
+	if (progress == TRUE){close(pb); message("Calculating FDR adjustment and q-values")}
+	adj.p<-as.data.frame(p.adjust(as.matrix(p.vals), method = FDR, n = length(p.vals)))
+	if(qvalue=="fdrtools"){
+		adjusted.q<-FDR.adjust(as.matrix(p.vals),type="pvalue",return.all=TRUE)$qval
+	} else {
+		library(qvalue)
+		adjusted.q<-tryCatch(qvalue(as.matrix(p.vals),...)$qvalue,error=function(e){rep(1,length(p.vals))})
+	}
+	
+	names<-paste("mann.whitney.U.test",c("p.value","adjusted.p.value","q.value"),sep="_")
+	out<-data.frame(p.vals,adj.p,adjusted.q)
+	colnames(out)<-names
+	rownames(out)<-colnames(data)
+	return(out)
+} 
+
+#simple mixed effects model for repeated measures
+simple.lme<-function(data,factor,subject,FDR="BH", progress=TRUE,interaction=FALSE){
+	library("lme4")
+	library(car)
+	tmp.data<-data.frame(data,factor,subject=subject)
+	
+	if(interaction){
+		r.formula<-paste(paste(colnames(factor),collapse=" + "),paste(colnames(factor),collapse=" : "),paste0("(1|",colnames(subject),")"),sep=" + ")
+		.name<-c(colnames(factor),paste(colnames(factor),collapse="_"))
+	} else {
+		r.formula<-paste(paste(colnames(factor),collapse=" + "),paste0("(1|",colnames(subject),")"),sep=" + ")
+		.name<-colnames(factor)
+	}
+
+	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
+	lmer.p.values<-do.call("rbind",lapply(1:ncol(data), function(i){
+			if (progress == TRUE){setTxtProgressBar(pb, i)}
+			mod<-lmer(as.formula(paste0(paste0("data[,",i,"]~ "), r.formula)), data=tmp.data)
+			res<-Anova(mod)
+			res<-matrix(res$"Pr(>Chisq)",nrow=1)
+			dimnames(res)<-list("p.value",.name)
+			res
+	}))
+	colnames(lmer.p.values)<-paste(colnames(lmer.p.values),"p.value",sep="_")
+	if (progress == TRUE){close(pb)}
+	#FDR adjust 
+	adj.p<-do.call("cbind",lapply(1:ncol(lmer.p.values),function(i){as.data.frame(p.adjust(as.matrix(lmer.p.values[,i]), method = FDR, n = length(lmer.p.values[,i])))}))
+	colnames(adj.p)<-paste(.name,FDR,"adjusted.p.value",sep="_")
+	adjusted.q<-do.call("cbind",lapply(1:ncol(lmer.p.values),function(i){FDR.adjust(as.matrix(lmer.p.values[,i]),type="pvalue",return.all=TRUE)$qval}))
+	colnames(adjusted.q)<-paste(.name,"q.value",sep="_")
+
+	return(data.frame(lmer.p.values,adj.p,adjusted.q))
 } 
  
-#multi-LME with formula interface
-#simple mixed effects model for repeated measures
+#multi-LME with formula interface (also see simple.lme)
 formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
 		#data  = data.frame of values to test and test factors
 		#factor = object to be tested 
@@ -510,4 +545,5 @@ FDR.adjust<-function(obj,type="pvalue",return.all=FALSE){
 	obj<-fdrtool(obj, statistic=type,plot=FALSE, color.figure=FALSE, verbose=FALSE,cutoff.method="fndr",pct0=0.75)
 	if(return.all==TRUE){return(obj)} else {return(as.numeric(as.character(unlist(obj$qval))))}
 	}
-	
+
+#car	

@@ -66,6 +66,7 @@ fixlr<-function(a,.remove=TRUE){
 }
 
 #transpose data and fix numeric/factors
+#obj<-read.csv("C:\\Users\\D\\Dropbox\\CDS\\wine data.csv",row.names=1,header=TRUE)
 fixlt<-function(obj) {
 	tmp<-t(obj)
 	#check what can be numeric
@@ -73,7 +74,7 @@ fixlt<-function(obj) {
 	fct<-sapply(1:ncol(tmp),function(i){all(is.na(as.numeric(tmp[,i])))})
 
 	#set everything else to factor
-	tmp2<-data.frame(apply(sapply(data.frame(tmp),as.character),2,as.numeric))
+	tmp2<-as.data.frame(apply(sapply(data.frame(tmp),as.character),2,as.numeric))
 	tmp2[,fct]<-data.frame(tmp[,fct,drop=FALSE])
 	return(tmp2)
 }
@@ -236,8 +237,9 @@ devium.data.format<-function(obj, type){
 #format binbase output (data with meta data structure)
 format.binbase.output<-function(data)
 	{
+
 		#data = name as string
-		object<-get(data)
+		object<-get(data)#need to adjust for first row taken as column names
 		#format data object
 		#use row 1 and column 1 to figure out meta data space
 		row.id<-max(c(1:ncol(object))[is.na(object[1,])])
@@ -260,14 +262,18 @@ format.binbase.output<-function(data)
 		dimnames(tmp.data)<-list(1:nrow(tmp.data),1:ncol(tmp.data))
 		
 		#get variable and sample meta data
-		row.meta<-as.data.frame(t(as.matrix(object[c(1:(variable.start-2)),c(sample.start:dcols)])))
-		colnames(row.meta)<-object[1:row.id,col.id+1]
-		row.meta<-cbind(rownames(row.meta),row.meta) # not sure why 1st column is missed
+		#row meta (everything is transposed ... bad)
+		row.meta<-as.data.frame(t(as.matrix(object[c(1:(variable.start-2)),c(sample.start:dcols)]))) # skip empty line above data
+		colnames(row.meta)<-object[c(1:(variable.start-2)),sample.start-1]
+		
+		#column meta
 		col.meta<-as.data.frame(as.matrix(object[c(variable.start:drows),c(1:(sample.start-1))]))
-		colnames(col.meta)<-object[row.id+1,1:(col.id+1)] # uglyness
+		# colnames(col.meta)<-object[row.id,1:(variable.start)] 
+		colnames(col.meta)<-object[variable.start-1,1:sample.start-1]# why does above work some times?
+		
 		#convert data to all numeric prior to return
 		# need to break factors
-
+		
 		#return results as a list
 		list(data=tmp.data,row.metadata=row.meta,col.metadata=col.meta)
 	}
