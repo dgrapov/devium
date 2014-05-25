@@ -12,7 +12,6 @@ rename <- function(x, pattern, replace="_")
 }
 
 
-
 # relative standard deviation
 #redo calc.stat using dplyr
 calc.rsd<-function(data,factor,sig.figs=2){
@@ -548,9 +547,4 @@ FDR.adjust<-function(obj,type="pvalue",return.all=FALSE){
 	obj<-fdrtool(obj, statistic=type,plot=FALSE, color.figure=FALSE, verbose=FALSE,cutoff.method="fndr",pct0=0.75)
 	if(return.all==TRUE){return(obj)} else {return(as.numeric(as.character(unlist(obj$qval))))}
 	}
-<<<<<<< HEAD
 
-#car	
-=======
-	
->>>>>>> f36a33aa1533b8fba2c22c1080f180291c9609f7
