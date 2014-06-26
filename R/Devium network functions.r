@@ -1,7 +1,7 @@
 #get the metabolomic information from IDEOM Look up table
 enrichR.IDEOM<-function(id, from="PubChem CID",IDEOM.DB=NULL){
 	#use external look up table to get metabolite information
-	# based on suplied id (can supply empty as "")
+	# based on supplied id (can supply empty as "")
 	if(is.null("IDEOM.DB")){
 		DB<-IDEOMgetR()
 		} else {DB<-IDEOM.DB} # load table
@@ -872,6 +872,21 @@ get.KEGG.pairs<-function(type="main",url="https://gist.githubusercontent.com/dgr
 			return(out)
 	}
 
+#generic fxn (of get.KEGG.pairs) to get data from GIST which is tab separated (no spaces)
+get.GIST.csv<-function(url="https://gist.githubusercontent.com/dgrapov/c079db6f3a31f7fa478f/raw/5f421d716708994e9986d89323d956007398e753/oxylipins%20edge%20list"){ 
+
+	if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
+	text<-tryCatch( getURL(url,ssl.verifypeer=FALSE) ,error=function(e){NULL})
+	tmp<-strsplit(text,"\\n")
+	tmp2<-strsplit(as.character(unlist(tmp)), "\t")
+	c.names<-tmp2[[1]]# expect headers for every column
+	out<-do.call("rbind",tmp2)
+	out<-as.matrix(out[-1,]) # expect header
+	colnames(out)<-c.names
+	return(out)
+	
+}
+	
 #look up CID to KEGG translation this function is replaced with the more general get.Reaction.pairs
 get.CID.KEGG.pairs<-function(url="https://gist.github.com/dgrapov/4964546/raw/c84f8f209f961b23adbf7d7bd1f704ce7a1166ed/CID_KEGG+pairs"){
 		if(require(RCurl)==FALSE){install.packages("RCurl");library(RCurl)} else { library(RCurl)}
@@ -979,6 +994,50 @@ get.Reaction.pairs<-function(index,reaction.DB,index.translation.DB,translate=TR
 		elist<-gen.mat.to.edge.list(mat)
 		as.data.frame(elist[fixln(elist[,3])>0,1:2])	#index source to 
 	}
+
+#simpler and more generic version of get.Reaction.pairs
+get.Reaction.pairs2<-function(id,reaction.DB,source="sourceCID",target="targetCID"){
+	#match on KEGG or better CID
+	# get connections from custom curated edge list
+	
+	#clean up
+	id<-gsub(" ","",fixlc(oxy$CID))
+	id[is.na(id)]<-"error666"
+	
+	
+	tmp<-data.frame(unique(id))
+	index.translation.DB<-matched<-as.matrix(data.frame(tmp,tmp))
+
+	ids<-sapply(1:nrow(matched),function(i)
+			{
+					#
+					c(which(as.character(matched[i,2])==as.character(reaction.DB[,source])),which(as.character(matched[i,2])==as.character(reaction.DB[,target])))              
+			})		
+			
+	names(ids)<-matched[,1] # index of all paired by index
+
+	# remove unpaired objects
+	empty<-sapply(ids,length)
+	search<-c(1:length(ids))[empty>0]
+
+	
+	#construct symmetric matrix then extract unique edge list
+	mat<-do.call("rbind",lapply(c(1:length(search)),function(i)
+			{
+					sapply(c(1:length(search)), function(j)
+							{
+									sum(ids[[search[j]]]%in%ids[[search[i]]])
+							})
+			}))
+
+	dimnames(mat)<-list(names(ids)[search],names(ids)[search])
+	#need to make symmetric for edgelist extraction using top triangle
+
+	#add top and bottom triangles 
+	mat<-mat+t(mat)
+	elist<-gen.mat.to.edge.list(mat)
+	as.data.frame(elist[fixln(elist[,3])>0,1:2])    #
+}
 
 #get various Database IDs and pathway information (from IDEOM)
 IDEOMgetR<-function(url="https://gist.githubusercontent.com/dgrapov/5548790/raw/399f0958306c1018a6be846f58fd076ae83f1b78/IDEOM+small+list"){
@@ -1140,15 +1199,15 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 			objn<-as.numeric(unlist(cids))
 			
 			#remove duplicated
-			cat(paste("The following duplicates were removed:","\n"))
-			cat(paste(unique(objc[dup.id])),sep="\n")
+			message(cat(paste("The following duplicates were removed:","\n")))
+			message(cat(paste(unique(objc[dup.id])),sep="\n"))
 			# remove NA
-			cat(paste("Bad inputs were removed:","\n"))
-			cat(paste(unique(objc[na.id])),sep="\n")
+			message(cat(paste("Bad inputs were removed:","\n")))
+			message(cat(paste(unique(objc[na.id])),sep="\n"))
 			
 			cid.objects<-objn[!(na.id | dup.id)]
 		} else { cid.objects<-objn }
-	cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n")
+	message(cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n"))
 	
 	#custom read sdf, avoid class for latter combining of PUG queries
 	read.sdf<-function (sdfstr) 
@@ -1175,6 +1234,7 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 	
 	#due to url string size limit query 25 sdf obj at a time
 	blocks<-c(seq(1,length(cid.objects),by=25),length(cid.objects))
+	# should use cv fold generating fxn to avoid boundary overlaps 
 	compounds<-list() #breaks=ceiling(length(cids)/25),include.lowest = TRUE)
 	for(i in 1:(length(blocks)-1)){
 		url<-paste0("http://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/",paste(cid.objects[blocks[i]:blocks[(i+1)]],collapse=","),"/SDF")
@@ -1196,7 +1256,8 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 	
 	# Convert base 64 encoded fingerprints to character vector, matrix or FPset object
 	fpset <- fp2bit(sd.list, type=2)
-	
+	# remove duplicates due to query boundary repeats
+	fpset <- fpset[!duplicated(rownames(fpset)),,drop=FALSE]
 	if(parallel==TRUE)
 		{
 				#change this later
@@ -1745,3 +1806,82 @@ make.edge.list.index<-function(edge.names, edge.list){
 	colnames(tmp)<-c("source","target")
 	return(as.matrix(tmp)) #
 }
+
+#functions to create node attributes
+set.node.size<-function(obj,type="FC", min=40, max=100, log=TRUE){
+	if(type=="FC"){ 
+	#need to deal with Inf = 1/0, 0 = 0/1 and NaN = 0/0
+	# make slightly bigger (Inf, 0) or the set to min scale (NaN)
+		tmp<-obj
+		clean<-range(tmp[!tmp=="Inf"&!tmp==0&!tmp=="NaN"])[2]*6/5
+		# rencode
+		tmp[tmp=="Inf"]<-clean
+		tmp[tmp==0]<-clean
+		n.id<-tmp=="NaN"
+		tmp[n.id]<-clean # fix after scaling
+		#remove direction
+		tmp[tmp<1]<-1/tmp[tmp<1]
+		
+		if(log){tmp<-log(tmp+1)}
+	}
+	#scale sizes 
+	
+	scale.sizes<-function(obj, new.min=40, new.max=100){
+		((obj-min(obj))*(new.max-new.min))/ (max(obj)+min(obj))+ new.min}
+	
+	res<-scale.sizes(tmp,new.min=min,new.max=max)
+	res[n.id]<-min(res)# fix NaN
+	return(res)
+}
+
+#shape
+set.node.shape<-function(obj,increase="triangle",decrease="vee", no.change="ellipse"){
+	tmp<-obj
+	#need to deal NaN (0/0) coming from ratios
+	tmp[obj<1]<-decrease
+	tmp[obj=="NaN"]<-no.change # comes from 0/0
+	tmp[obj>1]<-increase
+	tmp[obj==1]<-no.change
+	return(tmp)
+}
+#color
+set.node.color<-function(obj,inc.lev="triangle",dec.lev="vee",no.lev="ellipse",inc.col="red",dec.col="blue", no.col="gray"){
+	library(gplots) # convert color name to hex
+	
+	tmp<-obj
+	tmp[obj==inc.lev]<-inc.col
+	tmp[obj==dec.lev]<-dec.col
+	tmp[obj==no.lev]<-no.col
+	tmp<-col2hex(tmp)
+	return(tmp)
+}
+
+#remove self edges and duplicated edges based on edgelist type
+clean.edgeList<-function(source="source",target="target",type="type", data=edge.list){
+   
+    library(igraph)
+    #remove self edges else if all self passed will cause an error
+    el<-data[,c(source,target)]
+    self<-el[,1]==el[,2]
+    el<-el[!self,]
+    tmp.data<-as.data.frame(as.matrix(data)[!self,])
+    lel<-split(el,tmp.data$type)
+    
+    el.res<-do.call("rbind",lapply(1:length(lel),function(i){
+      nodes<-matrix(sort(unique(matrix(as.matrix(lel[[i]]),,1))),,1)
+      g<-graph.data.frame(lel[[i]],directed=FALSE,vertices=nodes)
+      g.adj<-get.adjacency(g,sparse=FALSE,type="upper")
+      g.adj[g.adj>0]<-1
+      adj<-graph.adjacency(g.adj,mode="upper",diag=FALSE,add.rownames="code")
+      get.edgelist(adj)
+  }))
+    
+  ids<-unique(join.columns(el.res))  
+  tmp<-data.frame(el,tmp.data[,!colnames(tmp.data)%in%c(source,target)])
+  rownames(tmp)<-make.unique(join.columns(tmp[,1:2])) 
+  flip<-!ids%in%rownames(tmp) 
+  ids[flip]<-unique(join.columns(el.res[,2:1]))    
+  return(tmp[ids,])  
+    
+}
+

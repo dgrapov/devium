@@ -67,7 +67,7 @@ calc.stat<-function(data,factor,stat,...)
 	}
 
 # break string and get object into colummns by position in original string position 
-str.get<- function(obj, sep="�",get=1)
+str.get<- function(obj, sep=",",get=1)
 	{
 		do.call("cbind",lapply(1:ncol(obj),function(i)
 			{
@@ -136,7 +136,7 @@ anova.formula.list<-function(data,formula,meta.data)
 }
 
 #get summary statistics should separate anova from summary
-stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,...)
+stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.stats=TRUE,...)
 	{
 		#summarise and make ANOVA from data based on formula 
 		#check.get.packages(c("qvalue"))  using fdrtools instead to avoid random erros with initialization
@@ -157,35 +157,44 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,...)
 					colnames(fc)<-paste(colnames(fc),rep(colnames(fc)[rel],ncol(fc)), sep="/")
 
 					#format output from means and sd
-					names<-paste(unlist(as.data.frame(strsplit(colnames(means),"-"))[2,])," mean � std dev" , sep="")
-					mean.sd<-matrix(paste(unlist(signif(means,sigfigs)), " � ", unlist(signif(sds,sigfigs-1)),sep=""), ncol=ncol(means))
+					names<-paste(unlist(as.data.frame(strsplit(colnames(means),"-"))[2,])," mean +/- std dev" , sep="")
+					mean.sd<-matrix(paste(unlist(signif(means,sigfigs)), " +/- ", unlist(signif(sds,sigfigs-1)),sep=""), ncol=ncol(means))
 					colnames(mean.sd)<-names
 					#bind with fold change
-					cbind(mean.sd,round(fc[,-rel,drop=FALSE],2))
+					res<-data.frame(cbind(mean.sd,round(fc[,-rel,drop=FALSE],2)))
+					tryCatch(rownames(res)<-colnames(data),error=function(e){NULL})
+					return(res)
 				}
-		cat("Generating data summary...","\n")
+		message(cat("Generating data summary...","\n"))
 		stats.summary<-data.summary(data,test.obj,sigfigs=sigfigs,log=log)		
 
-		#statistical tests
-		cat("Conducting tests...","\n")
-		p.values<-anova.formula.list(data,formula,meta.data=comp.obj)
+		#statistical tests (should add control for theses)
+		if(do.stats){
+			message(cat("Conducting tests...","\n"))
+			p.values<-anova.formula.list(data,formula,meta.data=comp.obj)
 
-		#multiple hypotheses tested adjustments	
-		cat("Conducting FDR corrections...","\n")
-		adj.p<-do.call("cbind",sapply(1:ncol(as.matrix(p.values)),function(i)
-			{
-				as.data.frame(p.adjust(as.matrix(p.values[,i]), method = "BH", n = nrow(p.values)))
-			}))
-		colnames(adj.p)<-paste(colnames(p.values),"adjusted.p.values",sep="_")	
-		#estimate q-values	
-		adjusted.q<-sapply(1:ncol(as.matrix(p.values)),function(i)
-			{
-				#tryCatch(qvalue(as.matrix(p.values[,i]))$qvalues,error=function(e){matrix("Can not estimate",nrow=nrow(p.values),ncol=1)})
-				FDR.adjust(as.matrix(p.values[,i]),type="pvalue",return.all=TRUE)$qval
-			})
-		colnames(adjusted.q)<-paste(colnames(p.values),"q.values",sep="_")	
-		colnames(p.values)<-paste(colnames(p.values),"p.values",sep="_")	
-		cbind(stats.summary,p.values,adj.p,adjusted.q)
+			#multiple hypotheses tested adjustments	
+			message(cat("Conducting FDR corrections...","\n"))
+			adj.p<-data.frame(do.call("cbind",sapply(1:ncol(as.matrix(p.values)),function(i)
+				{
+					as.data.frame(p.adjust(as.matrix(p.values[,i]), method = "BH", n = nrow(p.values)))
+				})))
+			colnames(adj.p)<-paste(colnames(p.values),"adjusted.p.values",sep="_")	
+			#estimate q-values	
+			adjusted.q<-data.frame(sapply(1:ncol(as.matrix(p.values)),function(i)
+				{
+					#tryCatch(qvalue(as.matrix(p.values[,i]))$qvalues,error=function(e){matrix("Can not estimate",nrow=nrow(p.values),ncol=1)})
+					FDR.adjust(as.matrix(p.values[,i]),type="pvalue",return.all=TRUE)$qval
+				}))
+				
+				colnames(adjusted.q)<-paste(colnames(p.values),"q.values",sep="_")	
+				colnames(p.values)<-paste(colnames(p.values),"p.values",sep="_")	
+				res<-cbind(stats.summary,p.values,adj.p,adjusted.q)
+		} else {
+				res<-stats.summary
+		}
+		
+		return(res)
 	}
 
 #function to carry out covariate adjustments

@@ -142,7 +142,7 @@ scalar.batch.adjust<-function(obj,factor,use="median",train=NULL){
 summary.lineplot<-function(val,groups=NULL,view.split=NULL,theme=NULL,se=FALSE,extra=NULL,span=0.75,print.plot=TRUE){
 	library(ggplot2)
 	#data should minimally contain a single variable of interest(val) and additionally factor identifying groups 
-	vis.data<-data.frame(value=unlist(val))
+	vis.data<-data.frame(value=unlist(unname(val)))
 	vis.data$id<-1:length(vis.data$val)
 	
 	if(is.null(groups)){vis.data$groups<-1;vis.data$color<-1} else {vis.data$groups<-factor(as.matrix(groups))}
@@ -168,7 +168,7 @@ summary.lineplot<-function(val,groups=NULL,view.split=NULL,theme=NULL,se=FALSE,e
 }
 
 #box plot for 2 factors with loess smoothing
-summary.boxplot2<-function(val,groups=NULL,split.on=NULL,theme=NULL,se=FALSE,span=0.75){
+summary.boxplot2<-function(val,groups=NULL,split.on=NULL,theme=NULL,se=FALSE,span=0.75,extra=NULL,print.plot=TRUE){
 	#data should minimally contain a single variable of interest(val) and additionally factor identifying groups 
 	library(ggplot2)
 	vis.data<-data.frame(value=unlist(val))
@@ -182,18 +182,24 @@ summary.boxplot2<-function(val,groups=NULL,split.on=NULL,theme=NULL,se=FALSE,spa
 	if(is.null(split.on)){
 		vis.data$split.on<-""
 		l.guide<-NULL
-		extra<-scale_fill_manual(values ="grey50")
+		# extra<-scale_fill_manual(values ="grey50")
 		smooth<-NULL
 	} else {
 		vis.data$split.on<-factor(as.matrix(split.on))
 		l.guide<-guides(fill = guide_legend(title = colnames(split.on)))
-		extra<-NULL
+		# extra<-NULL
 		smooth<-stat_smooth(aes(group=split.on,color=split.on),method = "loess", size = 1.25,se=se,alpha=.1,show_guide=FALSE,span=span)
 	}
 	
-	p<-ggplot(data=vis.data,aes(y=value,x=groups)) + geom_boxplot(aes(fill=split.on),alpha=.75)+
-	smooth + theme + xlab(colnames(groups))+ylab(colnames(val))+ l.guide + extra
-	print(p)
+	p<-ggplot(data=vis.data,aes(y=value,x=groups)) + geom_boxplot(aes(fill=split.on),alpha=.75) +
+	smooth + theme + xlab(colnames(groups))+ ylab(colnames(val))+ l.guide 
+	p<-p+extra
+	
+	if(print.plot){
+		print(p)
+	} else {
+		return(p)
+	}	
 }
 
 #create summary plot RSD% analyte mean
@@ -225,7 +231,7 @@ RSD.means.plot<-function(obj=list(gc.perf.raw,gc.raw.t1),name=c("Raw","FAME L2 n
 		p<-ggplot(vis.data,aes(x=mean,y=RSD,group=method,color=method,fill=method))+ 
 		geom_point(alpha=.75)+ 
 		stat_smooth(method = "loess", size = 1,show_guide=FALSE ,se = se,alpha=.75)+ 
-		theme + xlab("Mean")+ ylab("RSD")+extra#+scale_color_manual(values=rainbow(3))+
+		theme + xlab("Mean")+ ylab("RSD")+extra #+scale_color_manual(values=rainbow(3))+
 		print(p)
 	}
 }	
@@ -306,6 +312,11 @@ tune.loess<-function(data,y,folds=7,span.vals=seq(.25,1,by=.05),progress=TRUE){
 	cat("\n")
 	return(res)
 }
+
+#calculate RSD
+calc.RSD<-function(x,...){sd(x,...)/mean(x,...)}
+
+
 
 
 #test

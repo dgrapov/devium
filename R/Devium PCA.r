@@ -3,7 +3,7 @@
 # open addition of pallets, themes,add group labels to plot, ... 
 
 #trying to debug issue in shiny, pca.data is now an object instead of its name as a character
-devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return=NULL, plot=TRUE)
+devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return="list", plot=TRUE)
 	{
 		#port of imDEV source code optimized for GUI use
 		#accepts list with the following arguments

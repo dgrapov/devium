@@ -1,0 +1,19 @@
+.libPaths(“/Users/dgrapov/RLibrary”)
+.libPaths(“~/Users/dgrapov/RLibrary”)
+.libPaths()
+‘/Users/dgrapov/RLibrary’
+library(ChemmineR)
+.libPaths()
+library(ChemmineR)
+objects()
+source.local.dir('/Users/dgrapov/Dropbox/Devium/devium')
+objects()
+wd’=/Users/dgrapov/Dropbox/Devium/devium’
+objects()
+source.local.dir(wd="/Users/dgrapov/Dropbox/Devium/devium")
+objects()
+wd="/Users/dgrapov/Dropbox/Devium/devium"
+o.dir<-getwd()#
+	setwd(wd)#
+	files<-dir()[unique(c(agrep(".r",dir()),agrep(".R",dir())))]
+files
