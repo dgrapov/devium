@@ -1,57 +1,21 @@
-#get the metabolomic information from IDEOM Look up table
-enrichR.IDEOM<-function(id, from="PubChem CID",IDEOM.DB=NULL){
-	#use external look up table to get metabolite information
-	# based on supplied id (can supply empty as "")
-	if(is.null("IDEOM.DB")){
-		DB<-IDEOMgetR()
-		} else {DB<-IDEOM.DB} # load table
-	# hard coded for from =  "PubChem CID" for now
-	#get CIDs to match to metabolic maps
-	id<-fixlc(id)
-	tmp.id<-which(id%in%DB$PubChem.CID)
-	DB.id<-which(as.matrix(DB$PubChem.CID)%in%as.matrix(id))
+#get information from table based on row and col lookup
+extract.DB<-function(id, from="PubChem CID",DB=NULL,object=""){
+	#extract rows and columns from DB
+	if(is.null("IDB")){ stop("Please supply a data base for 'DB'")}
 
-	cids<-DB$PubChem.CID[DB.id][DB$PubChem.CID[DB.id]%in%id[tmp.id]]
-	id2<-which(id%in%cids)
-	dupes<-which(duplicated(id[id%in%cids]))
-	empty<-which(id[id%in%cids]=="")
-	if(length(dupes)>0){id3<-id2[-c(dupes,empty)]} else {id3<-id2}
-	cids<-sort(id[id3])
-
-	maps<-DB[which(fixlc(DB$PubChem.CID)%in%fixlc(cids)),]
-	maps2<-maps[order(as.numeric(as.matrix(maps[,1]))),]
-	maps2<-maps2[!duplicated(maps2[,1]),]
-	names<-maps2[,"Metabolite"]
-	results<-data.frame(metabolites=names, maps2[,!colnames(maps)%in%"Metabolite"])
+	#Extract DB rows based on supplied id match to column ="from"
+	col<-agrep(tolower(from),tolower(colnames(DB)))[1] # fuzzy matching probably a bad idea
+	return.col<-agrep(tolower(object),tolower(colnames(DB)))
+	tmp<-DB[,return.col,drop=F]
+	key<-fixlc(DB[,col])
+	key[key==""]<-"DBempty"
+	rownames(tmp)<-make.unique(key)
+	#prepare ID, recode duplicates
+	id<-make.unique(id)
 	
-	#map results back to original order
-	missed<-id[!id%in%cids]
-	tmp.id<-c(fixlc(results$PubChem.CID),missed)
-	tmp.res<-rbind(results,rep("",length(missed)))
-	i.ord<-c(1:length(id))[order(id)]
-	return(tmp.res[order(tmp.id),][order(i.ord),])
+	#return
+	return(tmp[id,,drop=FALSE])
 }
-
-
-# # translate index based on lookup table 
-# # se faster version below
-# translate.index<-function(id, lookup){
-	# # lookup is a two column data.frame or matrix with 
-	# # column 1 containing index matching id and
-	# # column 2 containing translation
-	# # slow due to looping, but avoids having to match translated order to original query order 
-	# do.call("rbind",lapply(1:nrow(id), function(i,pb = txtProgressBar(min = 0, max = nrow(id), style = 3))
-		# {
-			# setTxtProgressBar(pb, i)
-			# tmp<-as.vector(unlist(id[i,,drop=T]))
-			# matrix(sapply(1:length(tmp), function(j)
-				# {
-					# tmp<-lookup[lookup[,1]%in%tmp[j],2]
-					# if(length(tmp)==0){tmp<-"no match"} # fill empty
-					# tmp[1]
-				# }),nrow=1)
-		# }))
-# }
 
 # # translate index based on lookup table  
 translate.index<-function(id, lookup){
