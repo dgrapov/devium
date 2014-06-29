@@ -1,3 +1,4 @@
+
 #create heatmap optionally using HCA
 devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.color = NULL, border.color=NULL, match.dim=2, type=c("none","z.scale", "spearman", "pearson","biweight"),
                          cluster.method = c("none","ward", "single", "complete", "average", "mcquitty", "median" , "centroid"),
