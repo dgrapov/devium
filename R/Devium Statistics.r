@@ -1,4 +1,3 @@
-#
 #function to convert pattern to a single char objects name
 rename <- function(x, pattern, replace="_")
 	{

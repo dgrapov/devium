@@ -1,4 +1,3 @@
-
 # TODO add control for polygon plot order (https://github.com/hadley/ggplot2/wiki/plotting-polygon-shapefiles)
 # open addition of pallets, themes,add group labels to plot, ... 
 

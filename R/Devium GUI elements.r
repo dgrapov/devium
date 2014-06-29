@@ -1,4 +1,3 @@
-
 #message box
 done.info.GUI<-function(message)
 {

@@ -1,3 +1,4 @@
+
 #function to add transparency to colors
 alpha.col<-function(color,alpha)
 	{

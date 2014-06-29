@@ -1,4 +1,3 @@
-
 #test for normality
  normal.test<-function(var,test.method){
 			check.get.packages("nortest")
