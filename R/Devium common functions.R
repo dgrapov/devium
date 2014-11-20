@@ -67,7 +67,6 @@ fixlr<-function(a,.remove=TRUE){
 }
 
 #transpose data and fix numeric/factors
-#obj<-read.csv("C:\\Users\\D\\Dropbox\\CDS\\wine data.csv",row.names=1,header=TRUE)
 fixlt<-function(obj) {
 	tmp<-t(obj)
 	#check what can be numeric
@@ -91,7 +90,6 @@ fixfactors<-function(obj) {
 	obj[,fct]<-data.frame(tmp2)
 	return(obj)
 }
-
 
 
 #import from clipboard
@@ -236,15 +234,14 @@ devium.data.format<-function(obj, type){
 }
 
 #format binbase output (data with meta data structure)
-format.binbase.output<-function(data)
-	{
+format.binbase.output<-function(data){
 
 		#data = name as string
 		object<-get(data)#need to adjust for first row taken as column names
 		#format data object
 		#use row 1 and column 1 to figure out meta data space
-		row.id<-max(c(1:ncol(object))[is.na(object[1,])])
-		col.id<-max(c(1:nrow(object))[is.na(object[,1])])
+		row.id<-max(c(1:ncol(object))[is.na(object[1,])|object[1,]==""])
+		col.id<-max(c(1:nrow(object))[is.na(object[,1])|object[,1]==""])
 		
 		# sample.start<-which(colnames(object)=="file.id")+1
 		# variable.start<-which(object[,1]=="BinBase name")+1
@@ -276,7 +273,7 @@ format.binbase.output<-function(data)
 		# need to break factors
 		
 		#return results as a list
-		list(data=tmp.data,row.metadata=row.meta,col.metadata=col.meta)
+		list(data=data.frame(tmp.data),row.metadata=data.frame(row.meta),col.metadata=data.frame(col.meta))
 	}
 
 #return objects to excel	
@@ -412,7 +409,7 @@ multi.object.XL<-function(workbook.path="new",placement.list,workbook.name=NULL,
 	}
 
 #get object from EXCEL	
-get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name=NULL,a,return=TRUE,environment=.GlobalEnv)
+get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name=NULL,return=TRUE,environment=.GlobalEnv)
 				{
 					check.get.packages(c("XLConnect"))
 					old.dir<-getwd() # original working directory
@@ -460,53 +457,53 @@ get.from.Excel <- function(workbook.path=NULL,get.object.sheet=NULL,get.obj.name
 				
 #collapse columns as strings (why am I not using paste collapse?)
 join.columns<-function(obj=formatted$row.metadata[,4:6],char="|",quote.last=FALSE)
-        {
-                
-                        if(class(obj)=="list"){obj<-as.matrix(obj[[1]])} else {obj<-as.matrix(obj)}
-                        #used to binf 2 columns try to generalize to more
-                        .local<-function(obj,char,quote.last)
-                                {
-                                
-                                if(length(obj)==0)
-                                        {
-                                                return(NULL)
-                                                }else{
-                                                        if(ncol(as.matrix(obj))>=2)
-                                                                {
-                                                                                n<-ncol(obj)
-                                                                                out<-data.frame()
-                                                                                sobj<-obj
-                                                                                i<-1
-                                                                                for(i in 1:(n-1))
-                                                                                {
-                                                                                                   if(quote.last==TRUE)
-                                                                                                {
-                                                                                                                        sobj[,i]<-paste(as.character(obj[,i]),paste("'",as.character(obj[,i+1]),"'",sep=""),sep=char)
-                                                                                                } else {
-                                                                                                                        sobj[,i]<-paste(as.character(obj[,i]),as.character(obj[,i+1]),sep=char)
-                                                                                                }
-                                                                                }
-                                                                                sobj[,-n]
-                                                                }else{
-                                                                                obj
-                                                                }
-                                        }
-                        }
-                if (ncol(obj)>2)
-                        {
-                                tmp<-obj[,1:2]
-                                for(i in 1:(ncol(obj)-1)) {
-                                        tmp2<-.local(tmp, char=char,quote.last=quote.last)
-										if(i < (ncol(obj)-1)){
-											tmp<-cbind(tmp2,obj[,(i+2),drop=FALSE])
-										}
-                                }
-                                tmp2
-                                
-                        } else {
-                                .local(obj=obj,char=char,quote.last=quote.last)
-                        }
-        }
+{
+		
+				if(class(obj)=="list"){obj<-as.matrix(obj[[1]])} else {obj<-as.matrix(obj)}
+				#used to binf 2 columns try to generalize to more
+				.local<-function(obj,char,quote.last)
+						{
+						
+						if(length(obj)==0)
+								{
+										return(NULL)
+										}else{
+												if(ncol(as.matrix(obj))>=2)
+														{
+																		n<-ncol(obj)
+																		out<-data.frame()
+																		sobj<-obj
+																		i<-1
+																		for(i in 1:(n-1))
+																		{
+																						   if(quote.last==TRUE)
+																						{
+																												sobj[,i]<-paste(as.character(obj[,i]),paste("'",as.character(obj[,i+1]),"'",sep=""),sep=char)
+																						} else {
+																												sobj[,i]<-paste(as.character(obj[,i]),as.character(obj[,i+1]),sep=char)
+																						}
+																		}
+																		sobj[,-n]
+														}else{
+																		obj
+														}
+								}
+				}
+		if (ncol(obj)>2)
+				{
+						tmp<-obj[,1:2]
+						for(i in 1:(ncol(obj)-1)) {
+								tmp2<-.local(tmp, char=char,quote.last=quote.last)
+								if(i < (ncol(obj)-1)){
+									tmp<-cbind(tmp2,obj[,(i+2),drop=FALSE])
+								}
+						}
+						tmp2
+						
+				} else {
+						.local(obj=obj,char=char,quote.last=quote.last)
+				}
+}
 
 #accesory function to return position of first instance of unique object 
 unique.id<-function(obj)
@@ -558,7 +555,7 @@ check.get.packages<-function(pkg)
 			if(length(need)>0)
 				{
 					
-					x<-sapply(need,install.packages)
+					x<-sapply(need,install.packages,dependencies = TRUE)
 					lib.fun<-function(need){
 							sapply(1:length(need), function(i){
 							out<-tryCatch(library(need[i], character.only= TRUE), error=function(e){need[i]})
@@ -574,7 +571,7 @@ check.get.packages<-function(pkg)
 					source("http://bioconductor.org/biocLite.R")
 					lib.fun.bioc<-function(need){
 							sapply(1:length(need), function(i){
-							tryCatch( biocLite(need[i]), 
+							tryCatch( biocLite(need[i],ask=FAlSE), 
 								error=function(e){need[i]})
 							})
 						}
@@ -656,40 +653,40 @@ gget<-function(obj)
 }
 		
 #function to connect to google docs
-GetGoogleDoc<-function(account,password,connection="new")
-	{
-		#returns list 
-		# [1] = connection name
-		# [2] = names of documents
-		#  connection = as.character connection name if already made using this function 
-		# and stored in the envir= googDocs
-		
-		#install RGoogleDocs if not available
-		if(require("RGoogleDocs")==FALSE)
-			{
-				install.packages("RGoogleDocs", repos = "http://www.omegahat.org/R", type="source")
-				library("RGoogleDocs")
-			}
-			
-		if(connection == "new")
-			{
-					#make time stampped name for connection
-					con.name<-con.name.txt<-paste('connection',format(Sys.time(), "%Y.%m.%d_%I_%M_%p"), sep = ".")
-				
-					#set options to avoid ssl error 
-					options(RCurlOptions = list(capath = system.file("CurlSSL", "cacert.pem", package = "RCurl"), ssl.verifypeer = FALSE))
-					
-					#assign to new envir
-					assign("googDocs",new.env(),envir=.GlobalEnv)
-					assign(con.name,getGoogleDocsConnection(getGoogleAuth(account, password, service ="wise")), envir = googDocs )	
-			} else {
-					con.name<-con.name.txt<-connection
-					}		
-					
-		docs<-getDocs(tryCatch(get(con.name,envir=googDocs),error=function(e){stop(paste(connection, " does not exist","\n"))}))
-		dnames<-names(docs)
-		return(list(connection = con.name.txt , names = dnames))
-	}
+# GetGoogleDoc<-function(account,password,connection="new")
+# 	{
+# 		#returns list 
+# 		# [1] = connection name
+# 		# [2] = names of documents
+# 		#  connection = as.character connection name if already made using this function 
+# 		# and stored in the envir= googDocs
+# 		
+# 		#install RGoogleDocs if not available
+# 		if(require("RGoogleDocs")==FALSE)
+# 			{
+# 				install.packages("RGoogleDocs", repos = "http://www.omegahat.org/R", type="source")
+# 				library("RGoogleDocs")
+# 			}
+# 			
+# 		if(connection == "new")
+# 			{
+# 					#make time stampped name for connection
+# 					con.name<-con.name.txt<-paste('connection',format(Sys.time(), "%Y.%m.%d_%I_%M_%p"), sep = ".")
+# 				
+# 					#set options to avoid ssl error 
+# 					options(RCurlOptions = list(capath = system.file("CurlSSL", "cacert.pem", package = "RCurl"), ssl.verifypeer = FALSE))
+# 					
+# 					#assign to new envir
+# 					assign("googDocs",new.env(),envir=.GlobalEnv)
+# 					assign(con.name,getGoogleDocsConnection(getGoogleAuth(account, password, service ="wise")), envir = googDocs )	
+# 			} else {
+# 					con.name<-con.name.txt<-connection
+# 					}		
+# 					
+# 		docs<-getDocs(tryCatch(get(con.name,envir=googDocs),error=function(e){stop(paste(connection, " does not exist","\n"))}))
+# 		dnames<-names(docs)
+# 		return(list(connection = con.name.txt , names = dnames))
+# 	}
 
 #function to view excel objects	
 viewExcelObject<-function(obj.path)
@@ -844,3 +841,158 @@ source.local.dir<-function(wd){
 	})
 	setwd(o.dir)
 }
+
+##merge two data sets based on a common index column
+## all unique levels of the index are preserved in the final object
+## i.e. no variables are dropped
+merge.data.cube<-function(data1,data2,ID="merge.ID",col.meta="col.metadata",row.meta="row.metadata"){
+	# do full outer join on data
+	# base dimnames for merge on ID name in row- and col meta data
+	# do similar merge on the meta data
+	
+	#need to make a simple common colname ID between which is shared between the two data sets
+	full<-unique(c(data1[[col.meta]][ ,ID],data2[[col.meta]][ ,ID]))
+	tmp.id<-data.frame(id=1:length(full))
+	rownames(tmp.id)<-full
+	tmp.id2<-data.frame(id=full) #to resort columns
+	
+	#recode dimensions of both data sets based on row and col id
+	df1<-data.frame(data1$data)
+	dimnames(df1)<-list(data1[[row.meta]][ ,ID],tmp.id[data1[[col.meta]][ ,ID],])
+	df2<-data.frame(data2$data)
+	dimnames(df2)<-list(data2[[row.meta]][ ,ID],tmp.id[data2[[col.meta]][ ,ID],])
+	
+	#add row ID to make sure row meta is in the correct order
+	df1$._merge_tmp_ID<-make.unique(fixlc(data1[[row.meta]][ ,ID]))
+	df2$._merge_tmp_ID<-make.unique(fixlc(data2[[row.meta]][ ,ID]))
+	
+	#full outer join on the data
+	merged.data<-merge(df1,df2,all=TRUE,sort=FALSE)
+	id<-colnames(merged.data)%in%"._merge_tmp_ID"
+	row.id<-merged.data[,id]
+	merged.data<-merged.data[,!id]
+	
+	#row meta
+	.row.meta<-merge(data1[[row.meta]],data2[[row.meta]],all=TRUE,sort=FALSE)
+	rownames(.row.meta)<-make.unique(fixlc(.row.meta[,ID]))
+	.row.meta<-.row.meta[row.id,]
+	
+	
+	#column meta
+	c1<-data1[[col.meta]]
+	rownames(c1)<-data1[[col.meta]][,ID]
+	c2<-data.frame(data2[[col.meta]])
+	rownames(c2)<-data2[[col.meta]][,ID]
+	.col.meta<-merge(c1,c2,all=TRUE)
+	rownames(.col.meta)<-make.unique(.col.meta[,ID])
+
+	
+	return(list(data=merged.data,row.meta=.row.meta,col.meta=.col.meta[fixlc(tmp.id2[fixln(colnames(merged.data)),]),]))
+}
+
+# merge similar column names
+# filling in each others missing values
+col.merge.na<-function(obj,distance=1){
+	# convert to matrix to avoid dealing with factor
+	
+	obj<-tmp.obj<-as.matrix(obj)
+	
+	#loop on column number 
+	#exit loop when all non-unique columns are merged
+	# inputting missing values in the first instance with non-missing values in the next
+	res<-list()
+	name<-colnames(obj)
+	watcher<-1:length(name)
+	i<-1
+	while(length(watcher)>0){
+		name<-colnames(tmp.obj)
+		watcher<-1:length(name)
+		if(is.null(distance)){ 
+				id<-grep(name[1],name[-1],ignore.case = TRUE)+1  # account for avoiding self match
+			} else {
+				id<-agrep(name[1],name[-1],max.distance=distance,ignore.case = TRUE)+1  # account for avoiding self match
+		}	
+		if(length(id)==0) id<-1
+		if(id>1) {
+			out<-tryCatch(matrix(merge.na(tmp.obj[,1],tmp.obj[,id]),,1) ,error=function(e) {data.frame(rep("error",nrow(obj)))}) # >2 column merges not supported
+			colnames(out)<-name[1]  
+			fixed<-c(watcher[1],id)  
+		} else {
+			out<-obj[,i,drop=FALSE]
+			fixed<-watcher[1]
+		}
+		res[[i]]<-as.matrix(out)
+		watcher<-watcher[!watcher%in%fixed]
+		tmp.obj<-tmp.obj[,watcher,drop=FALSE]
+		# cat(paste(c("DROP--> ",colnames(obj)[(!colnames(obj)%in%colnames(tmp.obj))],"\n"),collapse=", "))
+		# print(c("HAVE--> ",sapply(res,colnames,"\n")))
+		i<-i+1
+	}
+	
+	return(data.frame(do.call("cbind",res)))
+	
+}
+
+#merge two vectors filling in NAs
+merge.na<-function(obj1,obj2){
+	tmp<-fixlc(obj1)
+	tmp[is.na(tmp)]<-fixlc(obj2)[is.na(tmp)]
+	tmp
+}
+
+#wrapper for for multiple column merge.na
+multiple.merge.na<-function(obj,name.char="_",prefix="merged"){
+	# obj is a data.frame
+	# name.char and prefix are used to construct a name for the merged object
+	tmp.obj<-obj
+	while(ncol(tmp.obj)>1){
+		tryCatch(tmp.obj[,1]<-matrix(merge.na(fixlc(tmp.obj[,1]),fixlc(tmp.obj[,2]))), error=function(e){})
+		tmp.obj<-tmp.obj[,-2,drop=FALSE]
+	}	
+	
+	#try to make a column name
+	# break on name and take the last element
+	tmp.n<-unlist(strsplit(colnames(tmp.obj), name.char))
+	colnames(tmp.obj)<-paste0(prefix,name.char,tmp.n[length(tmp.n)])
+	return(tmp.obj)
+}
+
+#trim trailing whitespace
+trim <- function (x) gsub("^\\s+|\\s+$", "", x)
+
+test<-function(){
+#rudimentary unit tests
+
+#merge.data.cube
+#---------------------
+#data
+df1<-data.frame(matrix(1:10,10,10)) 
+df2<-data.frame(matrix(10:20,10,10))
+#col meta
+df1.col<-cbind(merge.ID=letters[c(1:5,11:15)],info=1)
+df2.col<-cbind(merge.ID=letters[c(1:5,21:25)],info=2,info2=3)
+#rowmeta
+df1.row<-cbind(merge.ID=c(1:10),info=1,info2=3)
+df2.row<-cbind(merge.ID=c(11:20),info=2)
+#create data cube
+data1<-list(data=df1,row.metadata=df1.row,col.metadata=df1.col)
+data2<-list(data=df2,row.metadata=df2.row,col.metadata=df2.col)
+tryCatch(merge.data.cube(data1,data2,ID="merge.ID"),error=function(e) {cat("merge.data.cube failed\n")}) # add error report info
+
+
+#multiple merge.na
+#----------------------
+obj<-matrix(1:10, 10,10,byrow=TRUE)
+set.seed(123)
+obj[sample(1:100,75)]<-NA
+colnames(obj)<-paste0(1:ncol(obj),"_variable")
+
+tryCatch(multiple.merge.na(obj),error=function(e){cat("multiple.merge.na<-->FAILED\n")})
+}
+
+
+
+
+
+
+

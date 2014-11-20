@@ -23,16 +23,17 @@ translate.index<-function(id, lookup){
 	# column 1 containing index matching id and
 	# columns >=2 containing translation(s)
 	id<-as.matrix(id)# needs 2 dims
-	lookup<-as.matrix(lookup)
+	lookup<-do.call("cbind",lapply(lookup,fixlc)) # as.matrix adds empty space to numbers
 	#need to make sure values can be rownames	
 	#remove duplicates
 	keep<-!duplicated(lookup[,1])
 	tmp.data<-lookup[keep,-1,drop=FALSE]
-	rownames(tmp.data)<-lookup[keep,1]
+	rownames(tmp.data)<-fixlc(lookup[keep,1])
 	trans<-do.call("cbind",lapply(1:ncol(id),function(i){
 		tmp.data[fixlc(id[,i]),] # needs to be a character to get correct rownames
 		}))
-	colnames(trans)<-colnames(id)
+	error<-tryCatch(colnames(trans)<-colnames(id),error=function(e){NULL}) # relic to keep source/target names
+	if(is.null(error)){colnames(trans)<-paste(rep(colnames(id),each=ncol(lookup)-1),colnames(trans),sep="_")}
 	return(trans)	
 }
 
@@ -511,7 +512,7 @@ make.ave.qpgraph<-function(data,tests=200,for.col=TRUE,...){
 			return(average.net)
 		}
 		if(dim(data)[2]<=dim(data)[1]&for.col==TRUE)long.dim.are.variables<-FALSE else long.dim.are.variables<-TRUE
-		.local(data,long.dim.are.variables=long.dim.are.variables,tests=tests)
+		.local(data,long.dim.are.variables=long.dim.are.variables,tests=tests,...)
 	}
 	
 #plot graph edge/vertex number vs threshhold
@@ -1047,7 +1048,7 @@ CID.to.KEGG.pairs<-function(cid,database=get.KEGG.pairs(),lookup=get.CID.KEGG.pa
 	}
 
 #calculate correlations and p-values
-devium.calculate.correlations<-function(data,type="pearson", results = "matrix"){
+devium.calculate.correlations<-function(data,type="spearman", results = "edge list"){
 		check.get.packages(c("impute","WGCNA","Hmisc"))
 		#data will be coerced to a matrix
 		# type includes pearson (WGCA), biweight(WGCA), spearman
@@ -1071,13 +1072,29 @@ devium.calculate.correlations<-function(data,type="pearson", results = "matrix")
 			if (results == "edge list"){
 				cor<-gen.mat.to.edge.list(res$cor)
 				p.vals<-gen.mat.to.edge.list(res$p.value)
-				res<-data.frame(cor,p.values = p.vals[,3])
+				fdr<-p.adjust(p.vals$value,method="BH")
+				res<-data.frame(cor,p.values = p.vals[,3],fdr.p.value=fdr)
 				
 			}		
 			
 		return(res)			
 	}
 
+#test only specific correlations between x and y matrices
+# and calculate FDR for only x to y comparisons
+xy.correlations<-function(x,y,method="spearman",fdr.method="BH",...){
+	#where x and y are data frames
+	res<-do.call("rbind",lapply(1:ncol(x),function(i){
+		tmp<-do.call("rbind",lapply(1:ncol(y),function(j){
+			res<-cor.test(x[,i],y[,j],method=method,...)
+			data.frame(source=colnames(x)[i],target=colnames(y)[j],cor=res$estimate,p.value=res$p.value)
+		}))
+	}))
+	res$fdr.p.value<-p.adjust(res$p.value,method=fdr.method)
+	return(res)
+}	
+	
+	
 # #(using ChemmineR API)get tanimoto distances from cids 
 # CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"){
 	# #used cids = PUBCHEM CIDS to calculate tanimoto distances
@@ -1142,19 +1159,19 @@ devium.calculate.correlations<-function(data,type="pearson", results = "matrix")
 	# return(final)
 # }
 
-
-#get tanimoto distances from cids (using PUG REST instead of Chemminer web api to get sdf)
-CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"){
-	#used cids = PUBCHEM CIDS to calculate tanimoto distances
-	need<-c("snow","doSNOW","foreach","ChemmineR") # need to use others for mac
-	for(i in 1:length(need)){check.get.packages(need[i])}
-	#get fingerprint for calcs
-	data(pubchemFPencoding)
+#get metabolite structure encoding (SDF) from local database or using PubChem webservices
+get.SDF.from.CID<-function(cids,DB=NULL,query.limit=25,update.DB=TRUE,save.as="CID.SDF.DB",progress=TRUE,...){
 	
-	#remove and print to screen error vars
+	#retrieve metabolite SDF from DB
+	#DB should be a list with cids as names
+	#for all missing in DB, look up using PubChem PUG
+	#if update then update DB with cid entries
+	#return list of SDF files for each cid
+	
+	#remove and print to screen error cids
 	#removal ids
 	objc<-as.character(unlist(cids))
-	objn<-as.numeric(unlist(cids))
+	objn<-as.numeric(objc)
 	dup.id<-duplicated(objn)
 	na.id<-is.na(objn)
 	if(sum(c(dup.id,na.id))>0){
@@ -1170,84 +1187,231 @@ CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"
 			message(cat(paste(unique(objc[na.id])),sep="\n"))
 			
 			cid.objects<-objn[!(na.id | dup.id)]
-		} else { cid.objects<-objn }
-	message(cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n"))
+		} else { 
+			cid.objects<-objn 
+	}
 	
-	#custom read sdf, avoid class for latter combining of PUG queries
-	read.sdf<-function (sdfstr) 
-		{
-			if (length(sdfstr) > 1) {
-				mysdf <- sdfstr
-			}
-			else {
-				mysdf <- readLines(sdfstr)
-			}
-			y <- regexpr("^\\${4,4}", mysdf, perl = TRUE)
-			index <- which(y != -1)
-			indexDF <- data.frame(start = c(1, index[-length(index)] + 
-				1), end = index)
-			mysdf_list <- lapply(seq(along = indexDF[, 1]), function(x) mysdf[seq(indexDF[x, 
-				1], indexDF[x, 2])])
-			if (class(mysdf_list) != "list") {
-				mysdf_list <- list(as.vector(mysdf_list))
-			}
-			names(mysdf_list) <- 1:length(mysdf_list)
-			#mysdf_list <- new("SDFstr", a = mysdf_list)
-			return(mysdf_list)
+	#check for cid object in local DB
+	DB.ids<-names(DB)
+	need.id<-!cid.objects%in%DB.ids
+	have.id<-DB.ids%in%cid.objects
+	cmpd.DB<-DB[have.id]
+	
+	#use PUG webservices to get missing 
+	if(sum(need.id)>0){
+		tmp.cids<-unique(cid.objects[need.id])
+	
+		if(progress){
+			message(cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s).\nThis may take a moment...","\n"))
 		}
+		
+		#translate sdf file, modified from ChemmineR
+		read.sdf<-function (sdfstr) {
+				
+				#number of queries controlled in url
+				if (length(sdfstr) > 1) {
+					mysdf <- sdfstr
+				} else {
+					mysdf <- readLines(sdfstr)
+				}
+				
+				y <- regexpr("^\\${4,4}", mysdf, perl = TRUE)
+				index <- which(y != -1)
+				indexDF <- data.frame(start = c(1, index[-length(index)] + 
+					1), end = index)
+				mysdf_list <- lapply(seq(along = indexDF[, 1]), function(x) mysdf[seq(indexDF[x, 
+					1], indexDF[x, 2])])
+				if (class(mysdf_list) != "list") {
+					mysdf_list <- list(as.vector(mysdf_list))
+				}
+				names(mysdf_list) <- 1:length(mysdf_list)
+				#mysdf_list <- new("SDFstr", a = mysdf_list)
+				return(mysdf_list)
+			}
+		
+		#due to url string size limit query query.limit sdf obj at a time
+		blocks<-c(seq(1,length(tmp.cids),by=query.limit),length(tmp.cids))
+		# should use cv fold generating fxn to avoid boundary overlaps 
+		compounds<-list() #breaks=ceiling(length(cids)/25),include.lowest = TRUE)
+		for(i in 1:(length(blocks)-1)){
+			url<-paste0("http://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/",paste(tmp.cids[blocks[i]:blocks[(i+1)]],collapse=","),"/SDF")
+			compounds[[i]]<-read.sdf(url) 
+		}
+		
+		#create cmpd.list holding sdf strings
+		cmpd.list<-list()
+		names<-tmp.cids#paste0("CMP",1:length(cid.objects)) # name doesn't matter? should be cid
+		for(i in 1:length(compounds)){
+			tmp<-unclass(compounds[[i]])
+			names(tmp)<-names[blocks[i]:blocks[(i+1)]]
+			cmpd.list<-c(cmpd.list,tmp)
+		}
+		#make sure all are unique
+		cmpd.list<-cmpd.list[fixlc(names[!duplicated(names)])] #could get duplicated based on web query
+		#combine with DB
+		cmpd.DB<-c(cmpd.DB,cmpd.list)
+			
+		#add new records to DB and save
+		if(update.DB) {
+			new.DB<-c(DB,cmpd.list)
+			assign(save.as,new.DB)
+			save(save.as,list=save.as,file=save.as)
+		}
+	} 
 	
-	#due to url string size limit query 25 sdf obj at a time
-	blocks<-c(seq(1,length(cid.objects),by=25),length(cid.objects))
-	# should use cv fold generating fxn to avoid boundary overlaps 
-	compounds<-list() #breaks=ceiling(length(cids)/25),include.lowest = TRUE)
-	for(i in 1:(length(blocks)-1)){
-		url<-paste0("http://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/",paste(cid.objects[blocks[i]:blocks[(i+1)]],collapse=","),"/SDF")
-		compounds[[i]]<-read.sdf(url) # add class after combing all sdf new("SDFstr", a = mysdf_list)
-		# compounds[[i]]<-read.SDFstr(url)
-	}
-	#reformat to unnested list for conversion to sdfset 
-	cmpd.list<-list()
-	names<-paste0("CMP",1:length(cid.objects))
-	for(i in 1:length(compounds)){
-		tmp<-unclass(compounds[[i]])
-		names(tmp)<-names[blocks[i]:blocks[(i+1)]]
-		cmpd.list<-c(cmpd.list,tmp)
-	}
-	cmpd.list2<-new("SDFstr", a = cmpd.list)
-	sd.list<-as(cmpd.list2, "SDFset")
+	return(cmpd.DB)
+
+}
+
+get.tanimoto.from.SDF<-function(cmpd.DB,type="list",cut.off=0,...){	
+	#convert to SDFstr
+	#depends on ChemmineR 
+	require(ChemmineR)
+	cmpd.sdf.list<-new("SDFstr", a = cmpd.DB)
+	sd.list<-as(cmpd.sdf.list, "SDFset")
 	cid(sd.list) <- sdfid(sd.list)
-	
 	
 	# Convert base 64 encoded fingerprints to character vector, matrix or FPset object
 	fpset <- fp2bit(sd.list, type=2)
-	# remove duplicates due to query boundary repeats
-	fpset <- fpset[!duplicated(rownames(fpset)),,drop=FALSE]
-	if(parallel==TRUE)
-		{
-				#change this later
-				cl.tmp = makeCluster(rep("localhost",Sys.getenv('NUMBER_OF_PROCESSORS')), type="SOCK") 
-				registerDoSNOW(cl.tmp) 
-				out<-foreach(j=c(1:length(rownames(fpset))),.combine="cbind") %dopar% ChemmineR::fpSim(fpset[j,], fpset)#length(codes)
-				stopCluster(cl.tmp)	
-		} else {
-					out<-sapply(rownames(fpset), function(x) ChemmineR::fpSim(x=fpset[x,], fpset,sorted=FALSE)) 
-		}
-		
-	#edgelist
-	#colnames(out)<-unlist(dimnames(out)[1])1
-	
-	#optionally filter based on score based on score
+	# # # remove duplicates due to query boundary repeats
+	# # fpset <- fpset[!duplicated(rownames(fpset)),,drop=FALSE]
+	# if(parallel==TRUE)
+		# {
+				# #change this later
+				# cl.tmp = makeCluster(rep("localhost",Sys.getenv('NUMBER_OF_PROCESSORS')), type="SOCK") 
+				# registerDoSNOW(cl.tmp) 
+				# out<-foreach(j=c(1:length(rownames(fpset))),.combine="cbind") %dopar% ChemmineR::fpSim(fpset[j,], fpset)#length(codes)
+				# stopCluster(cl.tmp)	
+		# } else {
+	out<-sapply(rownames(fpset), function(x) ChemmineR::fpSim(x=fpset[x,], fpset,sorted=FALSE)) 
 	obj<-as.matrix(out)
 	
-	if(return=="edge list"){
+	if(type=="list"){
 		e.list<-gen.mat.to.edge.list(obj)
-		final<-edge.list.trim(e.list,index=fixln(e.list[,3]),cut=cut.off,less.than=FALSE)
+		final<-edge.list.trim(e.list,index=fixln(e.list[,3]),cut=cut.off,less.than=FALSE) # probably overkill
 	}else{
 		obj[obj<cut.off]<-0
 		final<-obj
 	}
+	
 	return(final)
 }
+
+#wrapper to get tanimoto from cid
+CID.to.tanimoto<-function(cids,...){
+	#wrapper for get sdf from cid 
+	#convert sdf to tanimoto similarity
+	cmpd.DB<-get.SDF.from.CID(cids,...)
+	get.tanimoto.from.SDF(cmpd.DB,...)
+}
+
+#OBSOLETE
+# #get tanimoto distances from cids (using PUG REST instead of Chemminer web api to get sdf)
+# CID.to.tanimoto<-function(cids, cut.off = .7, parallel=FALSE, return="edge list"){
+	# #used cids = PUBCHEM CIDS to calculate tanimoto distances
+	# need<-c("snow","doSNOW","foreach","ChemmineR") # need to use others for mac
+	# for(i in 1:length(need)){check.get.packages(need[i])}
+	# #get fingerprint for calcs
+	# data(pubchemFPencoding)
+	
+	# #remove and print to screen error vars
+	# #removal ids
+	# objc<-as.character(unlist(cids))
+	# objn<-as.numeric(unlist(cids))
+	# dup.id<-duplicated(objn)
+	# na.id<-is.na(objn)
+	# if(sum(c(dup.id,na.id))>0){
+			
+			# objc<-as.character(unlist(cids))
+			# objn<-as.numeric(unlist(cids))
+			
+			# #remove duplicated
+			# message(cat(paste("The following duplicates were removed:","\n")))
+			# message(cat(paste(unique(objc[dup.id])),sep="\n"))
+			# # remove NA
+			# message(cat(paste("Bad inputs were removed:","\n")))
+			# message(cat(paste(unique(objc[na.id])),sep="\n"))
+			
+			# cid.objects<-objn[!(na.id | dup.id)]
+		# } else { cid.objects<-objn }
+	# message(cat("Using PubChem Power User Gateway (PUG) to get molecular fingerprint(s). This may take a moment.","\n"))
+	
+	# #custom read sdf, avoid class for latter combining of PUG queries
+	# read.sdf<-function (sdfstr) 
+		# {
+			# #downloads the data could replace with RCurl
+			# if (length(sdfstr) > 1) {
+				# mysdf <- sdfstr
+			# }
+			# else {
+				# mysdf <- readLines(sdfstr)
+			# }
+			# y <- regexpr("^\\${4,4}", mysdf, perl = TRUE)
+			# index <- which(y != -1)
+			# indexDF <- data.frame(start = c(1, index[-length(index)] + 
+				# 1), end = index)
+			# mysdf_list <- lapply(seq(along = indexDF[, 1]), function(x) mysdf[seq(indexDF[x, 
+				# 1], indexDF[x, 2])])
+			# if (class(mysdf_list) != "list") {
+				# mysdf_list <- list(as.vector(mysdf_list))
+			# }
+			# names(mysdf_list) <- 1:length(mysdf_list)
+			# #mysdf_list <- new("SDFstr", a = mysdf_list)
+			# return(mysdf_list)
+		# }
+	
+	# #due to url string size limit query 25 sdf obj at a time
+	# blocks<-c(seq(1,length(cid.objects),by=25),length(cid.objects))
+	# # should use cv fold generating fxn to avoid boundary overlaps 
+	# compounds<-list() #breaks=ceiling(length(cids)/25),include.lowest = TRUE)
+	# for(i in 1:(length(blocks)-1)){
+		# url<-paste0("http://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/",paste(cid.objects[blocks[i]:blocks[(i+1)]],collapse=","),"/SDF")
+		# compounds[[i]]<-read.sdf(url) # add class after combing all sdf new("SDFstr", a = mysdf_list)
+		# # compounds[[i]]<-read.SDFstr(url)
+	# }
+	# #reformat to unnested list for conversion to sdfset 
+	# cmpd.list<-list()
+	# names<-paste0("CMP",1:length(cid.objects))
+	# for(i in 1:length(compounds)){
+		# tmp<-unclass(compounds[[i]])
+		# names(tmp)<-names[blocks[i]:blocks[(i+1)]]
+		# cmpd.list<-c(cmpd.list,tmp)
+	# }
+	# cmpd.list2<-new("SDFstr", a = cmpd.list)
+	# sd.list<-as(cmpd.list2, "SDFset")
+	# cid(sd.list) <- sdfid(sd.list)
+	
+	
+	# # Convert base 64 encoded fingerprints to character vector, matrix or FPset object
+	# fpset <- fp2bit(sd.list, type=2)
+	# # remove duplicates due to query boundary repeats
+	# fpset <- fpset[!duplicated(rownames(fpset)),,drop=FALSE]
+	# if(parallel==TRUE)
+		# {
+				# #change this later
+				# cl.tmp = makeCluster(rep("localhost",Sys.getenv('NUMBER_OF_PROCESSORS')), type="SOCK") 
+				# registerDoSNOW(cl.tmp) 
+				# out<-foreach(j=c(1:length(rownames(fpset))),.combine="cbind") %dopar% ChemmineR::fpSim(fpset[j,], fpset)#length(codes)
+				# stopCluster(cl.tmp)	
+		# } else {
+					# out<-sapply(rownames(fpset), function(x) ChemmineR::fpSim(x=fpset[x,], fpset,sorted=FALSE)) 
+		# }
+		
+	# #edgelist
+	# #colnames(out)<-unlist(dimnames(out)[1])1
+	
+	# #optionally filter based on score based on score
+	# obj<-as.matrix(out)
+	
+	# if(return=="edge list"){
+		# e.list<-gen.mat.to.edge.list(obj)
+		# final<-edge.list.trim(e.list,index=fixln(e.list[,3]),cut=cut.off,less.than=FALSE)
+	# }else{
+		# obj[obj<cut.off]<-0
+		# final<-obj
+	# }
+	# return(final)
+# }
 
 #querry chemical translation service (CTS) to get tanimoto from inchis (very slow)
 CID.to.tanimoto.CTS<-function(cid,lookup=get.CID.INCHIcode.pairs()){
@@ -1808,6 +1972,7 @@ set.node.shape<-function(obj,increase="triangle",decrease="vee", no.change="elli
 	tmp[obj==1]<-no.change
 	return(tmp)
 }
+
 #color
 set.node.color<-function(obj,inc.lev="triangle",dec.lev="vee",no.lev="ellipse",inc.col="red",dec.col="blue", no.col="gray"){
 	library(gplots) # convert color name to hex
@@ -1820,32 +1985,99 @@ set.node.color<-function(obj,inc.lev="triangle",dec.lev="vee",no.lev="ellipse",i
 	return(tmp)
 }
 
-#remove self edges and duplicated edges based on edgelist type
-clean.edgeList<-function(source="source",target="target",type="type", data=edge.list){
+# #remove self edges and duplicated edges based on edgelist type
+# clean.edgeList<-function( data=edge.list,source="source",target="target",type="type"){
    
-    library(igraph)
-    #remove self edges else if all self passed will cause an error
-    el<-data[,c(source,target)]
-    self<-el[,1]==el[,2]
-    el<-el[!self,]
-    tmp.data<-as.data.frame(as.matrix(data)[!self,])
-    lel<-split(el,tmp.data$type)
+    # library(igraph)
+    # #remove self edges else if all self passed will cause an error
+    # el<-data[,c(source,target)]
+    # self<-el[,1]==el[,2]
+    # el<-el[!self,]
+    # tmp.data<-as.data.frame(as.matrix(data)[!self,])
+    # lel<-split(el,tmp.data$type)
     
-    el.res<-do.call("rbind",lapply(1:length(lel),function(i){
-      nodes<-matrix(sort(unique(matrix(as.matrix(lel[[i]]),,1))),,1)
-      g<-graph.data.frame(lel[[i]],directed=FALSE,vertices=nodes)
-      g.adj<-get.adjacency(g,sparse=FALSE,type="upper")
-      g.adj[g.adj>0]<-1
-      adj<-graph.adjacency(g.adj,mode="upper",diag=FALSE,add.rownames="code")
-      get.edgelist(adj)
-  }))
+    # el.res<-do.call("rbind",lapply(1:length(lel),function(i){
+		# nodes<-matrix(sort(unique(matrix(as.matrix(lel[[i]]),,1))),,1)
+		# g<-graph.data.frame(lel[[i]],directed=FALSE,vertices=nodes)
+		# g.adj<-get.adjacency(g,sparse=FALSE,type="upper")
+		# g.adj[g.adj>0]<-1
+		# adj<-graph.adjacency(g.adj,mode="upper",diag=FALSE,add.rownames="code")
+		# get.edgelist(adj)
+	# }))
     
-  ids<-unique(join.columns(el.res))  
-  tmp<-data.frame(el,tmp.data[,!colnames(tmp.data)%in%c(source,target)])
-  rownames(tmp)<-make.unique(join.columns(tmp[,1:2])) 
-  flip<-!ids%in%rownames(tmp) 
-  ids[flip]<-unique(join.columns(el.res[,2:1]))    
-  return(tmp[ids,])  
+  # ids<-unique(join.columns(el.res))  
+  # tmp<-data.frame(tmp.data[,!colnames(tmp.data)%in%c(source,target)])
+  # rownames(tmp)<-make.unique(join.columns(el[,1:2])) 
+  # flip<-!ids%in%rownames(tmp) 
+  # ids[flip]<-unique(join.columns(el.res[,2:1]))[flip]
+  # res<-data.frame(el.res,tmp[ids,])	
+  # colnames(res)<-colnames(data)	
+  # return(res)  
     
+# }
+
+#remove self and duplicated edges
+#simpler of the one above
+clean.edgeList<-function(data,source="source",target="target",type=NULL){
+	
+	#source and target should be numeric or will be coerced to numeric
+	data[,source]<-fixln(data[,source])
+	data[,target]<-fixln(data[,target])
+	
+	#remove self edges
+	id<-data[,source]==data[,target] 
+	data<-data[!id,]
+	
+	if(!is.null(type)){
+		data<-do.call("rbind",split(data,data[,"type"])) # ugly but works
+	}
+	#remove duplicated connections
+	#format edge names by sorting (need to be numeric)
+	#could add mechanism to handle character via conversion to factor then to numeric
+	# and add look up table for back conversion
+	id<-data[,source]>data[,target]
+	tmp<-data[,source]
+	data[,source][id]<-data[,target][id]
+	data[,target][id]<-tmp[id]
+	#remove duplicated
+	id<-paste0(data[,source],"|",data[,target])
+	dupes<-duplicated(id)
+	data[!dupes,]
+
 }
 
+
+
+
+test<-function(){
+
+
+kegg.id<-c("C00212","C00020","C00105", "C00299")
+
+#KEGG rxn DB
+DB<-get.KEGG.pairs(type="main")
+#create KEGG and CID based biochemical/chemical similarity network
+kegg.list<-get.Reaction.pairs(kegg.id,DB,index.translation.DB=NULL,parallel=FALSE,translate=FALSE)
+
+
+#get tanimoto similarity
+cids<-c("70","51","204")
+DB2<-tryCatch(get(load("data/CID.SDF.DB")[1]),error=function(e) {NULL})
+cid.list<-CID.to.tanimoto(cids,DB=DB2,update.DB=FALSE)
+
+#merge the two edge list maintaining some hierarchy of edges
+obj<-c(kegg.id,cids)
+id<-data.frame(obj,1:length(obj))
+tmp<-list()
+tmp$source<-translate.index(fixlc(cid.list[,1]), lookup=id)
+
+clean.list<-clean.edgeList(data=res)
+
+
+#translate to a common edge list
+ID<-1:nrow(1)
+trans.s<-translate.index(fixlc(res[,1]), lookup=cbind(,fixlc(tmp.id)))
+trans.t<-translate.index(fixlc(res[,2]), lookup=cbind(1:nrow(getdata()),fixlc(tmp.id)))
+
+
+}

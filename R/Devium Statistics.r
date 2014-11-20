@@ -1,8 +1,7 @@
 #function to convert pattern to a single char objects name
-rename <- function(x, pattern, replace="_")
-	{
+rename <- function(x, pattern, replace="_"){
 		#strangely sapply will not work without effort here
-		replace=rep(replace,length(pattern))
+		replace<-rep(replace,length(pattern))
 		for(i in seq_along(pattern))
 			{
 				x<-gsub(pattern[i], replace[i], x)
@@ -28,16 +27,18 @@ calc.rsd<-function(data,factor,sig.figs=2){
 #fold change of means
 calc.FC<-function(data,factor,denom=levels(factor)[1],sig.figs=1,log=FALSE){
 	#rel is the order of the level which will be in the denominator
-	d.list<-split(data,as.factor(factor))
+	#convert factors to numeric
+	data<-data.frame(do.call("cbind",lapply(data.frame(data),fixln)))
+	d.list<-split(as.data.frame(data),as.factor(factor))
 	res<-do.call("cbind",lapply(1:length(d.list),function(i){
 		obj<-d.list[[i]]
-		apply(obj,2,mean,na.rm=T)
+		apply(obj,2,mean,na.rm=TRUE)
 	}))
 	colnames(res)<-names(d.list)
 	rel=match(denom,colnames(res))
 	fc<-fold.change(res,log=log,rel=rel)
-	colnames(fc)<-paste0("FC-",colnames(fc),"/",rep(denom,ncol(fc)))
-	return(as.data.frame(round(fc[,-rel,drop=FALSE],sig.figs)))
+	colnames(fc)<-paste0("FC_",colnames(fc),"_",rep(denom,ncol(fc)))
+	return(data.frame(round(fc[,-rel,drop=FALSE],sig.figs)))
 }
 
 # redo using dplyr!
@@ -88,7 +89,6 @@ fold.change<-function(obj,rel=1,log=FALSE)
 	}
 
 # function to extract data based on non-missing in index
-
 sub.data<-function(data,index)
 	{
 		#input = data object with rows the dimension to be split
@@ -114,8 +114,7 @@ match.data<-function(data1,data2)
 	}
 
 #anova
-anova.formula.list<-function(data,formula,meta.data)
-	{
+anova.formula.list<-function(data,formula,meta.data){
 	  tmp.data<-cbind(meta.data,data) # bind with data for easy scoping
 	  tmp<-lapply(1:ncol(data),function(i)
 		{
@@ -134,9 +133,68 @@ anova.formula.list<-function(data,formula,meta.data)
 			}
 }
 
+#ANOVA with repeated measures and post hoc
+aov.formula.list<-function(data,formula,meta.data=factor,post.hoc=TRUE,repeated=NULL,p.adjust="BH"){
+	#formula = formula excluding repeated terms
+	#meta data  = all factors
+	#repeated name of factor for repeated measures
+
+	 if(!is.null(repeated)) {
+		formula<-paste0(formula,'+ Error(',repeated,')')
+	  }	
+	  
+	  tmp.data<-cbind(meta.data,data) # bind with data for easy scoping
+	  results<-list(p.value=vector("list",ncol(data)),post.hoc=vector("list",ncol(data)))
+	  for(i in 1:ncol(data)){
+			model<-tryCatch(aov(as.formula(paste("data[,",i,"]~",formula,sep="")),data=tmp.data), error=function(e){NULL})
+			
+			#get p-values
+			if(!is.null(repeated)){
+				names<-attr(model$Within$terms,'term.labels')
+				p.values<-data.frame(t(summary(model$Within)[[1]][1:length(names),5,drop=FALSE]))
+				dimnames(p.values)<-list(colnames(data)[i],names)
+			} else {
+				names<-attr(model$terms,'term.labels')
+				p.values<-data.frame(t(summary(model)[[1]][1:length(names),5,drop=FALSE]))
+				dimnames(p.values)<-list(colnames(data)[i],names)
+			}
+			#pairwise t-tests (repeated) or TukeyHSD
+			if(post.hoc){
+				if(!is.null(repeated)){
+					tmp<-meta.data[,!colnames(meta.data)%in%repeated]
+					tmp.m<-cbind(tmp,join.columns(tmp,":"))
+					post.h<-do.call("cbind",lapply(1:ncol(tmp.m),function(j){
+						obj<-t(pairwise.t.test(data[,i], tmp.m[,j],p.adjust.method=p.adjust)$p.value)
+						diag <- if(ncol(obj)==1) TRUE else FALSE
+						names<-matrix(apply(expand.grid(rownames(obj),colnames(obj)),1,paste,collapse="-"),nrow(obj),ncol(obj))
+						obj2<-data.frame(matrix(obj[upper.tri(obj,diag=diag)],1))
+						colnames(obj2)<-names[upper.tri(names,diag=diag)]
+						rownames(obj2)<-colnames(data)[i]	
+						obj2
+					}))
+				} else {
+					tmp2<-tryCatch(TukeyHSD(model),error=function(e){NA})
+					post.h<-do.call("cbind",lapply(1:length(tmp2),function(j){
+						obj<-t(tmp2[[j]][,4,drop=FALSE])
+						rownames(obj)<-colnames(data)[i]
+						obj	
+					}))
+				}
+			
+			} else {
+				post.h<-NULL
+			}
+			
+			results$p.value[[i]]<-p.values
+			results$post.hoc[[i]]<-post.h
+			
+		}	
+			return(list(p.values=do.call("rbind",results$p.value),post.hoc=do.call("rbind",results$post.hoc)))
+			
+}
+
 #get summary statistics should separate anova from summary
-stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.stats=TRUE,...)
-	{
+stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.stats=TRUE,...){
 		#summarise and make ANOVA from data based on formula 
 		#check.get.packages(c("qvalue"))  using fdrtools instead to avoid random erros with initialization
 		
@@ -146,10 +204,14 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.sta
 				{
 					#split data
 					tmp<-sub.data(data,test.obj)
-					fct<-factor(as.character(unlist(tmp[1]))) # breaks ordered factors
+					if(!is.factor(tmp[1])) {
+						fct<-factor(as.character(unlist(tmp[1])))# create factors
+					} else {
+						fct<-tmp[1]
+					}		
 					tmp.data<-data.frame(tmp[[2]])
 						
-					# get means � sd, fold change
+					# get means sd, fold change
 					means<-calc.stat(tmp.data,factor=fct,stat=c("mean"),...)
 					sds<-calc.stat(tmp.data,factor=fct,stat=c("sd"),...)
 					fc<-fold.change(means,log=log,rel)
@@ -165,7 +227,7 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.sta
 					return(res)
 				}
 		message(cat("Generating data summary...","\n"))
-		stats.summary<-data.summary(data,test.obj,sigfigs=sigfigs,log=log)		
+		stats.summary<-data.summary(data,test.obj,sigfigs=sigfigs,log=log,na.rm=TRUE)		
 
 		#statistical tests (should add control for theses)
 		if(do.stats){
@@ -198,8 +260,7 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.sta
 
 #function to carry out covariate adjustments
 #-------------------------
-covar.adjustment<-function(data,formula)
-	{
+covar.adjustment<-function(data,formula){
 	#set up that formula objects need to exists in the global environment --- fix this
 	#data--> subjects as rows, measurements as columns
 	#formula	<- ~ character vector
@@ -228,8 +289,7 @@ covar.adjustment<-function(data,formula)
 	}
 
 #helper function for getting statistics for making box plots
-summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.interval=.95, .drop=TRUE) 
-	{
+summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.interval=.95, .drop=TRUE) {
 		require(plyr)
 
 		# New version of length which can handle NA's: if na.rm==T, don't count them
@@ -370,7 +430,7 @@ multi.mann.whitney<-function(data,factor,progress=TRUE,FDR="BH",qvalue="story"){
 simple.lme<-function(data,factor,subject,FDR="BH", progress=TRUE,interaction=FALSE){
 	library("lme4")
 	library(car)
-	tmp.data<-data.frame(data,factor,subject=subject)
+	tmp.data<-data.frame(data,factor,subject)
 	
 	if(interaction){
 		r.formula<-paste(paste(colnames(factor),collapse=" + "),paste(colnames(factor),collapse=" : "),paste0("(1|",colnames(subject),")"),sep=" + ")
@@ -400,7 +460,7 @@ simple.lme<-function(data,factor,subject,FDR="BH", progress=TRUE,interaction=FAL
 	return(data.frame(lmer.p.values,adj.p,adjusted.q))
 } 
  
-#multi-LME with formula interface (also see simple.lme)
+#multi-LME with formula interface (also see simple.lme) # note random term should be +(1|random.term)
 formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
 		#data  = data.frame of values to test and test factors
 		#factor = object to be tested 
@@ -409,9 +469,9 @@ formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
 		#not sure how to ignore test factors in data, cause error in loop
 		
 		if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
-		lmer.p.values<-do.call("rbind",sapply(1:ncol(data), function(i){
+		lmer.p.values<-do.call("rbind",lapply(1:ncol(data), function(i){
 			if (progress == TRUE){setTxtProgressBar(pb, i)}
-			mod<-tryCatch(lmer(as.formula(paste0("data[,i]~", formula)), data=data),error=function(e){NULL})
+			mod<-tryCatch(lmer(as.formula(paste0("data[,",i,"]~", formula)), data=data),error=function(e){NULL})
 			if(is.null(mod)){1} else {
 				res<-Anova(mod)
 				tmp<-t(data.frame(res$"Pr(>Chisq)"))
@@ -439,69 +499,24 @@ formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
 		dimnames(out)<-list(colnames(data),names)
 		return(out)
 } 
- 
-#calculate AUC for multiple treatments
- multi.group.AUC<-function(data,subject.id,sample.type, time){
-	library(pracma)
-	#too lazy to rename objects from older fxn
-	subject.id<-as.factor(subject.id)
-	fact<-as.factor(sample.type)	#sample type factor
-	tme<-as.factor(time)	#time	
-	
-	#split objects
-	tmp.data<-split(data,fact)
-	tmp.time<-split(tme,fact)
-	tmp.subs<-split(as.character(subject.id),fact)
-	
-	group.AUC<-lapply(1:nlevels(fact),function(i){
-		ddata<-tmp.data[[i]]
-		ttime<-tmp.time[[i]]
-		subs<-tmp.subs[[i]]
-		
-		#calculate AUC
-		AUC<-sapply(1:length(ddata),function(i)
-		{
-			
-			obj<-split(as.data.frame(ddata[[i]]),subs)
-			#subtract baseline for correct negative AUC
-			base.obj<-lapply(1:length(obj),function(j)
-				{
-					tmp<-as.numeric(as.matrix(unlist(obj[[j]])))
-					tmp-tmp[1]
-				})
-			tmp<-split(as.data.frame(ttime),subs)
-			#x11()
-			#plot(as.numeric(as.matrix(do.call("cbind",tmp))),as.numeric(as.matrix(do.call("cbind",base.obj))))
-			out<-as.data.frame(sapply(1:length(obj),function(j)
-			{
-				x<-as.numeric(as.matrix(unlist(tmp[[j]])))
-				o<-order(x) # need to be in order else AUC will be wrong!
-				y<-as.numeric(as.matrix(unlist(base.obj[[j]])))
-				trapz(x[o],y[o])
-			}))
-		colnames(out)<-colnames(data[i])
-		out
-		})
-		tmp<-do.call("cbind",AUC)
-		rownames(tmp)<-paste(levels(fact)[i],names(split(as.data.frame(ttime),subs)),sep="_")
-		tmp
-	})	
-	do.call("rbind",group.AUC)
-}
 
 #trying to generalize baseline adjustment
- two.factor.adj<-function(data,factor1,factor2,adj.factor,level=0,fxn="-"){
+two.factor.adj<-function(data,factor1,factor2,adj.factor,level=0,fxn="-"){
+	
+	#factor1 some other variable like case control
+	#factor2 =  sample id for replication (repeated measures)
+	
+	
 	#too lazy to rename objects from older fxns getting ugly
 	# too lazy (no time) to generalize further
-	factor1<-as.factor(factor1)	
-	factor2<-as.factor(factor2)
+	
 	#sample type factor
-	tme<-as.factor(adj.factor)	#adj.factor	
+	tme<-adj.factor	#adj.factor	
 	
 	#split objects
 	tmp.data<-split(data,factor1)
 	tmp.adj.factor<-split(tme,factor1)
-	tmp.subs<-split(as.character(factor2),factor1)
+	tmp.subs<-split(as.character(factor2),factor1) # drop unused levels in split
 	
 	group.adj<-lapply(1:nlevels(factor1),function(i){
 		ddata<-tmp.data[[i]]
@@ -517,7 +532,7 @@ formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
 			#subtract baseline for correct negative AUC
 			adj.obj<-matrix(unlist(lapply(1:length(obj),function(j)
 				{
-					id<-c(1:length(tmp2.adj.factor))[tmp2.adj.factor[[j]]==level]
+					id<-c(1:length(tmp2.adj.factor[[j]]))[tmp2.adj.factor[[j]]==level]
 					tmp<-as.numeric(as.matrix(unlist(obj[[j]])))
 					do.call(fxn,list(tmp,tmp[id]))
 				})),,1)
@@ -548,11 +563,145 @@ formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
 #calculating qvalue and local FDR
 FDR.adjust<-function(obj,type="pvalue",return.all=FALSE){
 	check.get.packages("fdrtool")
-	#adjust p-values for multiple hypothese tested
-	#options for FDR for tests c("normal", "correlation", "pvalue", "studentt")\
+	#adjust p-values for multiple hypotheses tested
+	#options for FDR for tests c("normal", "correlation", "pvalue", "studentt")
 	#methods for FDR c("fndr", "pct0", "locfdr")
 	obj<-as.numeric(as.character(unlist(obj))) # just to be sure it is numeric
-	obj<-fdrtool(obj, statistic=type,plot=FALSE, color.figure=FALSE, verbose=FALSE,cutoff.method="fndr",pct0=0.75)
+	obj<-tryCatch(fdrtool(obj, statistic=type,plot=FALSE, color.figure=FALSE, verbose=FALSE,cutoff.method="fndr",pct0=0.75),
+		error=function(e) {tmp<-list();tmp$qval<-rep(NA,length(obj));tmp}) # return NA on error, like for example after submitting all NAs
 	if(return.all==TRUE){return(obj)} else {return(as.numeric(as.character(unlist(obj$qval))))}
 	}
 
+#probability quantiles for a vector as a factors
+get.quantiles<-function(x,probs=seq(0, 1, 0.25)){
+	xx<-na.omit(fixln(x))
+	if(length(xx)>0){
+		tmp<-cut(xx,quantile(xx,probs=probs),include.lowest = TRUE)
+		factor(tmp,labels=c(paste0("Q",1:nlevels(tmp))),levels(tmp))
+	} else {
+		x
+	}	
+}
+
+#wrapper for multi.t.test 
+multi.pairwise.t.test<-function(data,factor,mu=NULL,paired=FALSE,progress=TRUE,FDR="BH",qvalue="storey",...){
+		#call multi.t.test for each pairwise comparison
+		comps<-combn(levels(factor),2)
+		names<-apply(comps,2,paste,collapse="_")
+		do.call("cbind",lapply(1:ncol(comps),function(i){
+			tmp.data<-data[factor%in%(comps[,i]),]
+			tmp.factor<-factor(fixlc(factor[factor%in%(comps[,i])])) # remove old levels
+			res<-multi.t.test(data=tmp.data, factor=tmp.factor,mu=mu,paired=paired,progress=progress,FDR=FDR,qvalue=qvalue,...=...)
+			colnames(res)<-paste(names[i],colnames(res),sep="_")
+			res
+		}))	
+}
+
+#wrapper for multi.mann.whitney
+multi.pairwise.mann.whitney<-function(data,factor,progress=TRUE,FDR="BH",qvalue="story"){
+	comps<-combn(levels(factor),2)
+	names<-apply(comps,2,paste,collapse="_")
+	do.call("cbind",lapply(1:ncol(comps),function(i){
+		tmp.data<-data[factor%in%(comps[,i]),]
+		tmp.factor<-factor(fixlc(factor[factor%in%(comps[,i])])) # remove old levels
+		res<-multi.mann.whitney(data=tmp.data, factor=tmp.factor,progress=progress,FDR=FDR,qvalue=qvalue)
+		colnames(res)<-paste(names[i],colnames(res),sep="_")
+		res
+	}))	
+}
+#Tests 
+test<-function(){
+
+#ANOVA w/ mtcars
+data(mtcars)
+data<-mtcars[,1:5]
+factor<-data.frame(am=as.factor(mtcars$am),vs=as.factor(mtcars$vs))
+formula<-paste(colnames(factor),collapse="*")
+repeated<-NULL
+post.hoc<-FALSE
+
+(x<-aov.formula.list(data,formula,meta.data=factor[,1:2],post.hoc,repeated,p.adjust="BH"))
+
+
+
+data<-data.frame(read.csv('C:/Users/D/Desktop/Suspension Metabolomics Data_Biswa v2.csv',header=TRUE))
+factor<-with(data, data.frame(Treatment,Time_min2,IDs))
+
+
+data<-data[,-c(1:4)]
+
+#2 way anova
+formula<-"Treatment*Time_min2"
+repeated<-NULL
+post.hoc<-FALSE
+
+#2-way repeated measures anova
+data<-data.frame(read.csv('C:/Users/D/Desktop/Suspension Metabolomics Data_Biswa v2.csv',header=TRUE))
+formula<-"Treatment*Time_min2"
+factor<-with(data, data.frame(Treatment,Time_min2,IDs))
+repeated<-'IDs'
+post.hoc<-FALSE
+data<-data[,-c(1:4)]
+
+aov.formula.list(data,formula,meta.data=factor[,1:2],post.hoc,repeated,p.adjust="BH")
+
+aov.formula.list<-function(data,formula,meta.data=factor,post.hoc=TRUE,repeated=NULL,p.adjust="BH"){
+	#formula = formula excluding repeated terms
+	#meta data  = all factors
+	#repeated name of factor for repeated measures
+
+	 if(!is.null(repeated)) {
+		formula<-paste0(formula,'+ Error(',repeated,')')
+	  }	
+	  
+	  tmp.data<-cbind(meta.data,data) # bind with data for easy scoping
+	  results<-list(p.value=vector("list",ncol(data)),post.hoc=vector("list",ncol(data)))
+	  for(i in 1:ncol(data)){
+			model<-tryCatch(aov(as.formula(paste("data[,",i,"]~",formula,sep="")),data=tmp.data), error=function(e){NULL})
+			#get p-values
+			if(!is.null(repeated)){
+				names<-attr(model$Within$terms,'term.labels')
+				p.values<-data.frame(t(summary(model$Within)[[1]][1:length(names),5,drop=FALSE]))
+				dimnames(p.values)<-list(colnames(data)[i],names)
+			} else {
+				names<-attr(model$terms,'term.labels')
+				p.values<-data.frame(t(summary(model)[[1]][1:length(names),5,drop=FALSE]))
+				dimnames(p.values)<-list(colnames(data)[i],names)
+			}
+			#pairwise t-tests (repeated) or TukeyHSD
+			if(post.hoc){
+				if(!is.null(repeated)){
+					tmp<-meta.data[,!colnames(meta.data)%in%repeated]
+					tmp.m<-cbind(tmp,join.columns(tmp,":"))
+					post.h<-do.call("cbind",lapply(1:ncol(tmp.m),function(j){
+						obj<-t(pairwise.t.test(data[,i], tmp.m[,j],p.adjust.method=p.adjust)$p.value)
+						diag <- if(ncol(obj)==1) TRUE else FALSE
+						names<-matrix(apply(expand.grid(rownames(obj),colnames(obj)),1,paste,collapse="-"),nrow(obj),ncol(obj))
+						obj2<-data.frame(matrix(obj[upper.tri(obj,diag=diag)],1))
+						colnames(obj2)<-names[upper.tri(names,diag=diag)]
+						rownames(obj2)<-colnames(data)[i]	
+						obj2
+					}))
+				} else {
+					tmp2<-tryCatch(TukeyHSD(model),error=function(e){NA})
+					post.h<-do.call("cbind",lapply(1:length(tmp2),function(j){
+						obj<-t(tmp2[[j]][,4,drop=FALSE])
+						rownames(obj)<-colnames(data)[i]
+						obj	
+					}))
+				}
+			
+			} else {
+				post.h<-NULL
+			}
+			
+			results$p.value[[i]]<-p.values
+			results$post.hoc[[i]]<-post.h
+			
+		}	
+			return(list(p.values=do.call("rbind",results$p.value),post.hoc=do.call("rbind",results$post.hoc)))
+			
+}
+
+
+}

@@ -11,8 +11,7 @@
         }
 
 #transform to normal
-transform.to.normal<-function(data,data.name="",test.method= "Anderson-Darling", alpha = 0.05 , force.positive=TRUE, transformation="none")
-	{	
+transform.to.normal<-function(data,data.name="",test.method= "Anderson-Darling", alpha = 0.05 , force.positive=TRUE, transformation="none"){	
 		check.get.packages(c("plyr","nortest","car"))
 		#function to carry out the transformation
 		trans<-function(var,transformation,test.method,alpha,force.positive)
@@ -51,8 +50,7 @@ transform.to.normal<-function(data,data.name="",test.method= "Anderson-Darling",
 	}
 	
 #function to store or return transformed object
-transform.to.normal.output<-function(obj,name="transformed.data", envir=devium)
-	{
+transform.to.normal.output<-function(obj,name="transformed.data", envir=devium){
 		#object stored: get("devium.data.transformation.results",envir)
 		#diagnostics
 		tmp<-obj[[2]]
@@ -76,30 +74,64 @@ transform.to.normal.output<-function(obj,name="transformed.data", envir=devium)
 		assign(names(obj)[2],data.frame(p.value=diagnostics[,1,drop=FALSE],transformation=as.factor(unlist(diagnostics[,2,drop=FALSE]))),envir=.GlobalEnv)
 		}
 
-#data scaling functions		
-scale.data<-function(data, scale="uv", center=TRUE)
-	{
-		switch(scale,
-		"uv" 			= .local<-function(){check.get.packages("pcaMethods");pcaMethods::prep(data,scale,center)},
-		"pareto" 		= .local<-function(){check.get.packages("pcaMethods");pcaMethods::prep(data,scale,center)},
-		"vector"		= .local<-function(){check.get.packages("pcaMethods");pcaMethods::prep(data,scale,center)},
-		"none"			= .local<-function(){return(data)},
-		"range scale" 	= .local<-function(){tmp<-sapply(1:ncol(data),function(i)
-												{
-													obj<-data[,i]
-													tmp<-range(obj)
-													(obj-tmp[1])/(tmp[2]-tmp[1])
-													
-												})
-												colnames(tmp)<-colnames(data)
-												return(tmp)
-											})
-		.local()						
-	}
 
+#scaling for rows or columns
+scale.data<-function(data, type="median", dim=1,positive.only=TRUE){
+	
+	#input needs to be numeric
+	#make.positive adds minimum to all values to get rid of negatives
+	if(type=="sum"){
+		val<-apply(data,dim,sum)
+		res<-sweep(data,dim,val,"/")
+	}
+	
+	if(type=="l2"){
+		val<-apply(data^2,dim,sum)^.5
+		res<-sweep(data,dim,val,"/")
+	}
+	
+	if(type%in%c("mean","median")){
+		val<-apply(data,dim,type)
+		res<-sweep(data,dim,val,"-")
+		if(positive.only) res<-make.positive(res)
+	}
+	
+	if(type=="uv"){
+		val<-apply(data,dim,sd)
+		res<-sweep(data,dim,val,"/")
+	}
+	
+	if(type=="pareto"){
+		val<-apply(data,dim,sd)^.5
+		res<-sweep(data,dim,val,"/")
+	}
+	# could add level and vast scaling http://www.ncbi.nlm.nih.gov/pmc/articles/PMC1534033/table/T1/
+	if(type=="range_scale"){
+		if(dim==2){
+			res<-data.frame(do.call("cbind",lapply(1:ncol(data),function(i)
+			{
+				obj<-data[,i]
+				tmp<-range(obj)
+				(obj-tmp[1])/(tmp[2]-tmp[1])
+			})))
+		} else {
+			res<-data.frame(do.call("rbind",lapply(1:nrow(data),function(i)
+			{
+				obj<-data[i,]
+				tmp<-range(obj)
+				(obj-tmp[1])/(tmp[2]-tmp[1])
+			})))
+
+		}
+		colnames(res)<-colnames(data)
+	}		
+	
+	return(res)
+}
+	
 #scale data within  a range
 #rescaling based on: http://cran.r-project.org/doc/contrib/Lemon-kickstart/rescale.R
- rescale<-function(x,newrange) {
+rescale<-function(x,newrange) {
 	 if(nargs() > 1 && is.numeric(x) && is.numeric(newrange)) {
 	  # if newrange has max first, reverse it
 	  if(newrange[1] > newrange[2]) {
@@ -119,7 +151,7 @@ scale.data<-function(data, scale="uv", center=TRUE)
 }
 	
 #missing values static imputation 
-impute.missing<-function(data, method="min", scalar=1, report=TRUE){
+impute.missing<-function(data, method="min", scalar=1, report=FALSE){
 		# data should be a matrix or data frame (samples as rows)
 		# methods can be any function
 		# scalar will be used to multiply imputed value and can be length one or longer 
@@ -139,7 +171,7 @@ impute.missing<-function(data, method="min", scalar=1, report=TRUE){
 			obj
 		}))
 		
-		colnames(fixed)<-colnames(data)
+		dimnames(fixed)<-dimnames(data)
 		
 		if(report == TRUE) {
 			row.missing <- matrix(round(apply(na.id,1,sum)/ncol(data)*100,0), ncol=1)
@@ -176,4 +208,95 @@ all.ratios<-function(data){
 	do.call("cbind",vars)	   
 }	
 
-#
+#remove minimum values through addition
+make.positive<-function(obj){
+	mins<-apply(obj,2,min,na.rm=TRUE)
+	sweep(obj,2,abs(mins),"+")
+}
+
+#calculate area under the curve (AUC) for multiple groups
+multi.group.AUC<-function(data,subject.id,sample.type, time){
+	library(pracma)
+	#too lazy to rename objects from older fxn
+	subject.id<-as.factor(subject.id)
+	fact<-as.factor(sample.type)	#sample type factor
+	tme<-as.factor(time)	#time	
+	
+	#split objects
+	tmp.data<-split(data.frame(data),fact)
+	tmp.time<-split(tme,fact)
+	tmp.subs<-split(as.character(subject.id),fact)
+	
+	group.AUC<-lapply(1:nlevels(fact),function(i){
+		ddata<-tmp.data[[i]]
+		ttime<-tmp.time[[i]]
+		subs<-tmp.subs[[i]]
+		
+		#calculate AUC
+		AUC<-sapply(1:length(ddata),function(i)
+		{
+			
+			obj<-split(as.data.frame(ddata[[i]]),subs)
+			#subtract baseline (first level of time) to correct negative AUC 
+			tmp.time<-split(ttime,subs)
+			base.time<-levels(ttime)[1]
+			base.obj<-lapply(1:length(obj),function(j)
+				{
+					tmp<-as.numeric(as.matrix(unlist(obj[[j]])))
+					tmp-tmp[tmp.time[[j]]==base.time]
+				})
+			tmp<-split(as.data.frame(ttime),subs)
+			#x11()
+			#plot(as.numeric(as.matrix(do.call("cbind",tmp))),as.numeric(as.matrix(do.call("cbind",base.obj))))
+			out<-as.data.frame(sapply(1:length(obj),function(j)
+			{
+				x<-as.numeric(as.matrix(unlist(tmp[[j]])))
+				o<-order(x) # need to be in order else AUC will be wrong!
+				y<-as.numeric(as.matrix(unlist(base.obj[[j]])))
+				trapz(x[o],y[o])
+			}))
+		colnames(out)<-colnames(data[i])
+		out
+		})
+		tmp<-do.call("cbind",AUC)
+		rownames(tmp)<-paste(levels(fact)[i],names(split(as.data.frame(ttime),subs)),sep="_")
+		tmp
+	})	
+	res<-do.call("rbind",group.AUC)
+	colnames(res)<-colnames(data)
+	return(res)
+}
+
+#tests
+test<-function(){
+#simulate data
+data<-matrix(1:5,5,5)
+(x<-scale.data(data, type="uv", dim=2))
+apply(x,2,sd)
+
+(x<-scale.data(data, type="pareto", dim=2))
+apply(x,2,sd)
+
+
+#make positive
+data<-matrix(rnorm(100,10),5,5)
+make.positive(data)
+
+make.positive<-function(obj){
+	mins<-apply(obj,2,min,na.rm=TRUE)
+	sweep(obj,2,abs(mins),"+")
+}
+
+
+val<-apply(data,1,sum)
+x<-sweep(data,1,val,"/")
+apply(x,1,sum)
+
+x<-scale.data2(data, type="sum", dim=2)
+
+data(mtcars)
+data<-mtcars
+data$am<-factor(data$am)
+(x<-scale.data(data, type="uv", dim=2))
+
+}

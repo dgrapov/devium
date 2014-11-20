@@ -16,7 +16,7 @@ devium.heatmap<-function(data, class.factor=NULL, class.color=NULL, heatmap.colo
   
   # calculate correlations
   if(!type=="none"& !type == "z.scale" ){
-    tmp<-devium.calculate.correlations(tmp.data,type=type)
+    tmp<-devium.calculate.correlations(tmp.data,type=type,results="matrix")
     tmp.data<-tmp$cor
     tmp.data.pvalue<-tmp$p.value
     
@@ -163,7 +163,7 @@ devium.dendrogram<-function(
   members,
   color.text = FALSE,
   text.length = 10,
-  text.cex=.5,
+  text.cex=1,
   ...
 ){
 
@@ -691,3 +691,28 @@ devium.dendrogram<-function(
   coupe.out
 }
 #===============================================================================
+
+#various additions/tests in progress
+test<-function(){
+
+#colored label dendrograms
+## function to set label color
+# see added color.key which you can define for your data
+labelCol <- function(x,color.key) {
+  if (is.leaf(x)) {
+    ## fetch label
+    label <- attr(x, "label") 
+    ## set label color 
+	color<-unname(color.key[label,])
+    attr(x, "nodePar") <- list(lab.col=color)
+  }
+  return(x)
+}
+
+## apply labelCol on all nodes of the dendrogram
+color.key<-matrix(mycolors);rownames(color.key)<-rownames(mydata) # extraction is done on rownames,use make.unique() if not unique
+d <- dendrapply(as.dendrogram(mydata.bc.clust), labelCol, color.key)
+
+
+
+}

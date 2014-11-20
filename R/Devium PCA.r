@@ -57,6 +57,44 @@ devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return="list", plot=TRU
 		if(return=="model"){return(pca.results)}
 	}
 	
+#standard input 	
+devium.calculate.pca<-function(data,ncomp=2,pca.cv="none",algorithm="svd",center=TRUE,scale="uv",return="list",seed=123)
+	{
+
+		data.obj<-afixln(data) # converts factors or characters to numeric
+		
+		#adjust PCS if > than data
+		PCs<-ncomp
+		if(PCs> min(dim(data.obj))){PCs<-min(dim(data.obj))} # this should be done internally in the PCa fxn
+		pca.results<-pcaMethods::pca(as.matrix(data.obj), method=algorithm, 
+			nPcs=PCs, center=center,scale=scale, cv = pca.cv, seed=seed)
+		
+		#results
+		scores<-as.data.frame(pca.results@scores)
+		loadings<-as.data.frame(pca.results@loadings)
+		eigenvalues<-data.frame(eigenvalues=pca.results@R2)
+		
+		
+		if(pca.cv=="q2"){
+				# account for unequal r2 and q2 lengths 
+				q2<-tryCatch( pcaMethods:::Q2(pca.results), error=function(e) {0} )#some versions of pcaMEthods don't have this?
+				q2<-c(q2,rep(q2[length(q2)],nrow(eigenvalues)-length(q2)))
+				eigenvalues<-data.frame(eigenvalues,q2=q2)
+			}
+
+		#add leverage and dmodX
+		#bind between scores and loadings
+		lev<-tryCatch(as.matrix( pcaMethods:::leverage(pca.results)),error=function(e){"can not calculate"})
+		dmodx<-tryCatch(as.matrix( pcaMethods:::DModX(pca.results)),error=function(e){"can not calculate"})
+		diagnostics<-tryCatch(data.frame(leverage=lev,DmodX=dmodx),error=function(e){data.frame(Error="not applicable")})
+		
+		#get the name of the data
+		if(return=="list"){
+				return(list(pca.scores = scores, pca.loadings =  loadings,pca.eigenvalues = eigenvalues, pca.diagnostics = diagnostics))} 
+		
+		if(return=="model"){return(pca.results)}
+	}
+	
 # generate a scree plot base
 make.scree.plot<-function(eigenvalues)
 	{
@@ -120,7 +158,7 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 	local<-switch(results[1],
 
 		"screeplot" 	= function(pca,...){make.scree.plot.bar(pca$pca.eigenvalues)},
-		"scores"		= function(pca,color,size,...){
+		"scores"		= function(pca,color,size,extra,...){
 								obj<-pca$pca.scores[,c(xaxis,yaxis)]	
 								tmp<-data.frame(obj,id = rownames(obj))
 								#plot 
@@ -137,6 +175,7 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								if(is.null(color)){
 										tmp$color<-"gray"
 									}else{
+										
 										tmp$color<-as.factor(color[,])
 										if(is.null(legend.name)){legend.name<-colnames(color)}
 								}
@@ -144,7 +183,12 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								points<-if(all(tmp$color=="gray")) { 
 									geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
-									geom_point(aes(color=color),size=size,alpha=alpha)  
+									if(!is.data.frame(size)){
+										geom_point(aes(color=color),size=size,alpha=alpha)  
+									} else {
+										tmp$size<-size[,1]
+										geom_point(aes(color=color,size=size),alpha=alpha) 
+									}	
 								}
 								#labels
 								tmp$lab.offset<-tmp[,2]-abs(range(obj[,2])[1]-range(obj[,2])[2])/50						
@@ -331,7 +375,12 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								points<-if(all(tmp$color=="gray")) { 
 									geom_point(data=tmp,aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2]),color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
-									geom_point(data=tmp, aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2],color="color"),size=size,alpha=alpha)  
+									if(!is.data.frame(size)){
+										geom_point(data=tmp, aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2],color="color"),size=size,alpha=alpha)   
+									} else {
+										tmp$size<-size[,1]
+										geom_point(data=tmp, aes_string(x=colnames(tmp)[1], y=colnames(tmp)[2],color="color",size="size"),alpha=alpha)
+									}	  
 								}
 								
 								p<-ggplot()+
@@ -344,11 +393,12 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) +
 								.theme2
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
+								p<-p+extra
 								print(p)
 							}
 	)
 	
-	local(pca=pca,color=color,size=size,alpha=alpha,group.bounds=group.bounds,...)
+	local(pca=pca,color=color,size=size,alpha=alpha,group.bounds=group.bounds,extra,...)
 
 }
 
