@@ -20,6 +20,10 @@ Check out some prototypes and examples of the analyses implemented in ```Devium`
 - [Principal Components Analysis Diagnostics] (http://spark.rstudio.com/dgrapov/PCA/)
 - [Metabolomic Network Generation](http://spark.rstudio.com/dgrapov/MetaMapR)
 
+TODO
+======
+ - remove GTK GUI code (see below)
+
 [GTK] (http://www.gtk.org/) 
 ======
 (obsolete see [DeviumWeb](https://github.com/dgrapov/DeviumWeb))
