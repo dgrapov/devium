@@ -1,3 +1,70 @@
+#function to calculate ROC AUC, threshold, 
+#sensitivity and specificity for individual measurements
+calcUniROC<-function(outcome,data,sig.fig=3){
+	library(pROC)
+	out<-do.call("rbind",
+		lapply(1:ncol(data), function(i) {
+			x<-roc(outcome, data[,i], percent = F)
+			signif( c(AUC=as.numeric(x$auc),coords(x, "best", best.method="youden")),sig.fig)
+		})
+	)
+	rownames(out)<-colnames(data)
+	return(out)	
+}
+
+#calculate area under the curve (AUC) for multiple groups
+multi.group.AUC<-function(data,subject.id,sample.type, time){
+	library(pracma)
+	#too lazy to rename objects from older fxn
+	subject.id<-as.factor(subject.id)
+	fact<-as.factor(sample.type)	#sample type factor
+	tme<-as.factor(time)	#time	
+	
+	#split objects
+	tmp.data<-split(data.frame(data),fact)
+	tmp.time<-split(tme,fact)
+	tmp.subs<-split(as.character(subject.id),fact)
+	
+	group.AUC<-lapply(1:nlevels(fact),function(i){
+		ddata<-tmp.data[[i]]
+		ttime<-tmp.time[[i]]
+		subs<-tmp.subs[[i]]
+		
+		#calculate AUC
+		AUC<-sapply(1:length(ddata),function(i)
+		{
+			
+			obj<-split(as.data.frame(ddata[[i]]),subs)
+			#subtract baseline (first level of time) to correct negative AUC 
+			tmp.time<-split(ttime,subs)
+			base.time<-levels(ttime)[1]
+			base.obj<-lapply(1:length(obj),function(j)
+				{
+					tmp<-as.numeric(as.matrix(unlist(obj[[j]])))
+					tmp-tmp[tmp.time[[j]]==base.time]
+				})
+			tmp<-split(as.data.frame(ttime),subs)
+			#x11()
+			#plot(as.numeric(as.matrix(do.call("cbind",tmp))),as.numeric(as.matrix(do.call("cbind",base.obj))))
+			out<-as.data.frame(sapply(1:length(obj),function(j)
+			{
+				x<-as.numeric(as.matrix(unlist(tmp[[j]])))
+				o<-order(x) # need to be in order else AUC will be wrong!
+				y<-as.numeric(as.matrix(unlist(base.obj[[j]])))
+				trapz(x[o],y[o])
+			}))
+		colnames(out)<-colnames(data[i])
+		out
+		})
+		tmp<-do.call("cbind",AUC)
+		rownames(tmp)<-paste(levels(fact)[i],names(split(as.data.frame(ttime),subs)),sep="_")
+		tmp
+	})	
+	res<-do.call("rbind",group.AUC)
+	colnames(res)<-colnames(data)
+	return(res)
+}
+
 #function to convert pattern to a single char objects name
 rename <- function(x, pattern, replace="_"){
 		#strangely sapply will not work without effort here
@@ -8,7 +75,6 @@ rename <- function(x, pattern, replace="_"){
 			}
 		return(x)	
 }
-
 
 # relative standard deviation
 #redo calc.stat using dplyr
@@ -76,18 +142,33 @@ str.get<- function(obj, sep=",",get=1)
 			}))
 	}
 
-#calculate fold change relative to column
+#calculate fold change relative to column, 
+#calculte fc for left over comparisons
 fold.change<-function(obj,rel=1,log=FALSE)
 	{
-		if(log==FALSE){
-			rel<-obj[,rel]
-			obj/rel
-		} else {
-			rel<-obj[,rel]
-			obj-rel
-		}
+		comps<-combn(colnames(obj),2)
+		#get rel in denominator
+		den<-colnames(obj)[rel]
+		big.l<-lapply(1:ncol(comps),function(i){
+			tmp<-obj[,comps[,i]]
+			
+			if(log==FALSE){
+				.rel<-tryCatch(tmp[,den],error=function(e){NULL}) # not present
+				if(is.null(.rel)) {.rel<-tmp[,1]; .den<-colnames(tmp)[1]} else {.den<-den}
+				out<-data.frame(tmp/.rel)[,2,drop=FALSE]
+				colnames(out)<-paste(colnames(tmp)[!colnames(tmp)%in%.den],.den,sep="_")
+			} else {
+				.rel<-tryCatch(tmp[,den],error=function(e){NULL}) # not present
+				if(is.null(.rel)) {.rel<-tmp[,1]; .den<-colnames(tmp)[1]} else {.den<-den}
+				out<-data.frame(tmp-.rel)[,2,drop=FALSE]
+				colnames(out)<-paste(colnames(tmp)[!colnames(tmp)%in%.den],.den,sep="_")
+			}
+			out
+		})
+		
+		do.call("cbind",big.l)
 	}
-
+	
 # function to extract data based on non-missing in index
 sub.data<-function(data,index)
 	{
@@ -99,7 +180,7 @@ sub.data<-function(data,index)
 		list(factor= index[keep.id],data=data[keep.id,])
 	}
 
-#match two data frames based on rownames	
+#match two data frames based on rowname
 match.data<-function(data1,data2)
 	{
 		#args
@@ -134,7 +215,7 @@ anova.formula.list<-function(data,formula,meta.data){
 }
 
 #ANOVA with repeated measures and post hoc
-aov.formula.list<-function(data,formula,meta.data=factor,post.hoc=TRUE,repeated=NULL,p.adjust="BH"){
+aov.formula.list<-function(data,formula,meta.data=factor,post.hoc=TRUE,repeated=NULL,FDR="BH"){
 	#formula = formula excluding repeated terms
 	#meta data  = all factors
 	#repeated name of factor for repeated measures
@@ -158,6 +239,7 @@ aov.formula.list<-function(data,formula,meta.data=factor,post.hoc=TRUE,repeated=
 				p.values<-data.frame(t(summary(model)[[1]][1:length(names),5,drop=FALSE]))
 				dimnames(p.values)<-list(colnames(data)[i],names)
 			}
+			
 			#pairwise t-tests (repeated) or TukeyHSD
 			if(post.hoc){
 				if(!is.null(repeated)){
@@ -185,13 +267,70 @@ aov.formula.list<-function(data,formula,meta.data=factor,post.hoc=TRUE,repeated=
 				post.h<-NULL
 			}
 			
+
 			results$p.value[[i]]<-p.values
 			results$post.hoc[[i]]<-post.h
 			
 		}	
-			return(list(p.values=do.call("rbind",results$p.value),post.hoc=do.call("rbind",results$post.hoc)))
+			tmp<-do.call("rbind",results$p.value)
+			FDR.p<-data.frame(FDR.p.values=sapply(1:ncol(tmp), function(i) p.adjust(tmp[,i],method=FDR)))
+			colnames(FDR.p)<-paste(colnames(tmp),colnames(FDR.p), sep="_")
+			colnames(tmp)<-paste(colnames(tmp), "p.values",sep="_")
+			p.vals<-data.frame(p.values=tmp,FDR.p.values=FDR.p)
+			return(list(p.values=p.vals,post.hoc=do.call("rbind",results$post.hoc)))
 			
 }
+
+#Kruskal-Wallis test with post hoc for data.frames
+kruskal.list<-function(data,factor,post.hoc=TRUE,FDR="BH"){
+	#formula = formula excluding repeated terms
+	#meta data  = all factors
+	#repeated name of factor for repeated measures
+	
+	check.get.packages(c("PMCMR","reshape2"))
+	
+	results<-list(p.value=vector("list",ncol(data)),post.hoc=vector("list",ncol(data)))
+	for(i in 1:ncol(data)){
+		k.pval<-tryCatch(kruskal.test(data[,i] ~ unlist(factor))$p.value, error=function(e){1})
+		
+		#post-hoc
+		if (post.hoc){
+		error.mat<-function(factor) { # mimic natural output for errors
+			tmp<-matrix(1,ncol=length(unique(factor)),length(unique(factor)))
+			dimnames(tmp)<-list(unique(factor),unique(factor))
+			tmp[upper.tri(tmp,diag=TRUE)]<-NA
+			return(tmp)
+		}	
+			ph<-tryCatch(posthoc.kruskal.nemenyi.test(x=data[,i], g=unlist(factor), method="Tukey")$p.value,error=function(e){error.mat(factor)})
+			# need to format into rows
+			melted<-na.omit(melt(ph))
+			#format for column-wise output
+			.names<-paste("post.hoc",melted$Var1,melted$Var2,sep="_")
+			post.h<-t(data.frame(melted$value))
+			colnames(post.h)<-.names
+		} else {
+			post.h<-NULL
+		}
+		
+
+		results$p.value[[i]]<-k.pval
+		results$post.hoc[[i]]<-post.h
+		
+	}	
+	tmp<-do.call("rbind",results$p.value)
+	FDR.p<-data.frame(FDR.p.values=sapply(1:ncol(tmp), function(i) p.adjust(tmp[,i],method=FDR)))
+	colnames(FDR.p)<-paste(colnames(tmp),colnames(FDR.p), sep="_")
+	colnames(tmp)<-paste(colnames(tmp), "p.values",sep="_")
+	p.vals<-data.frame(p.values=tmp,FDR.p.values=FDR.p)
+	
+	#add rownames
+	post.h<-do.call("rbind",results$post.hoc)
+	rownames(post.h)<-rownames(p.vals)<-colnames(data)
+	
+	return(list(p.values=p.vals,post.hoc=post.h))
+		
+}
+
 
 #get summary statistics should separate anova from summary
 stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.stats=TRUE,...){
@@ -215,14 +354,14 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.sta
 					means<-calc.stat(tmp.data,factor=fct,stat=c("mean"),...)
 					sds<-calc.stat(tmp.data,factor=fct,stat=c("sd"),...)
 					fc<-fold.change(means,log=log,rel)
-					colnames(fc)<-paste(colnames(fc),rep(colnames(fc)[rel],ncol(fc)), sep="/")
+					# colnames(fc)<-paste(colnames(fc),rep(colnames(fc)[rel],ncol(fc)), sep="/")
 
 					#format output from means and sd
 					names<-paste(unlist(as.data.frame(strsplit(colnames(means),"-"))[2,])," mean +/- std dev" , sep="")
 					mean.sd<-matrix(paste(unlist(signif(means,sigfigs)), " +/- ", unlist(signif(sds,sigfigs-1)),sep=""), ncol=ncol(means))
 					colnames(mean.sd)<-names
 					#bind with fold change
-					res<-data.frame(cbind(mean.sd,round(fc[,-rel,drop=FALSE],2)))
+					res<-data.frame(cbind(mean.sd,round(fc,2)))
 					tryCatch(rownames(res)<-colnames(data),error=function(e){NULL})
 					return(res)
 				}
@@ -259,35 +398,40 @@ stats.summary <- function(data,comp.obj,formula,sigfigs=3,log=FALSE,rel=1,do.sta
 	}
 
 #function to carry out covariate adjustments
-#-------------------------
 covar.adjustment<-function(data,formula){
-	#set up that formula objects need to exists in the global environment --- fix this
-	#data--> subjects as rows, measurements as columns
-	#formula	<- ~ character vector
-	#lm will be iteratively fit on each variable 
-	#model residuals + preadjusted column median will be returned
-	data<-as.data.frame(data)
-	names(data)<-colnames(data)
-	output<-list()
-	n<-ncol(data)
-	output<-lapply(1:n,function(i)
-		{
-			tryCatch(tmp<-as.formula(c(paste(paste("data$'",colnames(data)[i],"'~",sep=""),paste(formula,sep="+"),sep=""))),
-			error= function(e){tmp<-as.formula(c(paste(paste("data[,i]","~",sep=""),paste(formula,sep="+"),sep="")))})
-			fit<-lm(tmp,data=data)$residuals
-			matrix(fit,,1)
-		})
-	out<-data.frame(do.call("cbind",output))
-	tryCatch(dimnames(out)<-dimnames(data), error=function(e){NULL}) # no clue why this throws errors randomly
-	#add back pre-adjustment column min to all
-	min<-apply(out,2,min, na.rm=T)
-	adj.out<-do.call("cbind",sapply(1:ncol(out),function(i)
-		{
-			out[,i,drop=F] + abs(min[i])
-		}))
-	return(adj.out)
-	}
-
+        #set up that formula objects need to exists in the global environment --- fix this
+        #data--> subjects as rows, measurements as columns
+        #formula        <- ~ character vector
+        #lm will be iteratively fit on each variable 
+        #model residuals + preadjusted column median will be returned
+		
+		#convert all to numeric
+		tmp<-dimnames(data)
+        data<-data.frame(do.call("cbind",lapply(data,as.numeric))) # should assume this is already done!
+		dimnames(data)<-tmp
+        output<-list()
+        n<-ncol(data)
+        output<-lapply(1:n,function(i)
+                {
+                        tryCatch(tmp<-as.formula(c(paste(paste("data$'",colnames(data)[i],"'~",sep=""),paste(formula,sep="+"),sep=""))),
+                        error= function(e){tmp<-as.formula(c(paste(paste("data[,i]","~",sep=""),paste(formula,sep="+"),sep="")))})
+                        fit<-lm(tmp,data=data)$residuals
+						#need to account for missing values
+						tmp<-data[,i]
+						tmp[!is.na(tmp)]<-fit
+                        matrix(tmp,,1)
+                })
+        out<-data.frame(do.call("cbind",output))
+        tryCatch(dimnames(out)<-dimnames(data), error=function(e){NULL}) # no clue why this throws errors randomly
+        #add back pre-adjustment column min to all
+        min<-apply(out,2,min, na.rm=T)
+        adj.out<-do.call("cbind",sapply(1:ncol(out),function(i)
+                {
+                        out[,i,drop=F] + abs(min[i])
+                }))
+        return(adj.out)
+        }
+		
 #helper function for getting statistics for making box plots
 summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,conf.interval=.95, .drop=TRUE) {
 		require(plyr)
@@ -397,7 +541,7 @@ multi.t.test<-function(data, factor,mu=NULL,paired=FALSE,progress=TRUE,FDR="BH",
 } 
 
 #carry mann-whitney U test and FDR for data frames
-multi.mann.whitney<-function(data,factor,progress=TRUE,FDR="BH",qvalue="story"){
+multi.mann.whitney<-function(data,factor,mu=NULL,progress=TRUE,FDR="BH",qvalue="story"){
 		#mann-whitney U test with FDR for many variables
 
 		check.get.packages(c("qvalue","fdrtool"))
@@ -405,10 +549,16 @@ multi.mann.whitney<-function(data,factor,progress=TRUE,FDR="BH",qvalue="story"){
 	if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
 		p.vals<-sapply(1:ncol(data), function(i){
 				if (progress == TRUE){setTxtProgressBar(pb, i)}
-				
-					val<-tryCatch(wilcox.test(data[,i]~unlist(factor))$p.value ,error=function(e){1})
-					if(is.nan(val)|is.na(val)){val<-1}
-					val
+					if(is.null(mu)){
+						val<-tryCatch(wilcox.test(data[,i]~unlist(factor))$p.value ,error=function(e){1})
+						if(is.nan(val)|is.na(val)){val<-1}
+						val
+					} else {
+						if(!length(mu)==ncol(data)){mu<-unlist(matrix(mu,ncol(data),1));warning("mu didn't match the number of tests and was recycled")}
+						val<-tryCatch(wilcox.test(data[,i], mu=mu[i])$p.value ,error=function(e){1})
+						if(is.nan(val)|is.na(val)){val<-1}
+						val
+					}	
 		})
 	if (progress == TRUE){close(pb); message("Calculating FDR adjustment and q-values")}
 	adj.p<-as.data.frame(p.adjust(as.matrix(p.vals), method = FDR, n = length(p.vals)))
@@ -463,14 +613,15 @@ simple.lme<-function(data,factor,subject,FDR="BH", progress=TRUE,interaction=FAL
 #multi-LME with formula interface (also see simple.lme) # note random term should be +(1|random.term)
 formula.lme<-function(data,formula,FDR="BH", progress=TRUE){
 		#data  = data.frame of values to test and test factors
-		#factor = object to be tested 
-		#subject = identifier for repeated measures
+		
 		check.get.packages(c("lme4","car"))
 		#not sure how to ignore test factors in data, cause error in loop
 		
 		if (progress == TRUE){ pb <- txtProgressBar(min = 0, max = ncol(data), style = 3)} else {pb<-NULL}
 		lmer.p.values<-do.call("rbind",lapply(1:ncol(data), function(i){
 			if (progress == TRUE){setTxtProgressBar(pb, i)}
+			#avoid factor error, should avoid anova error below
+			if(is.factor(data[,i])| is.character(data[,i])) data[,i]<-fixlf(data[,i])
 			mod<-tryCatch(lmer(as.formula(paste0("data[,",i,"]~", formula)), data=data),error=function(e){NULL})
 			if(is.null(mod)){1} else {
 				res<-Anova(mod)
@@ -609,6 +760,7 @@ multi.pairwise.mann.whitney<-function(data,factor,progress=TRUE,FDR="BH",qvalue=
 		res
 	}))	
 }
+
 #Tests 
 test<-function(){
 

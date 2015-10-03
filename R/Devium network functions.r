@@ -1772,10 +1772,13 @@ spectra.string.to.matrix<-function(spectra, encode.char = ":"){
 		#cast into a matrix, change NA to zeros
 		spec.mat<-dcast(mat2,m_z ~ analyte,value.var="intensity")
 		spec.mat[is.na(spec.mat)]<-0
+		#convert to numeric and order by m_z
+		spec.mat<-data.frame(sapply(spec.mat,fixln))
+		spec.mat<-spec.mat[order(as.numeric(spec.mat$m_z)),]
 		#format into matrix with m_z as rows
-		tmp<-matrix(fixln(spec.mat[,-1]),ncol=ncol(spec.mat)-1)
-		dimnames(tmp)<-list(fixlc(spec.mat[,1]),c(1:ncol(tmp)))
-		return(tmp)
+		tmp<-spec.mat[,-1]
+		dimnames(tmp)<-list(spec.mat$m_z,c(1:ncol(tmp)))
+		return(as.matrix(tmp))
 }
 
 #get cosine correlations from mz/intensity strings
@@ -1858,12 +1861,12 @@ get.spectral.edge.list<-function(spectra, known = 0, cutoff = 0.7, edge.limit = 
 			# obj[c(1:nrow(obj))<=edge.limit,]
 		# })
 		
-		top.id<-edge.list.filter.partial(edge.list=edges[,1:2],weight=abs(fixln(edges[,3])),max.edges=edge.limit)
+		top.id<-edge.list.filter.partial(edge.list=edges[,1:2,drop=FALSE],weight=abs(fixln(edges[,3])),max.edges=edge.limit)
 		#could use edge.list.full for more extreme filtering
-		results<-edges[top.id,]
+		results<-edges[top.id,,drop=FALSE]
 		
 		# results<-do.call("rbind",top.edges)
-		results<-data.frame(results[!is.na(results[,1]),])
+		results<-data.frame(results[!is.na(results[,1]),,drop=FALSE])
 		colnames(results)<-c("source", "target", "weight")
 		
 		#filter connections based retention time

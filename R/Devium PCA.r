@@ -4,6 +4,7 @@
 #trying to debug issue in shiny, pca.data is now an object instead of its name as a character
 devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return="list", plot=TRUE)
 	{
+		check.get.packages("pcaMethods")	
 		#port of imDEV source code optimized for GUI use
 		#accepts list with the following arguments
 		#pca.data<- data object (samples as rows)
@@ -60,7 +61,7 @@ devium.pca.calculate<-function(pca.inputs,args.list=TRUE,return="list", plot=TRU
 #standard input 	
 devium.calculate.pca<-function(data,ncomp=2,pca.cv="none",algorithm="svd",center=TRUE,scale="uv",return="list",seed=123)
 	{
-
+		
 		data.obj<-afixln(data) # converts factors or characters to numeric
 		
 		#adjust PCS if > than data
@@ -148,8 +149,10 @@ make.scree.plot.bar<-function(eigenvalues){
 	
 }
 
-
-plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),group.bounds="ellipse",size=3,color=NULL, label=TRUE, legend.name =  NULL, font.size=5,alpha=.75,g.alpha=0.2,theme=NULL, point.labels=NULL,extra=NULL,...){
+# replace with generic plotting which supports custom ggplot calls
+plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadings","biplot"),
+	group.bounds="ellipse",size=3,color=NULL, label=TRUE, color.legend.name =  NULL,size.legend.name =  NULL, 
+	font.size=5,alpha=.75,g.alpha=0.2,theme=NULL, point.labels=NULL,extra=NULL,plot=TRUE,...){
 	
 	library(ggplot2)
 	library(reshape2)
@@ -177,16 +180,23 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 									}else{
 										
 										tmp$color<-as.factor(color[,])
-										if(is.null(legend.name)){legend.name<-colnames(color)}
+										if(is.null(color.legend.name)){color.legend.name<-colnames(color)}
 								}
 								
 								points<-if(all(tmp$color=="gray")) { 
-									geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
+									if(!is.data.frame(size)){
+										geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE)   
+									} else {
+										tmp$size<-size[,1]
+										if(is.null(size.legend.name)){size.legend.name<-colnames(size)}
+										geom_point(aes(size=size),color="gray",alpha=alpha) 
+									}	
 								} else { 
 									if(!is.data.frame(size)){
 										geom_point(aes(color=color),size=size,alpha=alpha)  
 									} else {
 										tmp$size<-size[,1]
+										if(is.null(size.legend.name)){size.legend.name<-colnames(size)}
 										geom_point(aes(color=color,size=size),alpha=alpha) 
 									}	
 								}
@@ -232,9 +242,22 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								.theme2 + 
 								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
 								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
-								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
+								if(!is.null(color.legend.name)) {
+									if(is.factor(unlist(color))) {
+										p<-p+scale_colour_discrete(name = color.legend.name)
+									} else {
+										p<-p+scale_fill_continuous(name = color.legend.name)
+									}
+								}	
+								if(!is.null(size.legend.name)) {
+									if(is.factor(unlist(size))) {
+										p<-p+scale_size_discrete(name = size.legend.name)
+									} else {
+										p<-p+scale_size_continuous(name = size.legend.name)
+									}
+								}	
 								p<-p+extra
-								print(p)
+								if(plot) print(p) else return(p)
 							},
 							
 		"loadings"		= function(pca,color,size,...){
@@ -255,12 +278,13 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 										tmp$color<-"gray"
 									}else{
 										tmp$color<-as.factor(color[,])
-										if(is.null(legend.name)){legend.name<-colnames(color)}
+										if(is.null(color.legend.name)){color.legend.name<-colnames(color)}
 								}
 								
 								points<-if(all(tmp$color=="gray")) { 
 									geom_point(color="gray",size=size,alpha=alpha,show_guide = FALSE) 
 								} else { 
+									if(is.null(size.legend.name)){size.legend.name<-colnames(color)}
 									geom_point(aes(color=color),size=size,alpha=alpha)  
 								}
 								#labels
@@ -298,8 +322,9 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								polygons +
 								scale_x_continuous(paste(colnames(tmp)[1],sprintf("(%s%%)", round(pca$pca.eigenvalues[xaxis,1],digits=2)*100),sep=" "))+
 								scale_y_continuous(paste(colnames(tmp)[2],sprintf("(%s%%)", round(pca$pca.eigenvalues[yaxis,1],digits=2)*100),sep=" ")) 
-								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
-								print(p)
+								if(!is.null(color.legend.name)) {p<-p+scale_colour_discrete(name = color.legend.name)}
+								if(!is.null(size.legend.name)) {p<-p+scale_size_discrete(name = size.legend.name)}
+								if(plot) print(p) else p
 							},
 							
 		"biplot"		= function(pca,...){
@@ -394,7 +419,7 @@ plot.PCA<-function(pca,xaxis=1,yaxis=2, results = c("screeplot","scores","loadin
 								.theme2
 								if(!is.null(legend.name)) {p<-p+scale_colour_discrete(name = legend.name)}
 								p<-p+extra
-								print(p)
+								if(plot) print(p) else p
 							}
 	)
 	

@@ -1,3 +1,11 @@
+#make sure ties are ranked as integers
+rank.fun<-function(x){
+	tmp<-split(data.frame(id=1:length(x),x),x)
+	tmp<-tmp[order(as.numeric(names(tmp)))]
+	tmp<-lapply(1:length(tmp), function(i) {data.frame(tmp[[i]],rank=i)})
+	tmp<-do.call("rbind",tmp)
+	return(tmp[order(tmp$id),"rank"])
+}
 
 # data overview and normalization functions
 #function to calculate within and between batch precision for all variables
@@ -11,8 +19,8 @@ calc.mRSD<-function(data,batch=data.frame(1:nrow(data)),summary.range=seq(0,100,
 	tmp<-data.frame(batch=batch,data)
 	
 	#parametric summary
-	b.m<-ddply(tmp,.(batch),colwise(mean))
-	b.s<-ddply(tmp,.(batch),colwise(sd))
+	b.m<-ddply(tmp,.(batch),colwise(mean,na.rm=TRUE))
+	b.s<-ddply(tmp,.(batch),colwise(sd,,na.rm=TRUE))
 	b.rsd<-abs(b.s/b.m*100) # ignore negative and positive RSDs due to mean
 	b.rsd[,1]<-b.m[,1]
 	
@@ -26,14 +34,14 @@ calc.mRSD<-function(data,batch=data.frame(1:nrow(data)),summary.range=seq(0,100,
 	#generate summary objects for analytes between all batches
 	analyte.RSD<-data.frame(mean=apply(b.rsd[,-1,drop=F],2,use,na.rm=T), sd=apply(b.rsd[,-1,drop=F],2,sd,na.rm=T)) 
 	colnames(analyte.RSD)[1]<-use# RSD for variables over all batches
-	analyte.RSD.summary<-split.bins(obj=analyte.RSD[,1],bins=seq(0,100,10)) # summary for variables over all batches
+	analyte.RSD.summary<-split.bins(obj=analyte.RSD[,1],bins=summary.range) # summary for variables over all batches
 	analyte.RSD.summary$percent<-round(analyte.RSD.summary$count/sum(analyte.RSD.summary$count)*100,1)
 	
 	#generate summary objects for batches based on all analytes
 	within.batch.RSD<-data.frame(mean=apply(b.rsd[,-1,drop=F],1,use,na.rm=T), sd=apply(b.rsd[,-1,drop=F],1,sd,na.rm=T))
 	rownames(within.batch.RSD)<-b.rsd[,1]
 	colnames(within.batch.RSD)[1]<-use
-	within.batch.RSD.summary<-split.bins(na.omit(within.batch.RSD[,1]),bins=seq(0,100,10)) # ,max(within.batch.RSD[,1]
+	within.batch.RSD.summary<-split.bins(na.omit(within.batch.RSD[,1]),bins=summary.range) # ,max(within.batch.RSD[,1]
 	within.batch.RSD.summary$percent<-round(within.batch.RSD.summary$count/sum(within.batch.RSD.summary$count)*100,1)
 	
 	#return summary
@@ -169,7 +177,7 @@ summary.lineplot<-function(val,groups=NULL,view.split=NULL,theme=NULL,se=FALSE,e
 }
 
 #box plot for 2 factors with loess smoothing
-summary.boxplot2<-function(val,groups=NULL,split.on=NULL,theme=NULL,se=FALSE,span=0.75,extra=NULL,print.plot=TRUE){
+summaryBoxplot<-function(val,groups=NULL,split.on=NULL,theme=NULL,se=FALSE,span=0.75,extra=NULL,print.plot=TRUE){
 	#data should minimally contain a single variable of interest(val) and additionally factor identifying groups 
 	library(ggplot2)
 	vis.data<-data.frame(value=unlist(val))
@@ -204,7 +212,10 @@ summary.boxplot2<-function(val,groups=NULL,split.on=NULL,theme=NULL,se=FALSE,spa
 }
 
 #create summary plot RSD% analyte mean
-RSD.means.plot<-function(obj=list(gc.perf.raw,gc.raw.t1),type="variable",name=c("Raw","FAME L2 norm"),size=3,alpha=.75,use.log=TRUE,se=FALSE,points=TRUE,theme=NULL,extra=NULL,label=FALSE,label.size=2,span=.75){
+RSD.means.plot<-function(obj=list(gc.perf.raw,gc.raw.t1),type="variable",
+						name=c("Raw","FAME L2 norm"),size=3,line.size=1.25,alpha=.75,use.log=TRUE,
+						se=FALSE,points=TRUE,theme=NULL,extra=NULL,label=FALSE,
+						label.size=2,span=.75,plot=TRUE){
 	
 	library(ggplot2)
 	#check if many or single object
@@ -239,22 +250,24 @@ RSD.means.plot<-function(obj=list(gc.perf.raw,gc.raw.t1),type="variable",name=c(
 	if(use.log){
 		p<-ggplot(vis.data,aes(x=log.mean,y=RSD,group=method,color=method,fill=method))
 		if(points){p<-p+geom_point(alpha=alpha,size=size) ;legend<-FALSE}
-		p<-p+stat_smooth(method = "loess", size = 1,show_guide=legend ,se = se,alpha=.75,span=span) +
+		p<-p+stat_smooth(method = "loess", size = line.size,show_guide=legend ,se = se,alpha=alpha,span=span) +
 		theme + xlab(paste0("log ",y.lab))+ ylab("RSD") + lab.data +
 		extra #+scale_color_manual(values=rainbow(3))+
-		print(p)	
 	} else {
 		p<-ggplot(vis.data,aes(x=mean,y=RSD,group=method,color=method,fill=method))
 		if(points){p<-p+geom_point(alpha=.75) ;legend<-FALSE }
-		p<-p + stat_smooth(method = "loess", size = 1,show_guide=legend ,se = se,alpha=.75,span=span)+ 
+		p<-p + stat_smooth(method = "loess", size = line.size,show_guide=legend ,se = se,alpha=alpha,span=span)+ 
 		theme + xlab(y.lab)+ ylab("RSD") + lab.data +
 		extra #+scale_color_manual(values=rainbow(3))+
-		print(p)
 	}
+	
+	if(plot) print(p) else p
 }	
 
 #bar plot to summarize performance
-RSD.counts.plot<-function(obj,show="variable",plot.obj="count",name="",theme=NULL,extra=NULL,ylabel="number of metabolites",barplot=TRUE){
+RSD.counts.plot<-function(obj,show="variable",plot.obj="count",name="",
+						theme=NULL,extra=NULL,ylabel="number of metabolites",
+						barplot=TRUE, plot=TRUE){
 	
 	if(show=="variable"){
 		#variables
@@ -294,7 +307,7 @@ RSD.counts.plot<-function(obj,show="variable",plot.obj="count",name="",theme=NUL
 	}
 	p<- p+ theme +
 	scale_y_continuous(minor_breaks = seq(0 , upper, dlim), breaks = seq(0, upper, ulim)) + xlab("RSD")+ylab(ylabel)+ extra #scale_fill_brewer(palette="Set1")
-	print(p)
+	if(plot) print(p) else p
 }
 
 #conduct LOESS normalization on a data frame or matrix
