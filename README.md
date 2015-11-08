@@ -1,3 +1,5 @@
+[![paypal](https://raw.githubusercontent.com/dgrapov/CDS/gh-pages/www/images/donate.png)](http://createdatasol.com/)
+
 DEVIUM
 ======
 
